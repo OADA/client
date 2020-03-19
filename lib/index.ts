@@ -10,4 +10,4 @@ export function connect(): Promise<OADAClient> {
   return Promise.resolve(createInstance());
 }
 
-export {OADAClient, GETRequest, WatchRequest} from "./client"
+export { OADAClient, Config, GETRequest, WatchRequest } from "./client";

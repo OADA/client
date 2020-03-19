@@ -1,6 +1,16 @@
 import * as utils from "./utils";
 import { WebSocketClient, Request, Response } from "./websocket";
 
+export interface Config {
+  domain: string;
+  options?: {
+    redirect: string;
+    metadata: string;
+    scope: string;
+  };
+  token?: string;
+}
+
 export interface GETRequest {
   path: string;
   tree?: object;
@@ -26,12 +36,16 @@ export class OADAClient {
    * @param domain Domain. E.g., www.example.com
    * @param token Token.
    */
-  public connect(domain: string, token: string): Promise<void> {
+  public connect(config: Config): Promise<void> {
     if (this._ws && this._ws.isConnected()) {
       throw new Error("Already connected");
     }
-    this._ws = new WebSocketClient(domain);
-    this._token = token;
+    if (!config.token) {
+      throw new Error("Token is required."); // FIXME
+    }
+
+    this._ws = new WebSocketClient(config.domain);
+    this._token = config.token;
     return this._ws.connect();
   }
 
