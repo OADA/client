@@ -2,7 +2,8 @@
   "name": "oada-client",
   "version": "0.0.1",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
-  "main": "lib/client.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "test": "mocha -r ts-node/register test/**/*.test.ts",
     "build": "tsc --module commonjs"
