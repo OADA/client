@@ -206,6 +206,10 @@ export class OADAClient {
     });
   }
 
+  /**
+   * Send PUT request
+   * @param request PUT request
+   */
   public async put(request: PUTRequest): Promise<Response> {
     // ensure connection
     if (!this._ws || !this._ws.isConnected()) {
@@ -220,7 +224,9 @@ export class OADAClient {
       let linkObj: object | undefined;
       let newResourcePathArray: Array<string> = [];
       for (let i = pathArray.length - 1; i >= 0; i--) {
+        // get current path
         const partialPathArray = pathArray.slice(0, i + 1);
+        // get corresponding data definition from the provided tree
         const treeObj = utils.getObjectAtPath(request.tree, partialPathArray);
         if ("_type" in treeObj) {
           // it's a resource
@@ -228,7 +234,8 @@ export class OADAClient {
           const partialPath = utils.toStringPath(partialPathArray);
           // check if resource already exists on the remote server
           if (await this._resourceExists(partialPath)) {
-            // resource exists on server; simply create a link using PUT request
+            // CASE 1: resource exists on server.
+            // simply create a link using PUT request
             if (linkObj && newResourcePathArray.length > 0) {
               await this.put({
                 path: utils.toStringPath(newResourcePathArray),
@@ -239,7 +246,7 @@ export class OADAClient {
             // We hit a resource that already exists. No need to further traverse the tree.
             break;
           } else {
-            // resource does NOT exist on server
+            // CASE 2: resource does NOT exist on server.
             // create a new nested object containing a link
             const relativePathArray = newResourcePathArray.slice(i + 1);
             const newResource = linkObj
@@ -263,10 +270,10 @@ export class OADAClient {
 
     // Get content-type
     let contentType =
-      request.contentType || // get content-type from the argument
-      request.data["_type"] || // get content-type from the resource body
+      request.contentType || // 1) get content-type from the argument
+      request.data["_type"] || // 2) get content-type from the resource body
       request.tree
-        ? utils.getObjectAtPath(request.tree!, pathArray)["_type"] // get content-type from the tree
+        ? utils.getObjectAtPath(request.tree!, pathArray)["_type"] // 3) get content-type from the tree
         : undefined;
     if (!contentType) {
       throw new Error("Content type is not specified.");
@@ -284,6 +291,10 @@ export class OADAClient {
     });
   }
 
+  /**
+   * Send HEAD request
+   * @param request HEAD request
+   */
   public async head(request: HEADRequest): Promise<Response> {
     // ensure connection
     if (!this._ws || !this._ws.isConnected()) {
