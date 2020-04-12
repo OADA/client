@@ -2,6 +2,13 @@
 
 A lightweight client tool for interacting with an OADA-complient server
 
+| | `oada-client` | `oada-cache` |
+| --- | --- | --- |
+| Language | TypeScript | JavaScript |
+| Supported protocols | websocket | websocket, HTTP |
+| Internal cache | No | Yes |
+
+
 ## Usage
 
 ### Connect
