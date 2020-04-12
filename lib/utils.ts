@@ -42,3 +42,24 @@ export function toTreePath(tree: object, path: Array<string>): Array<string> {
   }, tree);
   return treePath;
 }
+
+export function isResource(tree: object, path: Array<string>): boolean {
+  const obj = getObjectAtPath(tree, path);
+  if ("_id" in obj) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+export function createNestedObject(
+  obj: object,
+  nestPath: Array<string>
+): object {
+  const reversedArray = nestPath.slice().reverse();
+  return reversedArray.reduce((acc, nextKey) => {
+    let newObj = {};
+    newObj[nextKey] = acc;
+    return newObj;
+  }, obj);
+}

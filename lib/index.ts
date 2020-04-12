@@ -12,4 +12,11 @@ export async function connect(config: Config): Promise<OADAClient> {
   return Promise.resolve(instance);
 }
 
-export { OADAClient, Config, GETRequest, WatchRequest } from "./client";
+export {
+  OADAClient,
+  Config,
+  GETRequest,
+  PUTRequest,
+  HEADRequest,
+  WatchRequest
+} from "./client";

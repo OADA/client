@@ -140,11 +140,9 @@ export class WebSocketClient {
           };
           request.resolve(response);
         } else if (msg.status) {
-          request.reject(
-            new Error("Request failed with status code " + msg.status)
-          );
+          request.reject(msg);
         } else {
-          request.reject(new Error("Request failed"));
+          throw new Error("Request failed");
         }
       }
 

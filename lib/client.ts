@@ -1,3 +1,4 @@
+import { v4 as uuid } from "uuid";
 import * as utils from "./utils";
 import { WebSocketClient, Request, Response } from "./websocket";
 
@@ -20,6 +21,17 @@ export interface GETRequest {
 export interface WatchRequest {
   path: string;
   watchCallback: (response: Response) => void;
+}
+
+export interface PUTRequest {
+  path: string;
+  data: object;
+  contentType?: string;
+  tree?: object;
+}
+
+export interface HEADRequest {
+  path: string;
 }
 
 /** Main  OADAClient class */
@@ -192,5 +204,138 @@ export class OADAClient {
     return await Promise.all(promises).then(() => {
       return data; // return object at "path"
     });
+  }
+
+  public async put(request: PUTRequest): Promise<Response> {
+    // ensure connection
+    if (!this._ws || !this._ws.isConnected()) {
+      throw new Error("Not connected.");
+    }
+
+    // convert string path to array (e.g., /bookmarks/abc/def -> ['bookmarks', 'abc', 'def'])
+    const pathArray = utils.toArrayPath(request.path);
+
+    if (request.tree) {
+      // link object (eventually substituted by an actual link object)
+      let linkObj: object | undefined;
+      let newResourcePathArray: Array<string> = [];
+      for (let i = pathArray.length - 1; i >= 0; i--) {
+        const partialPathArray = pathArray.slice(0, i + 1);
+        const treeObj = utils.getObjectAtPath(request.tree, partialPathArray);
+        if ("_type" in treeObj) {
+          // it's a resource
+          const contentType = treeObj["_type"];
+          const partialPath = utils.toStringPath(partialPathArray);
+          // check if resource already exists on the remote server
+          if (await this._resourceExists(partialPath)) {
+            // resource exists on server; simply create a link using PUT request
+            if (linkObj && newResourcePathArray.length > 0) {
+              await this.put({
+                path: utils.toStringPath(newResourcePathArray),
+                contentType,
+                data: linkObj
+              });
+            }
+            // We hit a resource that already exists. No need to further traverse the tree.
+            break;
+          } else {
+            // resource does NOT exist on server
+            // create a new nested object containing a link
+            const relativePathArray = newResourcePathArray.slice(i + 1);
+            const newResource = linkObj
+              ? utils.createNestedObject(linkObj, relativePathArray)
+              : undefined;
+            // create a new resource
+            const resourceId = await this._createResource(
+              contentType,
+              newResource
+            );
+            // save a link
+            linkObj =
+              "_rev" in treeObj
+                ? { _id: resourceId, _type: contentType, _rev: 0 } // versioned link
+                : { _id: resourceId, _type: contentType }; // non-versioned link
+            newResourcePathArray = partialPathArray.slice(); // clone
+          }
+        }
+      }
+    }
+
+    // Get content-type
+    let contentType =
+      request.contentType || // get content-type from the argument
+      request.data["_type"] || // get content-type from the resource body
+      request.tree
+        ? utils.getObjectAtPath(request.tree!, pathArray)["_type"] // get content-type from the tree
+        : undefined;
+    if (!contentType) {
+      throw new Error("Content type is not specified.");
+    }
+
+    // return PUT response
+    return this._ws.request({
+      method: "put",
+      headers: {
+        authorization: "Bearer " + this._token,
+        "content-type": contentType
+      },
+      path: request.path,
+      data: request.data
+    });
+  }
+
+  public async head(request: HEADRequest): Promise<Response> {
+    // ensure connection
+    if (!this._ws || !this._ws.isConnected()) {
+      throw new Error("Not connected.");
+    }
+
+    // return HEAD response
+    return this._ws.request({
+      method: "head",
+      headers: {
+        authorization: "Bearer " + this._token
+      },
+      path: request.path
+    });
+  }
+
+  /** Create a new resource. Returns resource ID */
+  private async _createResource(
+    contentType: string,
+    data?: object
+  ): Promise<string> {
+    // Create unique resource ID
+    const resourceId = "resources/" + uuid();
+    // append resource ID and content type to object
+    const fullData = { _id: resourceId, _type: contentType, ...data };
+    // send PUT request
+    const putResponse = await this.put({
+      path: "/" + resourceId,
+      data: fullData,
+      contentType
+    });
+    // return resource ID
+    return resourceId;
+  }
+
+  /** check if the specified path exists. Returns boolean value. */
+  private async _resourceExists(path: string): Promise<boolean> {
+    // send HEAD request
+    const headResponse = await this.head({ path }).catch(msg => {
+      if (msg.status == 404) {
+        return msg;
+      } else {
+        throw new Error("Error");
+      }
+    });
+    // check status value
+    if (headResponse.status == 200) {
+      return true;
+    } else if (headResponse.status == 404) {
+      return false;
+    } else {
+      throw Error("Status code is neither 200 nor 404.");
+    }
   }
 }
