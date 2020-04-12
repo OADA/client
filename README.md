@@ -16,6 +16,88 @@ var connection = await client.connect({
 
 ### GET
 
+#### Single GET
+
 ```javascript
 var response = await connection.get({ path: '/bookmarks/test' })
+```
+
+#### Recursive GET
+
+``` javascript
+var dataTree = {
+  "bookmarks": {
+    "_type": "application/vnd.oada.bookmarks.1+json",
+    "_rev": 0,
+    "thing": {
+      "_type": "application/json",
+      "_rev": 0,
+      "abc": {
+        "*": {
+          "_type": "application/json",
+      	  "_rev": 0,
+        }
+      }
+    }
+  }
+}
+var response = await connection.get({
+  path: '/bookmarks/thing',
+  tree: dataTree
+})
+```
+
+#### Watch
+
+```javascript
+var response = await connection.get({
+  path: '/bookmarks/test',
+  watchCallback: d => {
+    console.log(d);
+  }
+})
+```
+
+### PUT
+
+#### Single PUT
+
+```javascript
+var response = await connection.put({
+  path: "/bookmarks/test",
+  data: { thing: "abc" },
+  contentType: "application/json"
+})
+```
+
+#### Tree PUT
+
+``` javascript
+var dataTree = {
+  "bookmarks": {
+    "_type": "application/vnd.oada.bookmarks.1+json",
+    "_rev": 0,
+    "thing": {
+      "_type": "application/json",
+      "_rev": 0,
+      "abc": {
+        "*": {
+          "_type": "application/json",
+      	  "_rev": 0,
+        }
+      }
+    }
+  }
+}
+var response = await connection.put({
+  path: '/bookmarks/thing/abc/xyz/zzz',
+  tree: dataTree,
+  data: { test: "something" }
+})
+```
+
+### HEAD
+
+```javascript
+var response = await connection.head({ path: '/bookmarks/test' })
 ```
