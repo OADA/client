@@ -272,9 +272,9 @@ export class OADAClient {
     let contentType =
       request.contentType || // 1) get content-type from the argument
       request.data["_type"] || // 2) get content-type from the resource body
-      request.tree
+      (request.tree
         ? utils.getObjectAtPath(request.tree!, pathArray)["_type"] // 3) get content-type from the tree
-        : undefined;
+        : undefined);
     if (!contentType) {
       throw new Error("Content type is not specified.");
     }
