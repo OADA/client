@@ -1,8 +1,8 @@
-# oada-client
+# @oada/client
 
 A lightweight client tool for interacting with an OADA-complient server
 
-| | `oada-client` | `oada-cache` |
+| | `@oada/client` | `@oada/oada-cache` |
 | --- | --- | --- |
 | Language | TypeScript | JavaScript |
 | Supported protocols | websocket | websocket, HTTP |
@@ -14,7 +14,7 @@ A lightweight client tool for interacting with an OADA-complient server
 ### Connect
 
 ```javascript
-var client = require("oada-client")
+var client = require("@oada/client")
 var connection = await client.connect({
   domain: "api.oada.com",
   token: "abc"
