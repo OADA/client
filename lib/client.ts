@@ -34,6 +34,10 @@ export interface HEADRequest {
   path: string;
 }
 
+export interface DELETERequest {
+  path: string;
+}
+
 /** Main  OADAClient class */
 export class OADAClient {
   private _token: string;
@@ -84,9 +88,9 @@ export class OADAClient {
     const topLevelResponse = await this._ws.request({
       method: "get",
       headers: {
-        authorization: "Bearer " + this._token
+        authorization: "Bearer " + this._token,
       },
-      path: request.path
+      path: request.path,
     });
 
     // ===  Recursive GET  ===
@@ -107,7 +111,7 @@ export class OADAClient {
     if (request.watchCallback) {
       const watchResponse = await this.watch({
         path: request.path,
-        watchCallback: request.watchCallback
+        watchCallback: request.watchCallback,
       });
     }
 
@@ -126,7 +130,7 @@ export class OADAClient {
     }
 
     // define a wrapper callback function
-    const callback = response => {
+    const callback = (response) => {
       // ignore if the "change" field is not included in the message
       if (!response.change) {
         return;
@@ -138,9 +142,9 @@ export class OADAClient {
     const wsReq: Request = {
       method: "watch",
       headers: {
-        authorization: "Bearer " + this._token
+        authorization: "Bearer " + this._token,
       },
-      path: request.path
+      path: request.path,
     };
     return await this._ws.request(wsReq, callback);
   }
@@ -168,30 +172,24 @@ export class OADAClient {
     if (subTree["*"]) {
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
-      children = Object.keys(data || {}).reduce(
-        (acc, key) => {
-          if (typeof data[key] == "object") {
-            acc.push({ treeKey: "*", dataKey: key });
-          }
-          return acc;
-        },
-        <Array<any>>[]
-      );
+      children = Object.keys(data || {}).reduce((acc, key) => {
+        if (typeof data[key] == "object") {
+          acc.push({ treeKey: "*", dataKey: key });
+        }
+        return acc;
+      }, <Array<any>>[]);
     } else {
       // Otherwise, get children from the tree provided by the user
-      children = Object.keys(subTree || {}).reduce(
-        (acc, key) => {
-          if (typeof data[key] == "object") {
-            acc.push({ treeKey: key, dataKey: key });
-          }
-          return acc;
-        },
-        <Array<any>>[]
-      );
+      children = Object.keys(subTree || {}).reduce((acc, key) => {
+        if (typeof data[key] == "object") {
+          acc.push({ treeKey: key, dataKey: key });
+        }
+        return acc;
+      }, <Array<any>>[]);
     }
 
     // initiate recursive calls
-    let promises = children.map(async item => {
+    let promises = children.map(async (item) => {
       const childPath = path + "/" + item.dataKey;
       const res = await this._recursiveGet(
         childPath,
@@ -240,7 +238,7 @@ export class OADAClient {
               await this.put({
                 path: utils.toStringPath(newResourcePathArray),
                 contentType,
-                data: linkObj
+                data: linkObj,
               });
             }
             // We hit a resource that already exists. No need to further traverse the tree.
@@ -284,10 +282,10 @@ export class OADAClient {
       method: "put",
       headers: {
         authorization: "Bearer " + this._token,
-        "content-type": contentType
+        "content-type": contentType,
       },
       path: request.path,
-      data: request.data
+      data: request.data,
     });
   }
 
@@ -305,9 +303,29 @@ export class OADAClient {
     return this._ws.request({
       method: "head",
       headers: {
-        authorization: "Bearer " + this._token
+        authorization: "Bearer " + this._token,
       },
-      path: request.path
+      path: request.path,
+    });
+  }
+
+  /**
+   * Send DELETE request
+   * @param request DELETE request
+   */
+  public async delete(request: DELETERequest): Promise<Response> {
+    // ensure connection
+    if (!this._ws || !this._ws.isConnected()) {
+      throw new Error("Not connected.");
+    }
+
+    // return HEAD response
+    return this._ws.request({
+      method: "delete",
+      headers: {
+        authorization: "Bearer " + this._token,
+      },
+      path: request.path,
     });
   }
 
@@ -324,7 +342,7 @@ export class OADAClient {
     const putResponse = await this.put({
       path: "/" + resourceId,
       data: fullData,
-      contentType
+      contentType,
     });
     // return resource ID
     return resourceId;
@@ -333,7 +351,7 @@ export class OADAClient {
   /** check if the specified path exists. Returns boolean value. */
   private async _resourceExists(path: string): Promise<boolean> {
     // send HEAD request
-    const headResponse = await this.head({ path }).catch(msg => {
+    const headResponse = await this.head({ path }).catch((msg) => {
       if (msg.status == 404) {
         return msg;
       } else {
