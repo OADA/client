@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/node": "^13.13.4",
     "isomorphic-ws": "^4.0.1",
     "ksuid": "^1.2.0",
     "typescript": "^3.8.3",
