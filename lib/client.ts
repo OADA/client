@@ -1,4 +1,4 @@
-import { v4 as uuid } from "uuid";
+import ksuid from "ksuid";
 import * as utils from "./utils";
 import { WebSocketClient, Request, Response } from "./websocket";
 
@@ -335,7 +335,7 @@ export class OADAClient {
     data?: object
   ): Promise<string> {
     // Create unique resource ID
-    const resourceId = "resources/" + uuid();
+    const resourceId = "resources/" + ksuid.randomSync().string;
     // append resource ID and content type to object
     const fullData = { _id: resourceId, _type: contentType, ...data };
     // send PUT request

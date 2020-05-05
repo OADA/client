@@ -1,21 +1,21 @@
 {
   "name": "@oada/client",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "test": "mocha -r ts-node/register test/**/*.test.ts",
-    "build": "tsc --module commonjs",
+    "build": "tsc",
     "postinstall": "yarn run build"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "isomorphic-ws": "^4.0.1",
-    "uuid": "^7.0.3",
-    "ws": "^7.2.3",
-    "typescript": "^3.8.3"
+    "ksuid": "^1.2.0",
+    "typescript": "^3.8.3",
+    "ws": "^7.2.3"
   },
   "devDependencies": {
     "@types/chai": "^4.2.11",

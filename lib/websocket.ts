@@ -1,5 +1,5 @@
 import WebSocket = require("isomorphic-ws");
-import { v4 as uuid } from "uuid";
+import ksuid from "ksuid";
 
 export interface Request {
   method: string;
@@ -50,7 +50,7 @@ export class WebSocketClient {
     return new Promise<void>((resolve, reject) => {
       // create websocket connection
       this._ws = new WebSocket("wss://" + this._domain, {
-        origin: "https://" + this._domain
+        origin: "https://" + this._domain,
       });
 
       // register handlers
@@ -94,7 +94,7 @@ export class WebSocketClient {
     }
 
     // Send object to the server.
-    const requestId = uuid();
+    const requestId = ksuid.randomSync().string;
     req.requestId = requestId;
     this._ws.send(JSON.stringify(req));
 
@@ -106,7 +106,7 @@ export class WebSocketClient {
         reject,
         settled: false,
         persistent: callback ? true : false,
-        callback
+        callback,
       });
     });
   }
@@ -136,7 +136,7 @@ export class WebSocketClient {
           const response: Response = {
             headers: msg.headers,
             status: msg.status,
-            data: msg.data
+            data: msg.data,
           };
           request.resolve(response);
         } else if (msg.status) {
