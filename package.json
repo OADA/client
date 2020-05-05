@@ -4,6 +4,9 @@
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
   "scripts": {
     "test": "mocha -r ts-node/register test/**/*.test.ts",
     "build": "tsc",
