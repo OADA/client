@@ -127,11 +127,6 @@ export class WebSocketClient {
       if (!request.settled) {
         request.settled = true;
 
-        // FIXME: This is obviously a hack. The server should return integer status.
-        if (msg.status && msg.status == "success") {
-          msg.status = 200;
-        }
-
         if (msg.status && msg.status >= 200 && msg.status < 300) {
           const response: Response = {
             headers: msg.headers,
