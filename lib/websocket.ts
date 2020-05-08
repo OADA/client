@@ -1,24 +1,18 @@
 import WebSocket = require("isomorphic-ws");
 import ksuid from "ksuid";
 
-export interface Request {
-  method: string;
-  headers: { [key: string]: string };
-  path: string;
-  data?: object;
-  requestId?: string;
-}
-
-export interface Response {
-  headers: object;
-  status: number;
-  data: object;
-}
+import SocketResponse, {
+  is as isSocketResponse,
+} from "@oada/types/oada/websockets/response";
+import SocketRequest from "@oada/types/oada/websockets/request";
+import SocketChange, {
+  is as isSocketChange,
+} from "@oada/types/oada/websockets/change";
 
 interface ActiveRequest {
   resolve: Function;
   reject: Function;
-  callback?: (response: Response) => void;
+  callback?: (response: Readonly<SocketChange>) => void;
   persistent: boolean;
   settled: boolean;
 }
@@ -47,14 +41,14 @@ export class WebSocketClient {
     }
 
     // create new promise
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<void>((resolve) => {
       // create websocket connection
       this._ws = new WebSocket("wss://" + this._domain, {
         origin: "https://" + this._domain,
       });
 
       // register handlers
-      this._ws.onopen = (e: any) => {
+      this._ws.onopen = () => {
         this._connected = true;
         resolve();
       };
@@ -80,9 +74,9 @@ export class WebSocketClient {
 
   /** send a request to server */
   public request(
-    req: Request,
-    callback?: (response: Response) => void
-  ): Promise<Response> {
+    req: Omit<SocketRequest, "RequestId">,
+    callback?: (response: Readonly<SocketChange>) => void
+  ): Promise<SocketResponse> {
     // throw if not connected
     if (!this._connected) {
       throw new Error("Not connected to server.");
@@ -99,7 +93,7 @@ export class WebSocketClient {
     this._ws.send(JSON.stringify(req));
 
     // return Promise
-    return new Promise<Response>((resolve, reject) => {
+    return new Promise<SocketResponse>((resolve, reject) => {
       // save request
       this._requests.set(requestId, {
         resolve,
@@ -115,40 +109,36 @@ export class WebSocketClient {
     // parse message
     let msg = JSON.parse(e.data);
 
-    // ignore if the message is not a valid response
     if (!msg.requestId) {
       return;
     }
 
-    // find original request
-    let request = this._requests.get(msg.requestId);
-    if (request) {
-      // if the request is not settled, resolve/reject the corresponding promise
-      if (!request.settled) {
-        request.settled = true;
+    if (!Array.isArray(msg.requestId)) {
+      msg.requestId = [msg.requestId];
+    }
 
-        // FIXME: This is obviously a hack. The server should return integer status.
-        if (msg.status && msg.status == "success") {
-          msg.status = 200;
+    for (const requestId of msg.requestId) {
+      // find original request
+      let request = this._requests.get(requestId);
+      if (request) {
+        if (isSocketResponse(msg)) {
+          // if the request is not settled, resolve/reject the corresponding promise
+          if (!request.settled) {
+            request.settled = true;
+
+            if (msg.status && msg.status >= 200 && msg.status < 300) {
+              request.resolve(msg);
+            } else if (msg.status) {
+              request.reject(msg);
+            } else {
+              throw new Error("Request failed");
+            }
+          }
+
+          // run callback function
+        } else if (request.callback && isSocketChange(msg)) {
+          request.callback(msg);
         }
-
-        if (msg.status && msg.status >= 200 && msg.status < 300) {
-          const response: Response = {
-            headers: msg.headers,
-            status: msg.status,
-            data: msg.data,
-          };
-          request.resolve(response);
-        } else if (msg.status) {
-          request.reject(msg);
-        } else {
-          throw new Error("Request failed");
-        }
-      }
-
-      // run callback function
-      if (request.callback) {
-        request.callback(msg);
       }
     }
   }

@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,16 +15,17 @@
     "pretest": "npm run build"
   },
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
+    "@oada/types": "^1.0.5",
     "isomorphic-ws": "^4.0.1",
     "ksuid": "^1.2.0",
     "ws": "^7.2.3"
   },
   "devDependencies": {
-    "@types/node": "^13.13.4",
     "@types/chai": "^4.2.11",
     "@types/mocha": "^7.0.2",
+    "@types/node": "^13.13.4",
     "@types/uuid": "^7.0.2",
     "chai": "^4.2.0",
     "mocha": "^7.1.1",

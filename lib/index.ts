@@ -18,5 +18,6 @@ export {
   GETRequest,
   PUTRequest,
   HEADRequest,
-  WatchRequest
+  WatchRequest,
+  WatchResponse,
 } from "./client";
