@@ -2,87 +2,104 @@ import ksuid from "ksuid";
 import * as utils from "./utils";
 import { WebSocketClient } from "./websocket";
 
-import SocketResponse from "@oada/types/oada/websockets/response";
-import { Change, is as isChangeV2 } from "@oada/types/oada/change/v2";
+import { SocketResponse } from "./websocket";
+
+import { Json, Change } from ".";
 
 export interface Config {
   domain: string;
-  options?: {
-    redirect: string;
-    metadata: string;
-    scope: string;
-  };
   token?: string;
+  concurrency?: number;
+  _ws?: WebSocketClient;
 }
+
+export type Response = SocketResponse;
 
 export interface GETRequest {
   path: string;
   tree?: object;
-  token?: string;
-  watchCallback?: (response: WatchResponse) => void;
+  watchCallback?: (response: Readonly<Change>) => void;
 }
 
 export interface WatchRequest {
   path: string;
-  token?: string;
-  watchCallback: (response: WatchResponse) => void;
+  rev?: string;
+  watchCallback: (response: Readonly<Change>) => void;
 }
 
 export interface PUTRequest {
   path: string;
-  data: object;
+  data: Json;
   contentType?: string;
   tree?: object;
-  token?: string;
+}
+
+export interface POSTRequest {
+  path: string;
+  data: Json;
+  contentType?: string;
+  tree?: object;
 }
 
 export interface HEADRequest {
   path: string;
-  token?: string;
 }
 
 export interface DELETERequest {
   path: string;
-  token?: string;
 }
-
-export type Response = SocketResponse;
-export type WatchResponse = Change;
 
 /** Main  OADAClient class */
 export class OADAClient {
-  private _token: string;
-  private _ws?: WebSocketClient;
+  private _token = "";
+  private _domain = "";
+  private _concurrency = 1;
+  private _ws: WebSocketClient;
 
-  constructor() {
-    this._token = "";
+  constructor(config: Config) {
+    this._domain = config.domain;
+    this._token = config.token || this._token;
+    this._concurrency = config.concurrency || this._concurrency;
+    this._ws = new WebSocketClient(this._domain, this._concurrency);
   }
 
   /**
-   * Connect to OADA-compliant server
-   * @param domain Domain. E.g., www.example.com
-   * @param token Token.
+   * Repurpose a existing connection to OADA-compliant server with a new token
+   * @param token New token.
    */
-  public connect(config: Config): Promise<void> {
-    if (this._ws && this._ws.isConnected()) {
-      throw new Error("Already connected");
-    }
-    if (!config.token) {
-      throw new Error("Token is required."); // FIXME
-    }
+  public clone(token: string): OADAClient {
+    const c = new OADAClient({
+      domain: this._domain,
+      token: token,
+      concurrency: this._concurrency,
+      // Reuse existing WS connection
+      _ws: this._ws,
+    });
 
-    this._ws = new WebSocketClient(config.domain);
-    this._token = config.token;
-    return this._ws.connect();
+    return c;
+  }
+
+  /**
+   * Get the connection token
+   */
+  public getToken(): string {
+    return this._token;
+  }
+
+  /**
+   * Get the connection domain
+   */
+  public getDomain(): string {
+    return this._domain;
   }
 
   /** Disconnect from server */
-  public disconnect(): void {
-    if (!this._ws || !this._ws.isConnected()) {
+  public disconnect(): Promise<void> {
+    if (!this._ws.isConnected()) {
       throw new Error("Not connected");
     }
     // close
-    this._ws.disconnect();
+    return this._ws.disconnect();
   }
 
   /**
@@ -90,16 +107,11 @@ export class OADAClient {
    * @param request request
    */
   public async get(request: GETRequest): Promise<Response> {
-    // ensure connection
-    if (!this._ws || !this._ws.isConnected()) {
-      throw new Error("Not connected.");
-    }
-
     // ===  Top-level GET ===
     const topLevelResponse = await this._ws.request({
       method: "get",
       headers: {
-        authorization: "Bearer " + request.token || this._token,
+        authorization: `Bearer ${this._token}`,
       },
       path: request.path,
     });
@@ -121,8 +133,13 @@ export class OADAClient {
 
     // ===  Register Watch  ===
     if (request.watchCallback) {
+      const rev = topLevelResponse.headers
+        ? topLevelResponse.headers["x-oada-rev"]
+        : undefined;
+
       await this.watch({
         path: request.path,
+        rev,
         watchCallback: request.watchCallback,
       });
     }
@@ -136,26 +153,27 @@ export class OADAClient {
    * @param request watch request
    */
   public async watch(request: WatchRequest): Promise<string> {
-    // ensure connection
-    if (!this._ws || !this._ws.isConnected()) {
-      throw new Error("Not connected.");
+    let headers = {};
+
+    if (request.rev) {
+      headers["x-oada-rev"] = request.rev;
     }
 
-    const wsReq = {
-      method: "watch",
-      headers: {
-        authorization: `Bearer ${request.token || this._token}`,
+    const r = await this._ws.request(
+      {
+        method: "watch",
+        headers: {
+          authorization: `Bearer ${this._token}`,
+          ...headers,
+        },
+        path: request.path,
       },
-      path: request.path,
-    };
-
-    const r = await this._ws.request(wsReq, (resp) => {
-      if (isChangeV2(resp.change)) {
+      (resp) => {
         for (const change of resp.change) {
           request.watchCallback(change);
         }
       }
-    });
+    );
 
     if (r.status !== 200) {
       throw new Error("Watch request failed!");
@@ -165,12 +183,11 @@ export class OADAClient {
   }
 
   public async unwatch(requestId: string): Promise<Response> {
-    // ensure connection
-    if (!this._ws || !this._ws.isConnected()) {
-      throw new Error("Not connected.");
-    }
-
     return await this._ws.request({
+      path: "",
+      headers: {
+        authorization: "",
+      },
       method: "unwatch",
       requestId: requestId,
     });
@@ -180,8 +197,8 @@ export class OADAClient {
   private async _recursiveGet(
     path: string,
     subTree: object,
-    data: object
-  ): Promise<object> {
+    data: Json
+  ): Promise<Json> {
     // If either subTree or data does not exist, there's mismatch between
     // the provided tree and the actual data stored on the server
     if (!subTree || !data) {
@@ -199,8 +216,8 @@ export class OADAClient {
     if (subTree["*"]) {
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
-      children = Object.keys(data || {}).reduce((acc, key) => {
-        if (typeof data[key] == "object") {
+      children = Object.keys(data).reduce((acc, key) => {
+        if (data && typeof data[key] == "object") {
           acc.push({ treeKey: "*", dataKey: key });
         }
         return acc;
@@ -208,7 +225,7 @@ export class OADAClient {
     } else {
       // Otherwise, get children from the tree provided by the user
       children = Object.keys(subTree || {}).reduce((acc, key) => {
-        if (typeof data[key] == "object") {
+        if (data && typeof data[key] == "object") {
           acc.push({ treeKey: key, dataKey: key });
         }
         return acc;
@@ -218,6 +235,9 @@ export class OADAClient {
     // initiate recursive calls
     let promises = children.map(async (item) => {
       const childPath = path + "/" + item.dataKey;
+      if (!data) {
+        return;
+      }
       const res = await this._recursiveGet(
         childPath,
         subTree[item.treeKey],
@@ -236,17 +256,12 @@ export class OADAClient {
    * @param request PUT request
    */
   public async put(request: PUTRequest): Promise<Response> {
-    // ensure connection
-    if (!this._ws || !this._ws.isConnected()) {
-      throw new Error("Not connected.");
-    }
-
     // convert string path to array (e.g., /bookmarks/abc/def -> ['bookmarks', 'abc', 'def'])
     const pathArray = utils.toArrayPath(request.path);
 
     if (request.tree) {
       // link object (eventually substituted by an actual link object)
-      let linkObj: object | undefined;
+      let linkObj: Json = null;
       let newResourcePathArray: Array<string> = [];
       for (let i = pathArray.length - 1; i >= 0; i--) {
         // get current path
@@ -258,7 +273,7 @@ export class OADAClient {
           const contentType = treeObj["_type"];
           const partialPath = utils.toStringPath(partialPathArray);
           // check if resource already exists on the remote server
-          if (await this._resourceExists(partialPath, request.token)) {
+          if (await this._resourceExists(partialPath)) {
             // CASE 1: resource exists on server.
             // simply create a link using PUT request
             if (linkObj && newResourcePathArray.length > 0) {
@@ -280,8 +295,7 @@ export class OADAClient {
             // create a new resource
             const resourceId = await this._createResource(
               contentType,
-              newResource,
-              request.token
+              newResource
             );
             // save a link
             linkObj =
@@ -297,19 +311,16 @@ export class OADAClient {
     // Get content-type
     let contentType =
       request.contentType || // 1) get content-type from the argument
-      request.data["_type"] || // 2) get content-type from the resource body
+      (request.data && request.data["_type"]) || // 2) get content-type from the resource body
       (request.tree
         ? utils.getObjectAtPath(request.tree!, pathArray)["_type"] // 3) get content-type from the tree
-        : undefined);
-    if (!contentType) {
-      throw new Error("Content type is not specified.");
-    }
+        : "application/json"); // 4) Assume application/json
 
     // return PUT response
     return this._ws.request({
       method: "put",
       headers: {
-        authorization: "Bearer " + request.token || this._token,
+        authorization: `Bearer ${this._token}`,
         "content-type": contentType,
       },
       path: request.path,
@@ -318,20 +329,51 @@ export class OADAClient {
   }
 
   /**
+   * Send POST request
+   * @param request PUT request
+   */
+  public async post(request: POSTRequest): Promise<Response> {
+    // convert string path to array (e.g., /bookmarks/abc/def -> ['bookmarks', 'abc', 'def'])
+    const pathArray = utils.toArrayPath(request.path);
+
+    const data = request.data;
+    if (request.tree) {
+      // TODO: Is a tree POST really just a tree PUT followed by a POST to that
+      // path?
+      request.data = {};
+      await this.put(request);
+    }
+
+    // Get content-type
+    let contentType =
+      request.contentType || // 1) get content-type from the argument
+      (request.data && request.data["_type"]) || // 2) get content-type from the resource body
+      (request.tree
+        ? utils.getObjectAtPath(request.tree!, pathArray)["_type"] // 3) get content-type from the tree
+        : "application/json"); // 4) Assume application/json
+
+    // return PUT response
+    return this._ws.request({
+      method: "post",
+      headers: {
+        authorization: `Bearer ${this._token}`,
+        "content-type": contentType,
+      },
+      path: request.path,
+      data,
+    });
+  }
+
+  /**
    * Send HEAD request
    * @param request HEAD request
    */
   public async head(request: HEADRequest): Promise<Response> {
-    // ensure connection
-    if (!this._ws || !this._ws.isConnected()) {
-      throw new Error("Not connected.");
-    }
-
     // return HEAD response
     return this._ws.request({
       method: "head",
       headers: {
-        authorization: "Bearer " + request.token || this._token,
+        authorization: `Bearer ${this._token}`,
       },
       path: request.path,
     });
@@ -342,16 +384,11 @@ export class OADAClient {
    * @param request DELETE request
    */
   public async delete(request: DELETERequest): Promise<Response> {
-    // ensure connection
-    if (!this._ws || !this._ws.isConnected()) {
-      throw new Error("Not connected.");
-    }
-
     // return HEAD response
     return this._ws.request({
       method: "delete",
       headers: {
-        authorization: "Bearer " + request.token || this._token,
+        authorization: `Bearer ${this._token}`,
       },
       path: request.path,
     });
@@ -360,18 +397,16 @@ export class OADAClient {
   /** Create a new resource. Returns resource ID */
   private async _createResource(
     contentType: string,
-    data?: object,
-    token?: string
+    data: Json
   ): Promise<string> {
     // Create unique resource ID
     const resourceId = "resources/" + ksuid.randomSync().string;
     // append resource ID and content type to object
-    const fullData = { _id: resourceId, _type: contentType, ...data };
+    // const fullData = { _id: resourceId, _type: contentType, ...data };
     // send PUT request
     await this.put({
       path: "/" + resourceId,
-      data: fullData,
-      token,
+      data,
       contentType,
     });
     // return resource ID
@@ -379,16 +414,15 @@ export class OADAClient {
   }
 
   /** check if the specified path exists. Returns boolean value. */
-  private async _resourceExists(
-    path: string,
-    token?: string
-  ): Promise<boolean> {
+  private async _resourceExists(path: string): Promise<boolean> {
     // send HEAD request
-    const headResponse = await this.head({ path, token }).catch((msg) => {
+    const headResponse = await this.head({
+      path,
+    }).catch((msg) => {
       if (msg.status == 404) {
         return msg;
       } else {
-        throw new Error("Error");
+        throw new Error(`Error: ${msg.statusText}`);
       }
     });
     // check status value

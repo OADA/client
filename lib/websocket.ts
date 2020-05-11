@@ -1,13 +1,40 @@
 import WebSocket = require("isomorphic-ws");
 import ksuid from "ksuid";
+import PQueue from "p-queue";
+import debug from "debug";
 
-import SocketResponse, {
-  is as isSocketResponse,
-} from "@oada/types/oada/websockets/response";
-import SocketRequest from "@oada/types/oada/websockets/request";
-import SocketChange, {
-  is as isSocketChange,
-} from "@oada/types/oada/websockets/change";
+const trace = debug("@oada/client:ws:trace");
+const error = debug("@oada/client:ws:error");
+
+import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
+import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response";
+import { is as isOADASocketChange } from "@oada/types/oada/websockets/change";
+import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2";
+
+import { Json, Change } from ".";
+
+export interface SocketRequest {
+  requestId?: string;
+  path: string;
+  method: "head" | "get" | "put" | "post" | "delete" | "watch" | "unwatch";
+  headers: Record<string, string>;
+  data?: Json;
+}
+
+export interface SocketResponse {
+  requestId: string | Array<string>;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  data: Json;
+}
+
+export interface SocketChange {
+  requestId: Array<string>;
+  resourceId: string;
+  path_leftover: string | Array<string>;
+  change: Array<Change>;
+}
 
 interface ActiveRequest {
   resolve: Function;
@@ -18,53 +45,50 @@ interface ActiveRequest {
 }
 
 export class WebSocketClient {
-  private _ws: WebSocket;
+  private _ws: Promise<WebSocket>;
   private _domain: string;
   private _connected: boolean;
   private _requests: Map<string, ActiveRequest>;
+  private _q: PQueue;
 
   /**
    * Constructor
    * @param domain Domain. E.g., www.example.com
+   * @param concurrency Number of allowed in-flight requests. Default 10.
    */
-  constructor(domain: string) {
+  constructor(domain: string, concurrency = 10) {
     this._connected = false;
     this._domain = domain;
     this._requests = new Map();
-  }
-
-  /** Connect to server. Returns Promise. */
-  public connect(): Promise<void> {
-    // throw if connection exists
-    if (this._connected) {
-      throw new Error("Already connected to server.");
-    }
-
-    // create new promise
-    return new Promise<void>((resolve) => {
+    this._ws = new Promise<WebSocket>((resolve) => {
       // create websocket connection
-      this._ws = new WebSocket("wss://" + this._domain, {
+      const ws = new WebSocket("wss://" + this._domain, {
         origin: "https://" + this._domain,
       });
 
       // register handlers
-      this._ws.onopen = () => {
+      ws.onopen = () => {
         this._connected = true;
-        resolve();
+        resolve(ws);
       };
-      this._ws.onclose = () => {
+      ws.onclose = () => {
         this._connected = false;
       };
-      this._ws.onmessage = this._receive.bind(this); // explicitly pass the instance
+      ws.onmessage = this._receive.bind(this); // explicitly pass the instance
+    });
+
+    this._q = new PQueue({ concurrency });
+    this._q.on("active", () => {
+      trace(`WS Queue. Size: ${this._q.size} pending: ${this._q.pending}`);
     });
   }
 
   /** Disconnect the WebSocket connection */
-  public disconnect(): void {
+  public async disconnect(): Promise<void> {
     if (!this._connected) {
       return;
     }
-    this._ws.close();
+    (await this._ws).close();
   }
 
   /** Return true if connected, otherwise false */
@@ -72,25 +96,23 @@ export class WebSocketClient {
     return this._connected;
   }
 
-  /** send a request to server */
   public request(
-    req: Omit<SocketRequest, "RequestId">,
+    req: SocketRequest,
     callback?: (response: Readonly<SocketChange>) => void
   ): Promise<SocketResponse> {
-    // throw if not connected
-    if (!this._connected) {
-      throw new Error("Not connected to server.");
-    }
+    return this._q.add(() => this.doRequest(req, callback));
+  }
 
-    // User should not provide request ID
-    if (req.requestId) {
-      throw new Error("Request ID exists.");
-    }
-
+  /** send a request to server */
+  private async doRequest(
+    req: SocketRequest,
+    callback?: (response: Readonly<SocketChange>) => void
+  ): Promise<SocketResponse> {
     // Send object to the server.
-    const requestId = ksuid.randomSync().string;
+    const requestId = req.requestId || ksuid.randomSync().string;
     req.requestId = requestId;
-    this._ws.send(JSON.stringify(req));
+    assertOADASocketRequest(req);
+    (await this._ws).send(JSON.stringify(req));
 
     // return Promise
     return new Promise<SocketResponse>((resolve, reject) => {
@@ -105,41 +127,62 @@ export class WebSocketClient {
     });
   }
 
-  private _receive(e: any) {
-    // parse message
-    let msg = JSON.parse(e.data);
+  private _receive(m: WebSocket.MessageEvent) {
+    try {
+      const msg = JSON.parse(m.data.toString());
 
-    if (!msg.requestId) {
-      return;
-    }
+      let requestIds: Array<string>;
+      if (Array.isArray(msg.requestId)) {
+        requestIds = msg.requestId;
+      } else {
+        requestIds = [msg.requestId];
+      }
 
-    if (!Array.isArray(msg.requestId)) {
-      msg.requestId = [msg.requestId];
-    }
-
-    for (const requestId of msg.requestId) {
-      // find original request
-      let request = this._requests.get(requestId);
-      if (request) {
-        if (isSocketResponse(msg)) {
-          // if the request is not settled, resolve/reject the corresponding promise
-          if (!request.settled) {
-            request.settled = true;
-
-            if (msg.status && msg.status >= 200 && msg.status < 300) {
-              request.resolve(msg);
-            } else if (msg.status) {
-              request.reject(msg);
-            } else {
-              throw new Error("Request failed");
+      for (const requestId of requestIds) {
+        // find original request
+        let request = this._requests.get(requestId);
+        if (request) {
+          if (isOADASocketResponse(msg)) {
+            if (!request.callback) {
+              this._requests.delete(requestId);
             }
-          }
 
-          // run callback function
-        } else if (request.callback && isSocketChange(msg)) {
-          request.callback(msg);
+            // if the request is not settled, resolve/reject the corresponding promise
+            if (!request.settled) {
+              request.settled = true;
+
+              if (msg.status && msg.status >= 200 && msg.status < 300) {
+                request.resolve(msg);
+              } else if (msg.status) {
+                request.reject(msg);
+              } else {
+                throw new Error("Request failed");
+              }
+            }
+
+            // run callback function
+          } else if (request.callback && isOADASocketChange(msg)) {
+            assertOADAChangeV2(msg.change);
+
+            // TODO: Would be nice if @oad/types know "unkown" as Json
+            const m: SocketChange = {
+              requestId: msg.requestId,
+              resourceId: msg.resourceId,
+              path_leftover: msg.path_leftover,
+              change: msg.change.map(({ body, ...rest }) => {
+                return { ...rest, body: body as Json };
+              }),
+            };
+
+            request.callback(m);
+          } else {
+            throw new Error("Invalid websocket payload received");
+          }
         }
       }
+    } catch (e) {
+      error(`[Websocket ${this._domain}] Received invalid response. Ignoring.`);
+      trace(`[Websocket ${this._domain}] Received invalid response. %O`, e);
     }
   }
 }
