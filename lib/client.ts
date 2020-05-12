@@ -291,7 +291,7 @@ export class OADAClient {
             const relativePathArray = newResourcePathArray.slice(i + 1);
             const newResource = linkObj
               ? utils.createNestedObject(linkObj, relativePathArray)
-              : undefined;
+              : {};
             // create a new resource
             const resourceId = await this._createResource(
               contentType,
