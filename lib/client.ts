@@ -57,7 +57,7 @@ export class OADAClient {
   private _ws: WebSocketClient;
 
   constructor(config: Config) {
-    this._domain = config.domain;
+    this._domain = config.domain.replace(/^https:\/\//,''); // help for those who can't remember if https should be there
     this._token = config.token || this._token;
     this._concurrency = config.concurrency || this._concurrency;
     this._ws = new WebSocketClient(this._domain, this._concurrency);
