@@ -179,7 +179,7 @@ export class OADAClient {
       throw new Error("Watch request failed!");
     }
 
-    return r.requestId[0];
+    return Array.isArray(r.requestId) ? r.requestId[0] : r.requestId; // server should always return an array requestId
   }
 
   public async unwatch(requestId: string): Promise<Response> {
