@@ -15,15 +15,24 @@ export interface Config {
 
 export type Response = SocketResponse;
 
+export type RequestHeaders = {
+  authorization?: string,
+  'content-type'?: string,
+  [x: string]: any, // other headers we don't know about
+};
+
 export interface GETRequest {
   path: string;
   tree?: object;
+  headers?: RequestHeaders;
   watchCallback?: (response: Readonly<Change>) => void;
+  maxretries?: number; // defaults to 10, or you can specify
 }
 
 export interface WatchRequest {
   path: string;
   rev?: string;
+  headers?: RequestHeaders;
   watchCallback: (response: Readonly<Change>) => void;
 }
 
@@ -32,21 +41,35 @@ export interface PUTRequest {
   data: Json;
   contentType?: string;
   tree?: object;
+  headers?: RequestHeaders;
+  maxretries?: number; // defaults to 10, or you can specify
 }
 
 export interface POSTRequest {
   path: string;
   data: Json;
   contentType?: string;
+  headers?: RequestHeaders;
   tree?: object;
+  maxretries?: number; // defaults to 10, or you can specify
 }
 
 export interface HEADRequest {
   path: string;
+  headers?: RequestHeaders;
+  maxretries?: number; // defaults to 10, or you can specify
 }
 
 export interface DELETERequest {
   path: string;
+  headers?: RequestHeaders;
+}
+
+type Request = GETRequest | PUTRequest | POSTRequest | HEADRequest; // Cannot retry DELETEs yet, not sure if it makes sense "retry" WATCH
+export interface RetryRequest {
+  request: Request;
+  method: 'get' | 'put' | 'post' | 'head';
+  retries?: number;
 }
 
 /** Main  OADAClient class */
@@ -103,18 +126,12 @@ export class OADAClient {
   }
 
   /**
-   * Send GET request
+   * Send GET request, with exponential backoff up to 10 retries
    * @param request request
    */
   public async get(request: GETRequest): Promise<Response> {
     // ===  Top-level GET ===
-    const topLevelResponse = await this._ws.request({
-      method: "get",
-      headers: {
-        authorization: `Bearer ${this._token}`,
-      },
-      path: request.path,
-    });
+    const topLevelResponse = await this.getRetry(request);
 
     // ===  Recursive GET  ===
     if (request.tree) {
@@ -147,6 +164,7 @@ export class OADAClient {
     // Return top-level response
     return topLevelResponse;
   }
+
 
   /**
    * Set up watch
@@ -277,7 +295,7 @@ export class OADAClient {
             // CASE 1: resource exists on server.
             // simply create a link using PUT request
             if (linkObj && newResourcePathArray.length > 0) {
-              await this.put({
+              await this.putRetry({
                 path: utils.toStringPath(newResourcePathArray),
                 contentType,
                 data: linkObj,
@@ -309,7 +327,7 @@ export class OADAClient {
     }
 
     // Get content-type
-    let contentType =
+    request.contentType =
       request.contentType || // 1) get content-type from the argument
       (request.data && request.data["_type"]) || // 2) get content-type from the resource body
       (request.tree
@@ -317,16 +335,9 @@ export class OADAClient {
         : "application/json"); // 4) Assume application/json
 
     // return PUT response
-    return this._ws.request({
-      method: "put",
-      headers: {
-        authorization: `Bearer ${this._token}`,
-        "content-type": contentType,
-      },
-      path: request.path,
-      data: request.data,
-    });
+    return this.putRetry(request);
   }
+
 
   /**
    * Send POST request
@@ -345,38 +356,23 @@ export class OADAClient {
     }
 
     // Get content-type
-    let contentType =
+    request.contentType =
       request.contentType || // 1) get content-type from the argument
       (request.data && request.data["_type"]) || // 2) get content-type from the resource body
       (request.tree
         ? utils.getObjectAtPath(request.tree!, pathArray)["_type"] // 3) get content-type from the tree
         : "application/json"); // 4) Assume application/json
 
-    // return PUT response
-    return this._ws.request({
-      method: "post",
-      headers: {
-        authorization: `Bearer ${this._token}`,
-        "content-type": contentType,
-      },
-      path: request.path,
-      data,
-    });
+    return this.postRetry(request);
   }
+
 
   /**
    * Send HEAD request
    * @param request HEAD request
    */
   public async head(request: HEADRequest): Promise<Response> {
-    // return HEAD response
-    return this._ws.request({
-      method: "head",
-      headers: {
-        authorization: `Bearer ${this._token}`,
-      },
-      path: request.path,
-    });
+    return this.headRetry(request);  
   }
 
   /**
@@ -434,4 +430,56 @@ export class OADAClient {
       throw Error("Status code is neither 200 nor 404.");
     }
   }
+
+  public async  getRetry(request:  GETRequest): Promise<Response> { return this.requestRetry({ request, method: 'get' }); }
+  public async  putRetry(request:  PUTRequest): Promise<Response> { return this.requestRetry({ request, method: 'put' }); }
+  public async postRetry(request: POSTRequest): Promise<Response> { return this.requestRetry({ request, method: 'post' }); }
+  public async headRetry(request: HEADRequest): Promise<Response> { return this.requestRetry({ request, method: 'head' }); }
+
+  public async requestRetry(rreq: RetryRequest): Promise<Response> {
+    let { request, method, retries } = rreq;
+    request.headers  = request.headers || {};
+    if (!request.headers['authorization'] && !request.headers['Authorization']) {
+      request.headers['authorization'] = `Bearer ${this._token}`;
+    }
+    if (typeof request.contentType !== 'undefined') request.headers['content-type'] = request.contentType;
+    if (typeof request.maxretries !== 'number') {
+      request.maxretries = 10; // default retries to 10
+    }
+    if (typeof retries === 'undefined') retries = 0;
+
+    return this._ws.request({
+      method,
+      headers: request.headers,
+      path: request.path,
+      data: request.data,
+
+    // Do the retry algorithm:
+    }).catch (e => {
+      if (!e.status) throw e; // not a web error
+      if (e.status !== 401 && e.status !== 403 && e.status < 500) {
+        throw e; // failed due to reason unrelated to load
+      }
+      // Otherwise, 401, 403, or 500 COULD be load-related, try again
+      if (retries++ >= request.maxretries) {
+        trace(`Finished retrying failed request ${request.maxretries} times, request still failed, giving up`);
+        throw e;
+      }
+      return new Promise((resolve, reject) => {
+        // Exponential backoff (half-seconds): .5, 2, 4.5, 8, ...
+        setTimeout((retries * retries)*500, () => { // exponential backup (x^2 half-seconds)
+          try { 
+            const result = await requestRetry({method, request, retries });
+            return resolve(result);
+          } catch (e) { 
+            return reject(e); 
+          }
+        });
+      });
+    }); // end catch
+
+  }
+
 }
+
+
