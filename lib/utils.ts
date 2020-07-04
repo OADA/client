@@ -22,7 +22,7 @@ export function getObjectAtPath(tree: object, path: Array<string>): object {
     } else if (acc["*"]) {
       return acc["*"];
     } else {
-      throw new Error("Specified path does not exist in the tree.");
+      throw new Error("Specified path /"+path.join('/')+" does not exist in the tree.");
     }
   }, tree);
 }
@@ -37,7 +37,7 @@ export function toTreePath(tree: object, path: Array<string>): Array<string> {
       treePath.push("*");
       return acc["*"];
     } else {
-      throw new Error("Specified path does not exist in the tree.");
+      throw new Error("Specified path /"+path.join('/')+" does not exist in the tree.");
     }
   }, tree);
   return treePath;
