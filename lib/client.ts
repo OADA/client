@@ -415,7 +415,12 @@ export class OADAClient {
 
   /** check if the specified path exists. Returns boolean value. */
   private async _resourceExists(path: string): Promise<boolean> {
-    // send HEAD request
+    // In tree put to /resources, the top-level "/resources" should
+    // look like it exists, even though oada doesn't allow GET on /resources
+    // directly.
+    if (path === '/resources') return true;
+
+    // Otherwise, send HEAD request for resource
     const headResponse = await this.head({
       path,
     }).catch((msg) => {
