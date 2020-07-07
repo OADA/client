@@ -426,7 +426,7 @@ export class OADAClient {
     }).catch((msg) => {
       if (msg.status == 404) {
         return msg;
-      else if (msg.status == 403 && path.match(/^\/resources/)) {
+      } else if (msg.status == 403 && path.match(/^\/resources/)) {
         return { status: 404 }; // 403 is what you get on resources that don't exist (i.e. Forbidden)
       } else {
         throw new Error(`Error: ${msg.statusText}`);
