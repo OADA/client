@@ -13,7 +13,7 @@ export interface Config {
   _ws?: WebSocketClient;
 }
 
-export type Response = SocketResponse;
+export type Response<Data = Json> = SocketResponse<Data>;
 
 export interface GETRequest {
   path: string;
@@ -106,9 +106,9 @@ export class OADAClient {
    * Send GET request
    * @param request request
    */
-  public async get(request: GETRequest): Promise<Response> {
+  public async get<Data = Json>(request: GETRequest): Promise<Response<Data>> {
     // ===  Top-level GET ===
-    const topLevelResponse = await this._ws.request({
+    const topLevelResponse = await this._ws.request<Data>({
       method: "get",
       headers: {
         authorization: `Bearer ${this._token}`,

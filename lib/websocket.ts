@@ -21,12 +21,12 @@ export interface SocketRequest {
   data?: Json;
 }
 
-export interface SocketResponse {
+export interface SocketResponse<Data = Json> {
   requestId: string | Array<string>;
   status: number;
   statusText: string;
   headers: Record<string, string>;
-  data: Json;
+  data: Data;
 }
 
 export interface SocketChange {
@@ -96,18 +96,18 @@ export class WebSocketClient {
     return this._connected;
   }
 
-  public request(
+  public request<Data>(
     req: SocketRequest,
     callback?: (response: Readonly<SocketChange>) => void
-  ): Promise<SocketResponse> {
+  ): Promise<SocketResponse<Data>> {
     return this._q.add(() => this.doRequest(req, callback));
   }
 
   /** send a request to server */
-  private async doRequest(
+  private async doRequest<Data>(
     req: SocketRequest,
     callback?: (response: Readonly<SocketChange>) => void
-  ): Promise<SocketResponse> {
+  ): Promise<SocketResponse<Data>> {
     // Send object to the server.
     const requestId = req.requestId || ksuid.randomSync().string;
     req.requestId = requestId;
@@ -115,7 +115,7 @@ export class WebSocketClient {
     (await this._ws).send(JSON.stringify(req));
 
     // return Promise
-    return new Promise<SocketResponse>((resolve, reject) => {
+    return new Promise<SocketResponse<Data>>((resolve, reject) => {
       // save request
       this._requests.set(requestId, {
         resolve,
