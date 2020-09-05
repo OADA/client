@@ -1,6 +1,6 @@
 # @oada/client
 
-A lightweight client tool for interacting with an OADA-complient server
+A lightweight client tool for interacting with an OADA-compliant server
 
 | | `@oada/client` | `@oada/oada-cache` |
 | --- | --- | --- |
@@ -26,7 +26,10 @@ var connection = await client.connect({
 #### Single GET
 
 ```javascript
-var response = await connection.get({ path: '/bookmarks/test' })
+var response = await connection.get({
+  path: '/bookmarks/test',
+  timeout: 1000  // timeout in milliseconds (optional)
+})
 ```
 
 #### Recursive GET
@@ -50,7 +53,8 @@ var dataTree = {
 }
 var response = await connection.get({
   path: '/bookmarks/thing',
-  tree: dataTree
+  tree: dataTree,
+  timeout: 1000  // timeout in milliseconds (optional)
 })
 ```
 
@@ -61,7 +65,8 @@ var response = await connection.get({
   path: '/bookmarks/test',
   watchCallback: d => {
     console.log(d);
-  }
+  },
+  timeout: 1000  // timeout in milliseconds (optional)
 })
 ```
 
@@ -73,7 +78,8 @@ var response = await connection.get({
 var response = await connection.put({
   path: "/bookmarks/test",
   data: { thing: "abc" },
-  contentType: "application/json"
+  contentType: "application/json",
+  timeout: 1000  // timeout in milliseconds (optional)
 })
 ```
 
@@ -99,12 +105,16 @@ var dataTree = {
 var response = await connection.put({
   path: '/bookmarks/thing/abc/xyz/zzz',
   tree: dataTree,
-  data: { test: "something" }
+  data: { test: "something" },
+  timeout: 1000  // timeout in milliseconds (optional)
 })
 ```
 
 ### HEAD
 
 ```javascript
-var response = await connection.head({ path: '/bookmarks/test' })
+var response = await connection.head({
+  path: '/bookmarks/test',
+  timeout: 1000  // timeout in milliseconds (optional)
+})
 ```
