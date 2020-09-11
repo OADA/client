@@ -44,10 +44,16 @@ interface ActiveRequest {
   settled: boolean;
 }
 
+enum ConnectionStatus {
+    Disconnected,
+    Connecting,
+    Connected
+}
+
 export class WebSocketClient {
   private _ws: Promise<WebSocket>;
   private _domain: string;
-  private _connected: boolean;
+  private _status: ConnectionStatus;
   private _requests: Map<string, ActiveRequest>;
   private _q: PQueue;
 
@@ -57,9 +63,9 @@ export class WebSocketClient {
    * @param concurrency Number of allowed in-flight requests. Default 10.
    */
   constructor(domain: string, concurrency = 10) {
-    this._connected = false;
     this._domain = domain;
     this._requests = new Map();
+    this._status = ConnectionStatus.Connecting;
     this._ws = new Promise<WebSocket>((resolve) => {
       // create websocket connection
       const ws = new WebSocket("wss://" + this._domain, {
@@ -68,11 +74,11 @@ export class WebSocketClient {
 
       // register handlers
       ws.onopen = () => {
-        this._connected = true;
+        this._status = ConnectionStatus.Connected;
         resolve(ws);
       };
       ws.onclose = () => {
-        this._connected = false;
+        this._status = ConnectionStatus.Disconnected;
       };
       ws.onmessage = this._receive.bind(this); // explicitly pass the instance
     });
@@ -85,7 +91,7 @@ export class WebSocketClient {
 
   /** Disconnect the WebSocket connection */
   public async disconnect(): Promise<void> {
-    if (!this._connected) {
+    if (this._status == ConnectionStatus.Disconnected) {
       return;
     }
     (await this._ws).close();
@@ -93,7 +99,7 @@ export class WebSocketClient {
 
   /** Return true if connected, otherwise false */
   public isConnected(): boolean {
-    return this._connected;
+    return this._status == ConnectionStatus.Connected;
   }
 
   public request(

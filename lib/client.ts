@@ -101,9 +101,6 @@ export class OADAClient {
 
   /** Disconnect from server */
   public disconnect(): Promise<void> {
-    if (!this._ws.isConnected()) {
-      throw new Error("Not connected");
-    }
     // close
     return this._ws.disconnect();
   }
