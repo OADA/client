@@ -71,12 +71,23 @@ describe("PUT test", function () {
     ).to.be.rejected;
   });
 
-  it("Should produce an error when using a contentType parameter for which your token does not have access to read/write", async function () {
+  it("Should error when using a contentType parameter for which your token does not have access to read/write", async function () {
     return expect(
       client.put({
         path: `/bookmarks/${testName}/sometest2`,
         data: { anothertest: 123 },
         contentType: "application/vnd.oada.foobar.1+json",
+      })
+    ).to.be.rejected;
+  });
+
+  it("Should error when timeout occurs during a PUT request", async function () {
+    return expect(
+      client.put({
+        path: `/bookmarks/${testName}/sometest3`,
+        data: { anothertest: 123 },
+        contentType: "application/json",
+        timeout: 1,
       })
     ).to.be.rejected;
   });

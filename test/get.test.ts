@@ -8,7 +8,7 @@ import * as oada from "../lib/index";
 import * as config from "./config";
 import * as utils from "./utils";
 
-describe("Client test", function () {
+describe("GET test", function () {
   // Client instance
   let client: oada.OADAClient;
 
@@ -81,6 +81,21 @@ describe("Client test", function () {
     expect(response.status).to.equal(200);
     expect(response.data).to.include.keys(["_id", "_rev", "_meta"]);
     expect(response.data).to.include(testObj);
+  });
+
+  it("Should error when timeout occurs during a GET request", async function () {
+    // Prepare a resource
+    const testObj = { abc: "def" };
+    const path = `/bookmarks/${testName}/testResource3`;
+    const r = await utils.putResourceAxios(testObj, path);
+
+    // Run
+    return expect(
+      client.get({
+        path,
+        timeout: 1, // 1 ms timeout
+      })
+    ).to.be.rejected;
   });
 
   it("Should error when the root path of a 'tree' GET doesn't exist", async function () {
