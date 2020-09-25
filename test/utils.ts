@@ -2,6 +2,32 @@ import axios, { AxiosRequestConfig, AxiosPromise } from "axios";
 import ksuid from "ksuid";
 import * as config from "./config";
 
+export async function getAxios(path: string) {
+  const response = await axios({
+    method: "get",
+    url: "https://" + config.domain + path,
+    headers: {
+      Authorization: "Bearer " + config.token,
+    },
+  });
+
+  return response;
+}
+
+export async function putAxios(data: object, path: string) {
+  const response = await axios({
+    method: "put",
+    url: "https://" + config.domain + path,
+    headers: {
+      Authorization: "Bearer " + config.token,
+      "Content-Type": "application/json",
+    },
+    data,
+  });
+
+  return response;
+}
+
 export async function putResourceAxios(data: object, path: string) {
   let _id = "resources/" + ksuid.randomSync().string;
   const resource = await axios({
