@@ -309,8 +309,8 @@ export class OADAClient {
             // save a link
             linkObj =
               "_rev" in treeObj
-                ? { _id: resourceId, _type: contentType, _rev: 0 } // versioned link
-                : { _id: resourceId, _type: contentType }; // non-versioned link
+                ? { _id: resourceId, _rev: 0 } // versioned link
+                : { _id: resourceId }; // non-versioned link
             newResourcePathArray = partialPathArray.slice(); // clone
           }
         }
