@@ -19,12 +19,14 @@ export interface GETRequest {
   path: string;
   tree?: object;
   watchCallback?: (response: Readonly<Change>) => void;
+  timeout?: number;
 }
 
 export interface WatchRequest {
   path: string;
   rev?: string;
   watchCallback: (response: Readonly<Change>) => void;
+  timeout?: number;
 }
 
 export interface PUTRequest {
@@ -32,6 +34,7 @@ export interface PUTRequest {
   data: Json;
   contentType?: string;
   tree?: object;
+  timeout?: number;
 }
 
 export interface POSTRequest {
@@ -39,14 +42,17 @@ export interface POSTRequest {
   data: Json;
   contentType?: string;
   tree?: object;
+  timeout?: number;
 }
 
 export interface HEADRequest {
   path: string;
+  timeout?: number;
 }
 
 export interface DELETERequest {
   path: string;
+  timeout?: number;
 }
 
 /** Main  OADAClient class */
@@ -57,7 +63,7 @@ export class OADAClient {
   private _ws: WebSocketClient;
 
   constructor(config: Config) {
-    this._domain = config.domain.replace(/^https:\/\//,''); // help for those who can't remember if https should be there
+    this._domain = config.domain.replace(/^https:\/\//, ""); // help for those who can't remember if https should be there
     this._token = config.token || this._token;
     this._concurrency = config.concurrency || this._concurrency;
     this._ws = new WebSocketClient(this._domain, this._concurrency);
@@ -95,9 +101,6 @@ export class OADAClient {
 
   /** Disconnect from server */
   public disconnect(): Promise<void> {
-    if (!this._ws.isConnected()) {
-      throw new Error("Not connected");
-    }
     // close
     return this._ws.disconnect();
   }
@@ -108,13 +111,17 @@ export class OADAClient {
    */
   public async get(request: GETRequest): Promise<Response> {
     // ===  Top-level GET ===
-    const topLevelResponse = await this._ws.request({
-      method: "get",
-      headers: {
-        authorization: `Bearer ${this._token}`,
+    const topLevelResponse = await this._ws.request(
+      {
+        method: "get",
+        headers: {
+          authorization: `Bearer ${this._token}`,
+        },
+        path: request.path,
       },
-      path: request.path,
-    });
+      undefined, // omitting an optional parameter
+      request.timeout
+    );
 
     // ===  Recursive GET  ===
     if (request.tree) {
@@ -173,7 +180,8 @@ export class OADAClient {
           change.watchPath = request.path
           request.watchCallback(change);
         }
-      }
+      },
+      request.timeout
     );
 
     if (r.status !== 200) {
@@ -192,6 +200,7 @@ export class OADAClient {
       method: "unwatch",
       requestId: requestId,
     });
+    // TODO: add timeout
   }
 
   // GET resource recursively
@@ -301,8 +310,8 @@ export class OADAClient {
             // save a link
             linkObj =
               "_rev" in treeObj
-                ? { _id: resourceId, _type: contentType, _rev: 0 } // versioned link
-                : { _id: resourceId, _type: contentType }; // non-versioned link
+                ? { _id: resourceId, _rev: 0 } // versioned link
+                : { _id: resourceId }; // non-versioned link
             newResourcePathArray = partialPathArray.slice(); // clone
           }
         }
@@ -318,15 +327,19 @@ export class OADAClient {
         : "application/json"); // 4) Assume application/json
 
     // return PUT response
-    return this._ws.request({
-      method: "put",
-      headers: {
-        authorization: `Bearer ${this._token}`,
-        "content-type": contentType,
+    return this._ws.request(
+      {
+        method: "put",
+        headers: {
+          authorization: `Bearer ${this._token}`,
+          "content-type": contentType,
+        },
+        path: request.path,
+        data: request.data,
       },
-      path: request.path,
-      data: request.data,
-    });
+      undefined, // omitting an optional parameter
+      request.timeout
+    );
   }
 
   /**
@@ -400,7 +413,6 @@ export class OADAClient {
       });
     }
    */
-
   }
 
   /**
@@ -409,13 +421,17 @@ export class OADAClient {
    */
   public async head(request: HEADRequest): Promise<Response> {
     // return HEAD response
-    return this._ws.request({
-      method: "head",
-      headers: {
-        authorization: `Bearer ${this._token}`,
+    return this._ws.request(
+      {
+        method: "head",
+        headers: {
+          authorization: `Bearer ${this._token}`,
+        },
+        path: request.path,
       },
-      path: request.path,
-    });
+      undefined, // omitting an optional parameter
+      request.timeout
+    );
   }
 
   /**
@@ -424,13 +440,17 @@ export class OADAClient {
    */
   public async delete(request: DELETERequest): Promise<Response> {
     // return HEAD response
-    return this._ws.request({
-      method: "delete",
-      headers: {
-        authorization: `Bearer ${this._token}`,
+    return this._ws.request(
+      {
+        method: "delete",
+        headers: {
+          authorization: `Bearer ${this._token}`,
+        },
+        path: request.path,
       },
-      path: request.path,
-    });
+      undefined, // omitting an optional parameter
+      request.timeout
+    );
   }
 
   /**
@@ -460,7 +480,7 @@ export class OADAClient {
     // In tree put to /resources, the top-level "/resources" should
     // look like it exists, even though oada doesn't allow GET on /resources
     // directly.
-    if (path === '/resources') return true;
+    if (path === "/resources") return true;
 
     // Otherwise, send HEAD request for resource
     const headResponse = await this.head({

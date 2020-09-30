@@ -44,10 +44,16 @@ interface ActiveRequest {
   settled: boolean;
 }
 
+enum ConnectionStatus {
+    Disconnected,
+    Connecting,
+    Connected
+}
+
 export class WebSocketClient {
   private _ws: Promise<WebSocket>;
   private _domain: string;
-  private _connected: boolean;
+  private _status: ConnectionStatus;
   private _requests: Map<string, ActiveRequest>;
   private _q: PQueue;
 
@@ -57,9 +63,9 @@ export class WebSocketClient {
    * @param concurrency Number of allowed in-flight requests. Default 10.
    */
   constructor(domain: string, concurrency = 10) {
-    this._connected = false;
     this._domain = domain;
     this._requests = new Map();
+    this._status = ConnectionStatus.Connecting;
     this._ws = new Promise<WebSocket>((resolve) => {
       // create websocket connection
       /*
@@ -71,11 +77,11 @@ export class WebSocketClient {
 
       // register handlers
       ws.onopen = () => {
-        this._connected = true;
+        this._status = ConnectionStatus.Connected;
         resolve(ws);
       };
       ws.onclose = () => {
-        this._connected = false;
+        this._status = ConnectionStatus.Disconnected;
       };
       ws.onmessage = this._receive.bind(this); // explicitly pass the instance
     });
@@ -88,7 +94,7 @@ export class WebSocketClient {
 
   /** Disconnect the WebSocket connection */
   public async disconnect(): Promise<void> {
-    if (!this._connected) {
+    if (this._status == ConnectionStatus.Disconnected) {
       return;
     }
     (await this._ws).close();
@@ -96,20 +102,22 @@ export class WebSocketClient {
 
   /** Return true if connected, otherwise false */
   public isConnected(): boolean {
-    return this._connected;
+    return this._status == ConnectionStatus.Connected;
   }
 
   public request(
     req: SocketRequest,
-    callback?: (response: Readonly<SocketChange>) => void
+    callback?: (response: Readonly<SocketChange>) => void,
+    timeout?: number
   ): Promise<SocketResponse> {
-    return this._q.add(() => this.doRequest(req, callback));
+    return this._q.add(() => this.doRequest(req, callback, timeout));
   }
 
   /** send a request to server */
   private async doRequest(
     req: SocketRequest,
-    callback?: (response: Readonly<SocketChange>) => void
+    callback?: (response: Readonly<SocketChange>) => void,
+    timeout?: number
   ): Promise<SocketResponse> {
     // Send object to the server.
     const requestId = req.requestId || ksuid.randomSync().string;
@@ -117,8 +125,8 @@ export class WebSocketClient {
     assertOADASocketRequest(req);
     (await this._ws).send(JSON.stringify(req));
 
-    // return Promise
-    return new Promise<SocketResponse>((resolve, reject) => {
+    // Promise for request
+    const request_promise = new Promise<SocketResponse>((resolve, reject) => {
       // save request
       this._requests.set(requestId, {
         resolve,
@@ -128,6 +136,26 @@ export class WebSocketClient {
         callback,
       });
     });
+
+    if (timeout && timeout > 0) {
+      // If timeout is specified, create another promise and use Promise.race
+      const timeout_promise = new Promise<SocketResponse>((resolve, reject) => {
+        setTimeout(() => {
+          // If the original request is still pending, delete it.
+          // This is necessary to kill "zombie" requests.
+          const request = this._requests.get(requestId);
+          if (request && !request.settled) {
+            request.reject("Request timeout"); // reject request promise
+            this._requests.delete(requestId);
+          }
+          reject("Request timeout"); // reject timeout promise
+        }, timeout);
+      });
+      return Promise.race([request_promise, timeout_promise]);
+    } else {
+      // If timeout is not specified, simply return the request promise
+      return request_promise;
+    }
   }
 
   private _receive(m: WebSocket.MessageEvent) {
