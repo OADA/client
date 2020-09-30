@@ -1,6 +1,6 @@
 # @oada/client
 
-A lightweight client tool for interacting with an OADA-complient server
+A lightweight client tool for interacting with an OADA-compliant server
 
 | | `@oada/client` | `@oada/oada-cache` |
 | --- | --- | --- |

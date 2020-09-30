@@ -170,6 +170,7 @@ export class OADAClient {
       },
       (resp) => {
         for (const change of resp.change) {
+          change.watchPath = request.path
           request.watchCallback(change);
         }
       }
@@ -333,6 +334,10 @@ export class OADAClient {
    * @param request PUT request
    */
   public async post(request: POSTRequest): Promise<Response> {
+
+    request.path+='/'+ksuid.randomSync().string;
+    return this.put(request);
+    /*
     // convert string path to array (e.g., /bookmarks/abc/def -> ['bookmarks', 'abc', 'def'])
     const pathArray = utils.toArrayPath(request.path);
 
@@ -352,16 +357,50 @@ export class OADAClient {
         ? utils.getObjectAtPath(request.tree!, pathArray)["_type"] // 3) get content-type from the tree
         : "application/json"); // 4) Assume application/json
 
-    // return PUT response
-    return this._ws.request({
-      method: "post",
-      headers: {
-        authorization: `Bearer ${this._token}`,
-        "content-type": contentType,
-      },
-      path: request.path,
-      data,
-    });
+    if (request.tree && utils.getObjectAtPath(request.tree!, pathArray)['*'] && utils.getObjectAtPath(request.tree!, pathArray)['*']['_type']) {
+      //By definition, POSTing to a tree containing a * that is a resource is CASE 2 in the tree put defined above.
+      let linkObj: Json = null;
+      const treeObj = utils.getObjectAtPath(request.tree, partialPathArray);
+      const relativePathArray = pathArray;
+      const newResource = linkObj
+        ? utils.createNestedObject(linkObj, relativePathArray)
+        : {};
+      // create a new resource
+      const resourceId = await this._createResource(
+        contentType,
+        newResource
+      );
+      // save a link
+      linkObj =
+        "_rev" in treeObj
+          ? { _id: resourceId, _type: contentType, _rev: 0 } // versioned link
+          : { _id: resourceId, _type: contentType }; // non-versioned link
+      newResourcePathArray = pathArray.slice(); // clone
+
+      return this._ws.request({
+        method: "put",
+        headers: {
+          authorization: `Bearer ${this._token}`,
+          "content-type": contentType,
+        },
+        path: request.path+'/'+(resourceId.replace(/^resources\//, '')),
+        data,
+      });
+
+    } else {
+      // Not a resource? POST as normal and return the response;
+      return this._ws.request({
+        method: "post",
+        headers: {
+          authorization: `Bearer ${this._token}`,
+          "content-type": contentType,
+        },
+        path: request.path,
+        data,
+      });
+    }
+   */
+
   }
 
   /**
@@ -393,6 +432,9 @@ export class OADAClient {
       path: request.path,
     });
   }
+
+  /**
+   * Send 
 
   /** Create a new resource. Returns resource ID */
   private async _createResource(

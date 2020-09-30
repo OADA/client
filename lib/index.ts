@@ -42,4 +42,5 @@ export interface Change {
   body: Json;
   path: string;
   resource_id: string;
+  watchPath?: string;
 }

@@ -62,9 +62,12 @@ export class WebSocketClient {
     this._requests = new Map();
     this._ws = new Promise<WebSocket>((resolve) => {
       // create websocket connection
+      /*
       const ws = new WebSocket("wss://" + this._domain, {
         origin: "https://" + this._domain,
       });
+     */
+      const ws = new WebSocket("wss://" + this._domain);
 
       // register handlers
       ws.onopen = () => {
@@ -171,6 +174,7 @@ export class WebSocketClient {
               path_leftover: msg.path_leftover,
               change: msg.change.map(({ body, ...rest }) => {
                 return { ...rest, body: body as Json };
+                //return { ...rest, watchPath: request.path, body: body as Json };
               }),
             };
 
