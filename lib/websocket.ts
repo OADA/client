@@ -16,7 +16,15 @@ import { Json, Change } from ".";
 export interface SocketRequest {
   requestId?: string;
   path: string;
-  method: "head" | "get" | "put" | "post" | "delete" | "watch" | "unwatch";
+  method:
+    | "head"
+    | "get"
+    | "put"
+    | "post"
+    | "delete"
+    | "watch"
+    | "unwatch"
+    | "ping";
   headers: Record<string, string>;
   data?: Json;
 }
@@ -45,9 +53,9 @@ interface ActiveRequest {
 }
 
 enum ConnectionStatus {
-    Disconnected,
-    Connecting,
-    Connected
+  Disconnected,
+  Connecting,
+  Connected,
 }
 
 export class WebSocketClient {
@@ -57,16 +65,73 @@ export class WebSocketClient {
   private _requests: Map<string, ActiveRequest>;
   private _q: PQueue;
 
+  private _pingInterval: number;
+  private _timeoutTimerID: ReturnType<typeof setTimeout>;
+  private _pingTimerID: ReturnType<typeof setTimeout>;
+
   /**
    * Constructor
    * @param domain Domain. E.g., www.example.com
    * @param concurrency Number of allowed in-flight requests. Default 10.
+   * @param pingInterval Ping message interval to check connection. Default 60000 ms.
    */
-  constructor(domain: string, concurrency = 10) {
+  constructor(domain: string, concurrency = 10, pingInterval = 60000) {
     this._domain = domain;
     this._requests = new Map();
+    this._q = new PQueue({ concurrency });
+    this._q.on("active", () => {
+      trace(`WS Queue. Size: ${this._q.size} pending: ${this._q.pending}`);
+    });
     this._status = ConnectionStatus.Connecting;
-    this._ws = new Promise<WebSocket>((resolve) => {
+    this._ws = this._connect();
+    this._pingInterval = pingInterval;
+
+    // Set up ping message timer
+    this._pingTimerID = setTimeout(
+      this._sendPing.bind(this),
+      this._pingInterval
+    );
+
+    // Set up reconnecting timer
+    this._timeoutTimerID = setTimeout(
+      this._reconnect.bind(this),
+      this._pingInterval + 5000
+    ); // Reconnect 5 sec after ping if no response
+  }
+
+  private _sendPing(): void {
+    // Send "ping" message
+    const pingRequest: SocketRequest = {
+      method: "ping",
+      headers: { authorization: "" },
+      path: "",
+    };
+    this.request(pingRequest);
+  }
+
+  private _resetReconnectTimers(): void {
+    // Reset timers
+    clearTimeout(this._timeoutTimerID);
+    clearTimeout(this._pingTimerID);
+    this._pingTimerID = setTimeout(
+      this._sendPing.bind(this),
+      this._pingInterval
+    );
+    this._timeoutTimerID = setTimeout(
+      this._reconnect.bind(this),
+      this._pingInterval + 5000
+    ); // Reconnect 5 sec after ping if no response
+  }
+
+  private _reconnect(): void {
+    // Reconnect
+    this._ws = this._connect();
+    this._resetReconnectTimers();
+  }
+
+  private _connect(): Promise<WebSocket> {
+    this._status = ConnectionStatus.Connecting;
+    return new Promise<WebSocket>((resolve) => {
       // create websocket connection
       const ws = new WebSocket("wss://" + this._domain);
 
@@ -79,11 +144,6 @@ export class WebSocketClient {
         this._status = ConnectionStatus.Disconnected;
       };
       ws.onmessage = this._receive.bind(this); // explicitly pass the instance
-    });
-
-    this._q = new PQueue({ concurrency });
-    this._q.on("active", () => {
-      trace(`WS Queue. Size: ${this._q.size} pending: ${this._q.pending}`);
     });
   }
 
@@ -162,6 +222,9 @@ export class WebSocketClient {
   }
 
   private _receive(m: WebSocket.MessageEvent) {
+    // Reset timeout timer
+    this._resetReconnectTimers();
+
     try {
       const msg = JSON.parse(m.data.toString());
 

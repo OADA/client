@@ -11,6 +11,7 @@ export interface Config {
   token?: string;
   concurrency?: number;
   _ws?: WebSocketClient;
+  pingInterval?: number;
 }
 
 export type Response = SocketResponse;
@@ -67,7 +68,11 @@ export class OADAClient {
     this._domain = config.domain.replace(/^https:\/\//, ""); // help for those who can't remember if https should be there
     this._token = config.token || this._token;
     this._concurrency = config.concurrency || this._concurrency;
-    this._ws = new WebSocketClient(this._domain, this._concurrency);
+    this._ws = new WebSocketClient(
+      this._domain,
+      this._concurrency,
+      config.pingInterval
+    );
   }
 
   /**
