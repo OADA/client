@@ -63,3 +63,9 @@ export function createNestedObject(
     return newObj;
   }, obj);
 }
+
+// Return delay promise
+// Reference: https://gist.github.com/joepie91/2664c85a744e6bd0629c#gistcomment-3082531
+export function delay(ms: number) {
+  return new Promise((_) => setTimeout(_, ms));
+}

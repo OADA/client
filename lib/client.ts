@@ -33,6 +33,7 @@ export interface PUTRequest {
   path: string;
   data: Json;
   contentType?: string;
+  revIfMatch?: number; // if-match
   tree?: object;
   timeout?: number;
 }
@@ -269,6 +270,8 @@ export class OADAClient {
     const pathArray = utils.toArrayPath(request.path);
 
     if (request.tree) {
+      // Retry counter
+      let retryCount = 0;
       // link object (eventually substituted by an actual link object)
       let linkObj: Json = null;
       let newResourcePathArray: Array<string> = [];
@@ -282,15 +285,39 @@ export class OADAClient {
           const contentType = treeObj["_type"];
           const partialPath = utils.toStringPath(partialPathArray);
           // check if resource already exists on the remote server
-          if (await this._resourceExists(partialPath)) {
+          const resourceCheckResult = await this._resourceExists(partialPath);
+          if (resourceCheckResult.exist) {
             // CASE 1: resource exists on server.
             // simply create a link using PUT request
             if (linkObj && newResourcePathArray.length > 0) {
-              await this.put({
+              const linkPutResponse = await this.put({
                 path: utils.toStringPath(newResourcePathArray),
                 contentType,
                 data: linkObj,
+                //revIfMatch: resourceCheckResult.rev, // Ensure the resource has not been modified (opportunistic lock)
+                revIfMatch: 1,
+              }).catch((msg) => {
+                if (msg.status == 412) {
+                  return msg;
+                } else {
+                  throw new Error(`Error: ${msg.statusText}`);
+                }
               });
+
+              // Handle return code 412 (If-Match failed)
+              if (linkPutResponse.status == 412) {
+                // Retry with exponential backoff
+                if (retryCount++ < 5) {
+                  await utils.delay(
+                    1000 * (retryCount * retryCount + Math.random())
+                  );
+                  // Reset loop counter and do tree construction again.
+                  i = pathArray.length - 1;
+                  continue;
+                } else {
+                  throw Error("If-match failed.");
+                }
+              }
             }
             // We hit a resource that already exists. No need to further traverse the tree.
             break;
@@ -332,6 +359,9 @@ export class OADAClient {
         headers: {
           authorization: `Bearer ${this._token}`,
           "content-type": contentType,
+          ...(request.revIfMatch && {
+            "if-match": request.revIfMatch.toString(),
+          }), // Add if-match header if revIfMatch is provided
         },
         path: request.path,
         data: request.data,
@@ -439,11 +469,15 @@ export class OADAClient {
   }
 
   /** check if the specified path exists. Returns boolean value. */
-  private async _resourceExists(path: string): Promise<boolean> {
+  private async _resourceExists(
+    path: string
+  ): Promise<{ exist: boolean; rev?: number }> {
     // In tree put to /resources, the top-level "/resources" should
     // look like it exists, even though oada doesn't allow GET on /resources
     // directly.
-    if (path === "/resources") return true;
+    if (path === "/resources") {
+      return { exist: true };
+    }
 
     // Otherwise, send HEAD request for resource
     const headResponse = await this.head({
@@ -459,9 +493,9 @@ export class OADAClient {
     });
     // check status value
     if (headResponse.status == 200) {
-      return true;
+      return { exist: true, rev: headResponse.headers["x-oada-rev"] };
     } else if (headResponse.status == 404) {
-      return false;
+      return { exist: false };
     } else {
       throw Error("Status code is neither 200 nor 404.");
     }
