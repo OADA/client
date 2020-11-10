@@ -294,8 +294,7 @@ export class OADAClient {
                 path: utils.toStringPath(newResourcePathArray),
                 contentType,
                 data: linkObj,
-                //revIfMatch: resourceCheckResult.rev, // Ensure the resource has not been modified (opportunistic lock)
-                revIfMatch: 1,
+                revIfMatch: resourceCheckResult.rev, // Ensure the resource has not been modified (opportunistic lock)
               }).catch((msg) => {
                 if (msg.status == 412) {
                   return msg;
