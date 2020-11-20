@@ -68,9 +68,7 @@ export class WebSocketClient {
     this._status = ConnectionStatus.Connecting;
     this._ws = new Promise<WebSocket>((resolve) => {
       // create websocket connection
-      const ws = new WebSocket("wss://" + this._domain, {
-        origin: "https://" + this._domain,
-      });
+      const ws = new WebSocket("wss://" + this._domain);
 
       // register handlers
       ws.onopen = () => {
