@@ -14,8 +14,8 @@ A lightweight client tool for interacting with an OADA-compliant server
 ### Connect
 
 ```javascript
-var client = require("@oada/client")
-var connection = await client.connect({
+const client = require("@oada/client")
+const connection = await client.connect({
   domain: "api.oada.com",
   token: "abc"
 })
@@ -26,7 +26,7 @@ var connection = await client.connect({
 #### Single GET
 
 ```javascript
-var response = await connection.get({
+const response = await connection.get({
   path: '/bookmarks/test',
   timeout: 1000  // timeout in milliseconds (optional)
 })
@@ -35,7 +35,7 @@ var response = await connection.get({
 #### Recursive GET
 
 ``` javascript
-var dataTree = {
+const dataTree = {
   "bookmarks": {
     "_type": "application/vnd.oada.bookmarks.1+json",
     "_rev": 0,
@@ -51,7 +51,7 @@ var dataTree = {
     }
   }
 }
-var response = await connection.get({
+const response = await connection.get({
   path: '/bookmarks/thing',
   tree: dataTree,
   timeout: 1000  // timeout in milliseconds (optional)
@@ -60,8 +60,9 @@ var response = await connection.get({
 
 #### Watch
 
+A watch request can be issued by passing a callback function to `watchCallback` argument of a GET request.
 ```javascript
-var response = await connection.get({
+const response = await connection.get({
   path: '/bookmarks/test',
   watchCallback: d => {
     console.log(d);
@@ -70,12 +71,29 @@ var response = await connection.get({
 })
 ```
 
+Alternatively, one could explicitly send a `watch` request as follows.
+```javascript
+const requestId = await connection.watch({
+  path: '/bookmarks/test',
+  rev: 1, // optional
+  watchCallback: d => {
+    console.log(d);
+  },
+  timeout: 1000  // timeout in milliseconds (optional)
+})
+```
+
+To unwatch a resource, use the `unwatch` request.
+```javascript
+const response = await connection.unwatch(requestId);
+```
+
 ### PUT
 
 #### Single PUT
 
 ```javascript
-var response = await connection.put({
+const response = await connection.put({
   path: "/bookmarks/test",
   data: { thing: "abc" },
   contentType: "application/json",
@@ -86,7 +104,7 @@ var response = await connection.put({
 #### Tree PUT
 
 ``` javascript
-var dataTree = {
+const dataTree = {
   "bookmarks": {
     "_type": "application/vnd.oada.bookmarks.1+json",
     "_rev": 0,
@@ -102,7 +120,7 @@ var dataTree = {
     }
   }
 }
-var response = await connection.put({
+const response = await connection.put({
   path: '/bookmarks/thing/abc/xyz/zzz',
   tree: dataTree,
   data: { test: "something" },
@@ -113,7 +131,7 @@ var response = await connection.put({
 ### HEAD
 
 ```javascript
-var response = await connection.head({
+const response = await connection.head({
   path: '/bookmarks/test',
   timeout: 1000  // timeout in milliseconds (optional)
 })
