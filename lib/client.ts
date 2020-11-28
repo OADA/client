@@ -106,6 +106,11 @@ export class OADAClient {
     return this._ws.disconnect();
   }
 
+  /** Wait for the connection to open */
+  public awaitConnection(): Promise<void> {
+    return this._ws.awaitConnection();
+  }
+
   /**
    * Send GET request
    * @param request request

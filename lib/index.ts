@@ -7,7 +7,12 @@ export function createInstance(config: Config): OADAClient {
 
 /** Create a new instance and wrap it with Promise */
 export async function connect(config: Config): Promise<OADAClient> {
-  return new OADAClient(config);
+  // Create an instance of client and start connection
+  const client = new OADAClient(config);
+  // Wait for the connection to open
+  await client.awaitConnection();
+  // Return the instance
+  return client;
 }
 
 export {
