@@ -133,6 +133,8 @@ export class WebSocketClient {
         resolve,
         reject,
         settled: false,
+        /* If this is a watch request, set "persistent" flag to true so
+           this request will not get deleted after the first response */
         persistent: callback ? true : false,
         callback,
       });
@@ -175,7 +177,7 @@ export class WebSocketClient {
         let request = this._requests.get(requestId);
         if (request) {
           if (isOADASocketResponse(msg)) {
-            if (!request.callback) {
+            if (!request.persistent) {
               this._requests.delete(requestId);
             }
 
