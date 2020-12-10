@@ -1,4 +1,5 @@
 import WebSocket = require("isomorphic-ws");
+import ReconnectingWebSocket from "reconnecting-websocket";
 import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
@@ -45,13 +46,13 @@ interface ActiveRequest {
 }
 
 enum ConnectionStatus {
-    Disconnected,
-    Connecting,
-    Connected
+  Disconnected,
+  Connecting,
+  Connected,
 }
 
 export class WebSocketClient {
-  private _ws: Promise<WebSocket>;
+  private _ws: Promise<ReconnectingWebSocket>;
   private _domain: string;
   private _status: ConnectionStatus;
   private _requests: Map<string, ActiveRequest>;
@@ -66,16 +67,20 @@ export class WebSocketClient {
     this._domain = domain;
     this._requests = new Map();
     this._status = ConnectionStatus.Connecting;
-    this._ws = new Promise<WebSocket>((resolve) => {
+    this._ws = new Promise<ReconnectingWebSocket>((resolve) => {
       // create websocket connection
-      const ws = new WebSocket("wss://" + this._domain);
+      const ws = new ReconnectingWebSocket("wss://" + this._domain, [], {
+        WebSocket,
+      });
 
       // register handlers
       ws.onopen = () => {
+        trace("Connection opened.");
         this._status = ConnectionStatus.Connected;
         resolve(ws);
       };
       ws.onclose = () => {
+        trace("Connection closed.");
         this._status = ConnectionStatus.Disconnected;
       };
       ws.onmessage = this._receive.bind(this); // explicitly pass the instance
@@ -161,7 +166,7 @@ export class WebSocketClient {
     }
   }
 
-  private _receive(m: WebSocket.MessageEvent) {
+  private _receive(m: any) {
     try {
       const msg = JSON.parse(m.data.toString());
 
