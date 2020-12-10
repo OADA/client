@@ -1,5 +1,6 @@
 import WebSocket = require("isomorphic-ws");
 import ReconnectingWebSocket from "reconnecting-websocket";
+import { EventEmitter } from "events";
 import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
@@ -51,7 +52,7 @@ enum ConnectionStatus {
   Connected,
 }
 
-export class WebSocketClient {
+export class WebSocketClient extends EventEmitter {
   private _ws: Promise<ReconnectingWebSocket>;
   private _domain: string;
   private _status: ConnectionStatus;
@@ -64,6 +65,7 @@ export class WebSocketClient {
    * @param concurrency Number of allowed in-flight requests. Default 10.
    */
   constructor(domain: string, concurrency = 10) {
+    super();
     this._domain = domain;
     this._requests = new Map();
     this._status = ConnectionStatus.Connecting;
@@ -78,10 +80,12 @@ export class WebSocketClient {
         trace("Connection opened.");
         this._status = ConnectionStatus.Connected;
         resolve(ws);
+        this.emit("open");
       };
       ws.onclose = () => {
         trace("Connection closed.");
         this._status = ConnectionStatus.Disconnected;
+        this.emit("close");
       };
       ws.onmessage = this._receive.bind(this); // explicitly pass the instance
     });
