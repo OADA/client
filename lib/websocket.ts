@@ -2,6 +2,7 @@ import WebSocket = require("isomorphic-ws");
 import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
+import { Watchdog } from "./watchdog";
 
 const trace = debug("@oada/client:ws:trace");
 const error = debug("@oada/client:ws:error");
@@ -64,10 +65,7 @@ export class WebSocketClient {
   private _status: ConnectionStatus;
   private _requests: Map<string, ActiveRequest>;
   private _q: PQueue;
-
-  private _pingInterval: number;
-  private _timeoutTimerID: ReturnType<typeof setTimeout>;
-  private _pingTimerID: ReturnType<typeof setTimeout>;
+  private _watchdog?: Watchdog;
 
   /**
    * Constructor
@@ -84,49 +82,17 @@ export class WebSocketClient {
     });
     this._status = ConnectionStatus.Connecting;
     this._ws = this._connect();
-    this._pingInterval = pingInterval;
 
-    // Set up ping message timer
-    this._pingTimerID = setTimeout(
-      this._sendPing.bind(this),
-      this._pingInterval
-    );
-
-    // Set up reconnecting timer
-    this._timeoutTimerID = setTimeout(
-      this._reconnect.bind(this),
-      this._pingInterval + 5000
-    ); // Reconnect 5 sec after ping if no response
-  }
-
-  private _sendPing(): void {
-    // Send "ping" message
-    const pingRequest: SocketRequest = {
-      method: "ping",
-      headers: { authorization: "" },
-      path: "",
-    };
-    this.request(pingRequest);
-  }
-
-  private _resetReconnectTimers(): void {
-    // Reset timers
-    clearTimeout(this._timeoutTimerID);
-    clearTimeout(this._pingTimerID);
-    this._pingTimerID = setTimeout(
-      this._sendPing.bind(this),
-      this._pingInterval
-    );
-    this._timeoutTimerID = setTimeout(
-      this._reconnect.bind(this),
-      this._pingInterval + 5000
-    ); // Reconnect 5 sec after ping if no response
-  }
-
-  private _reconnect(): void {
-    // Reconnect
-    this._ws = this._connect();
-    this._resetReconnectTimers();
+    // Start watchdog if pingInterval is specified
+    if (pingInterval) {
+      this._watchdog = new Watchdog(
+        this,
+        () => {
+          console.log("Should reconnect now!");
+        },
+        pingInterval
+      );
+    }
   }
 
   private _connect(): Promise<WebSocket> {
@@ -222,8 +188,10 @@ export class WebSocketClient {
   }
 
   private _receive(m: WebSocket.MessageEvent) {
-    // Reset timeout timer
-    this._resetReconnectTimers();
+    // Reset watchdog timer
+    if (this._watchdog) {
+      this._watchdog.resetTimer();
+    }
 
     try {
       const msg = JSON.parse(m.data.toString());
