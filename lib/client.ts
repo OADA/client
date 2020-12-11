@@ -1,10 +1,14 @@
 import ksuid from "ksuid";
+import debug from "debug";
 import * as utils from "./utils";
 import { WebSocketClient } from "./websocket";
 
 import { SocketResponse } from "./websocket";
 
 import { Json, Change } from ".";
+
+const trace = debug("@oada/client:client:trace");
+const error = debug("@oada/client:client:error");
 
 export interface Config {
   domain: string;
@@ -62,12 +66,39 @@ export class OADAClient {
   private _domain = "";
   private _concurrency = 1;
   private _ws: WebSocketClient;
+  private _watchList: Map<string, WatchRequest>; // currentRequestId -> WatchRequest
+  private _renewedReqIdMap: Map<string, string>; // currentRequestId -> originalRequestId
 
   constructor(config: Config) {
     this._domain = config.domain.replace(/^https:\/\//, ""); // help for those who can't remember if https should be there
     this._token = config.token || this._token;
     this._concurrency = config.concurrency || this._concurrency;
+    this._watchList = new Map<string, WatchRequest>();
+    this._renewedReqIdMap = new Map<string, string>();
     this._ws = new WebSocketClient(this._domain, this._concurrency);
+
+    /* Register handler for the "open" event.
+       This event is emitted when 1) this is an initial connection, or 2) the websocket is reconnected.
+       For the initial connection, no special action is needed.
+       For the reconnection case, we need to re-establish the watches. */
+    this._ws.on("open", async () => {
+      const prevWatchList = this._watchList;
+      this._watchList = new Map<string, WatchRequest>();
+      for (const [oldRequestId, watchRequest] of prevWatchList.entries()) {
+        // Re-establish watch
+        const newRequestId = await this.watch(watchRequest);
+        // If requestId had been already renewed, keep the original requestId so that unwatch() can use that
+        const originalRequestId = this._renewedReqIdMap.get(oldRequestId);
+        if (originalRequestId) {
+          this._renewedReqIdMap.set(newRequestId, originalRequestId);
+          this._renewedReqIdMap.delete(oldRequestId);
+        } else {
+          this._renewedReqIdMap.set(newRequestId, oldRequestId);
+        }
+        // Debug message
+        trace(`Update requestId: ${oldRequestId} -> ${newRequestId}`);
+      }
+    });
   }
 
   /**
@@ -184,6 +215,22 @@ export class OADAClient {
       (resp) => {
         for (const change of resp.change) {
           request.watchCallback(change);
+          if (change.path === "") {
+            const watchRequest = this._watchList.get(resp.requestId[0]);
+            if (watchRequest) {
+              const newRev = change.body?.["_rev"];
+              if (newRev) {
+                watchRequest.rev = newRev;
+                trace(
+                  `Updated the rev of request ${resp.requestId[0]} to ${newRev}`
+                );
+              } else {
+                throw new Error("The _rev field is missing.");
+              }
+            } else {
+              throw new Error("The original watch request does not exist.");
+            }
+          }
         }
       },
       request.timeout
@@ -193,19 +240,51 @@ export class OADAClient {
       throw new Error("Watch request failed!");
     }
 
-    return Array.isArray(r.requestId) ? r.requestId[0] : r.requestId; // server should always return an array requestId
+    // Get requestId from the response
+    const requestId: string = Array.isArray(r.requestId)
+      ? r.requestId[0]
+      : r.requestId; // server should always return an array requestId
+
+    // Save watch request
+    this._watchList.set(requestId, request);
+
+    return requestId;
   }
 
   public async unwatch(requestId: string): Promise<Response> {
-    return await this._ws.request({
+    // Retrieve the original requestId if it had been renewed
+    // TODO: better way to do this?
+    let activeRequestId = requestId;
+    for (const [
+      currentRequestId,
+      originalRequestId,
+    ] of this._renewedReqIdMap.entries()) {
+      if (originalRequestId === requestId) {
+        activeRequestId = currentRequestId;
+      }
+    }
+
+    trace(`Unwatch requestId=${requestId}, actual=${activeRequestId}`);
+
+    const response = await this._ws.request({
       path: "",
       headers: {
         authorization: "",
       },
       method: "unwatch",
-      requestId: requestId,
+      requestId: activeRequestId,
     });
     // TODO: add timeout
+
+    // Remove watch state info (this should always exist)
+    if (!this._watchList.delete(activeRequestId)) {
+      throw new Error("Could not find watch state information.");
+    }
+
+    // Remove renewed requestId data (this may not exist if requestId has not been renewed)
+    this._renewedReqIdMap.delete(activeRequestId);
+
+    return response;
   }
 
   // GET resource recursively

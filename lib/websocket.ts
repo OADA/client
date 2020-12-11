@@ -202,14 +202,12 @@ export class WebSocketClient extends EventEmitter {
                 throw new Error("Request failed");
               }
             }
-
-            // run callback function
           } else if (request.callback && isOADASocketChange(msg)) {
             assertOADAChangeV2(msg.change);
 
             // TODO: Would be nice if @oad/types know "unkown" as Json
             const m: SocketChange = {
-              requestId: msg.requestId,
+              requestId: [requestId],
               resourceId: msg.resourceId,
               path_leftover: msg.path_leftover,
               change: msg.change.map(({ body, ...rest }) => {
