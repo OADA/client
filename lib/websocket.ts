@@ -100,12 +100,6 @@ export class WebSocketClient {
     return this._status == ConnectionStatus.Connected;
   }
 
-  /** Wait for the connection to open */
-  public async awaitConnection(): Promise<void> {
-    // Wait for _ws to resolve and return
-    await this._ws;
-  }
-
   public request(
     req: SocketRequest,
     callback?: (response: Readonly<SocketChange>) => void,
