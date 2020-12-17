@@ -8,6 +8,8 @@ import debug from "debug";
 const trace = debug("@oada/client:ws:trace");
 const error = debug("@oada/client:ws:error");
 
+import { ConnectionRequest, ConnectionResponse, ConnectionChange, Connection } from './client';
+
 import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
 import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response";
 import { is as isOADASocketChange } from "@oada/types/oada/websockets/change";
@@ -15,33 +17,10 @@ import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2";
 
 import { Json, Change } from ".";
 
-export interface SocketRequest {
-  requestId?: string;
-  path: string;
-  method: "head" | "get" | "put" | "post" | "delete" | "watch" | "unwatch";
-  headers: Record<string, string>;
-  data?: Json;
-}
-
-export interface SocketResponse {
-  requestId: string | Array<string>;
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-  data: Json;
-}
-
-export interface SocketChange {
-  requestId: Array<string>;
-  resourceId: string;
-  path_leftover: string | Array<string>;
-  change: Array<Change>;
-}
-
 interface ActiveRequest {
   resolve: Function;
   reject: Function;
-  callback?: (response: Readonly<SocketChange>) => void;
+  callback?: (response: Readonly<ConnectionChange>) => void;
   persistent: boolean;
   settled: boolean;
 }
@@ -52,7 +31,7 @@ enum ConnectionStatus {
   Connected,
 }
 
-export class WebSocketClient extends EventEmitter {
+export class WebSocketClient extends EventEmitter implements Connection {
   private _ws: Promise<ReconnectingWebSocket>;
   private _domain: string;
   private _status: ConnectionStatus;
@@ -116,19 +95,19 @@ export class WebSocketClient extends EventEmitter {
   }
 
   public request(
-    req: SocketRequest,
-    callback?: (response: Readonly<SocketChange>) => void,
+    req: ConnectionRequest,
+    callback?: (response: Readonly<ConnectionChange>) => void,
     timeout?: number
-  ): Promise<SocketResponse> {
+  ): Promise<ConnectionResponse> {
     return this._q.add(() => this.doRequest(req, callback, timeout));
   }
 
   /** send a request to server */
   private async doRequest(
-    req: SocketRequest,
-    callback?: (response: Readonly<SocketChange>) => void,
+    req: ConnectionRequest,
+    callback?: (response: Readonly<ConnectionChange>) => void,
     timeout?: number
-  ): Promise<SocketResponse> {
+  ): Promise<ConnectionResponse> {
     // Send object to the server.
     const requestId = req.requestId || ksuid.randomSync().string;
     req.requestId = requestId;
@@ -136,7 +115,7 @@ export class WebSocketClient extends EventEmitter {
     (await this._ws).send(JSON.stringify(req));
 
     // Promise for request
-    const request_promise = new Promise<SocketResponse>((resolve, reject) => {
+    const request_promise = new Promise<ConnectionResponse>((resolve, reject) => {
       // save request
       this._requests.set(requestId, {
         resolve,
@@ -151,7 +130,7 @@ export class WebSocketClient extends EventEmitter {
 
     if (timeout && timeout > 0) {
       // If timeout is specified, create another promise and use Promise.race
-      const timeout_promise = new Promise<SocketResponse>((resolve, reject) => {
+      const timeout_promise = new Promise<ConnectionResponse>((resolve, reject) => {
         setTimeout(() => {
           // If the original request is still pending, delete it.
           // This is necessary to kill "zombie" requests.
@@ -206,7 +185,7 @@ export class WebSocketClient extends EventEmitter {
             assertOADAChangeV2(msg.change);
 
             // TODO: Would be nice if @oad/types know "unkown" as Json
-            const m: SocketChange = {
+            const m: ConnectionChange = {
               requestId: [requestId],
               resourceId: msg.resourceId,
               path_leftover: msg.path_leftover,

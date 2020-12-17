@@ -1,14 +1,15 @@
-import chai from "chai";
-const chaiAsPromised = require("chai-as-promised");
-chai.use(chaiAsPromised);
-const expect = chai.expect;
+import { expect, use } from "chai";
 import "mocha";
-import ksuid from "ksuid";
 import * as oada from "../lib/index";
 import * as config from "./config";
 import * as utils from "./utils";
+const ksuid = require("ksuid");
+use(require("chai-as-promised"));
 
-describe("GET test", function () {
+['ws', 'http'].forEach(connection => {
+if (connection !== 'ws' && connection !== 'http') return;
+
+describe(connection+" GET test", function () {
   // Client instance
   let client: oada.OADAClient;
 
@@ -25,6 +26,7 @@ describe("GET test", function () {
     client = await oada.connect({
       domain: config.domain,
       token: config.token,
+      connection,
     });
   });
 
@@ -104,7 +106,7 @@ describe("GET test", function () {
         path: "/bookmarks/test/testTwo",
         tree: testTree,
       })
-    ).to.be.rejected;
+    ).to.eventually.be.rejected;
   });
 
   it("Should allow you to get resources based on a tree", async function () {
@@ -130,7 +132,6 @@ describe("GET test", function () {
       path: basePath,
       tree: testTree,
     });
-
     // Check
     expect(response.status).to.equal(200);
     expect(response.data).to.include.keys(["_id", "_rev", "_type", "_meta"]);
@@ -145,4 +146,6 @@ describe("GET test", function () {
       "aaa.bbb.index-one.ccc.index-two.bob.index-three.2018"
     );
   });
+});
+
 });
