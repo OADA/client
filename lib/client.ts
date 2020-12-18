@@ -1,23 +1,55 @@
 import ksuid from "ksuid";
 import debug from "debug";
 import * as utils from "./utils";
+import { EventEmitter } from 'events';
 import { WebSocketClient } from "./websocket";
-
-import { SocketResponse } from "./websocket";
+import { HttpClient } from "./http";
 
 import { Json, Change } from ".";
 
 const trace = debug("@oada/client:client:trace");
 const error = debug("@oada/client:client:error");
 
+export interface ConnectionRequest {
+  requestId?: string;
+  path: string;
+  method: "head" | "get" | "put" | "post" | "delete" | "watch" | "unwatch";
+  headers: Record<string, string>;
+  data?: Json;
+}
+
+export interface ConnectionResponse {
+  requestId: string | Array<string>;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  data: Json;
+}
+
+export interface ConnectionChange {
+  requestId: Array<string>;
+  resourceId: string;
+  path_leftover: string | Array<string>;
+  change: Array<Change>;
+}
+
+
+export interface Connection extends EventEmitter {
+  disconnect(): Promise<void>;
+  isConnected(): boolean;
+  awaitConnection(): Promise<void>;
+  request(req: ConnectionRequest, callback?: (response: Readonly<ConnectionChange>) => void, timeout?: number): Promise<ConnectionResponse>;
+}
+
 export interface Config {
   domain: string;
   token?: string;
   concurrency?: number;
-  _ws?: WebSocketClient;
+  connection?: 'ws'  | 'http' | Connection;
 }
 
-export type Response = SocketResponse;
+
+export type Response = ConnectionResponse;
 
 export interface GETRequest {
   path: string;
@@ -65,7 +97,7 @@ export class OADAClient {
   private _token = "";
   private _domain = "";
   private _concurrency = 1;
-  private _ws: WebSocketClient;
+  private _ws: Connection;
   private _watchList: Map<string, WatchRequest>; // currentRequestId -> WatchRequest
   private _renewedReqIdMap: Map<string, string>; // currentRequestId -> originalRequestId
 
@@ -75,7 +107,13 @@ export class OADAClient {
     this._concurrency = config.concurrency || this._concurrency;
     this._watchList = new Map<string, WatchRequest>();
     this._renewedReqIdMap = new Map<string, string>();
-    this._ws = new WebSocketClient(this._domain, this._concurrency);
+    if (!config.connection || config.connection === 'ws') {
+      this._ws = new WebSocketClient(this._domain, this._concurrency);
+    } else if (config.connection === 'http') {
+      this._ws = new HttpClient(this._domain, this._token, this._concurrency); 
+    } else { // Otherwise, they gave us a WebSocketClient to use
+      this._ws = (config.connection as Connection);
+    }
 
     /* Register handler for the "open" event.
        This event is emitted when 1) this is an initial connection, or 2) the websocket is reconnected.
@@ -111,7 +149,7 @@ export class OADAClient {
       token: token,
       concurrency: this._concurrency,
       // Reuse existing WS connection
-      _ws: this._ws,
+      connection: this._ws,
     });
 
     return c;
@@ -571,7 +609,7 @@ export class OADAClient {
       } else if (msg.status == 403 && path.match(/^\/resources/)) {
         return { status: 404 }; // 403 is what you get on resources that don't exist (i.e. Forbidden)
       } else {
-        throw new Error(`Error: ${msg.statusText}`);
+        throw new Error(`Error: head for resource returned ${msg.statusText || msg}`);
       }
     });
     // check status value

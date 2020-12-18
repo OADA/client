@@ -1,14 +1,15 @@
-import chai from "chai";
-const chaiAsPromised = require("chai-as-promised");
-chai.use(chaiAsPromised);
-const expect = chai.expect;
+import { expect, use } from "chai";
 import "mocha";
-import ksuid from "ksuid";
 import * as oada from "../lib/index";
 import * as config from "./config";
 import * as utils from "./utils";
+const ksuid = require("ksuid");
+use(require('chai-as-promised'));
 
-describe("PUT test", function () {
+['ws', 'http'].forEach(connection => {
+if (connection !== 'ws' && connection !== 'http') return;
+
+describe(`${connection}: PUT test`, function () {
   // Client instance
   let client: oada.OADAClient;
 
@@ -25,6 +26,7 @@ describe("PUT test", function () {
     client = await oada.connect({
       domain: config.domain,
       token: config.token,
+      connection
     });
   });
 
@@ -219,4 +221,6 @@ describe("PUT test", function () {
     expect(response.data).to.not.have.nested.property("test._id");
     expect(response.data).to.not.have.nested.property("test._rev");
   });
+});
+
 });
