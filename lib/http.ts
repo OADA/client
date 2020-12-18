@@ -3,7 +3,6 @@ import { EventEmitter } from "events";
 import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
-import oerror from '@overleaf/o-error';
 
 const trace = debug("@oada/client:http:trace");
 const warn = debug("@oada/client:http:warn");

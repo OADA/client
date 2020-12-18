@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,6 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@oada/types": "^1.0.6",
-    "@overleaf/o-error": "^3.2.0",
     "cross-fetch": "^3.0.6",
     "debug": "^4.1.1",
     "isomorphic-ws": "^4.0.1",
