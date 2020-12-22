@@ -22,6 +22,11 @@ export {
   PUTRequest,
   HEADRequest,
   WatchRequest,
+  // These are for developing an external connection (like google apps script):
+  ConnectionRequest,
+  ConnectionResponse,
+  ConnectionChange,
+  Connection
 } from "./client";
 
 export type Json =
