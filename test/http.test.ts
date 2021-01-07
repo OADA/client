@@ -2,7 +2,7 @@ import { use, expect } from "chai";
 import "mocha";
 import * as oada from "../lib/index";
 import * as config from "./config";
-use(require('chai-as-promised'));
+use(require("chai-as-promised"));
 
 const generateRandomStr = () => {
   return Math.random().toString(36).substring(7);
@@ -13,7 +13,7 @@ describe("HTTP Client test", function () {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: 'http',
+      connection: "http",
     });
     await client.disconnect();
   });
@@ -22,7 +22,7 @@ describe("HTTP Client test", function () {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: 'http',
+      connection: "http",
     });
     const response = await client.get({ path: "/bookmarks" });
     expect(response.status).to.equal(200);
@@ -35,29 +35,33 @@ describe("HTTP Client test", function () {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: 'http',
+      connection: "http",
     });
-    await expect(client.watch({
-      path: "/bookmarks",
-      watchCallback: console.log,
-    })).to.eventually.be.rejected;
+    await expect(
+      client.watch({
+        path: "/bookmarks",
+        watchCallback: console.log,
+      })
+    ).to.eventually.be.rejected;
   });
 
   it("HTTP PUT->GET->DELETE", async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: 'http',
+      connection: "http",
     });
-    const response = await client.put({
-      path: "/bookmarks",
-      data: { test10: "aaa" },
-    }).then(() => client.get({path:`/bookmarks/test10`}))
-    .then(async res => {
-      await client.delete({path:`/bookmarks/test10`})
-      return res.data;
-    })
-    expect(response).to.equal('aaa');
+    const response = await client
+      .put({
+        path: "/bookmarks",
+        data: { test10: "aaa" },
+      })
+      .then(() => client.get({ path: `/bookmarks/test10` }))
+      .then(async (res) => {
+        await client.delete({ path: `/bookmarks/test10` });
+        return res.data;
+      });
+    expect(response).to.equal("aaa");
   });
 
   it("Recursive PUT/GET", async () => {
@@ -93,7 +97,7 @@ describe("HTTP Client test", function () {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: 'http',
+      connection: "http",
     });
     // Tree PUT
     await client.put({

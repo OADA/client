@@ -8,7 +8,12 @@ import debug from "debug";
 const trace = debug("@oada/client:ws:trace");
 const error = debug("@oada/client:ws:error");
 
-import { ConnectionRequest, ConnectionResponse, ConnectionChange, Connection } from './client';
+import {
+  ConnectionRequest,
+  ConnectionResponse,
+  ConnectionChange,
+  Connection,
+} from "./client";
 
 import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
 import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response";
@@ -115,33 +120,37 @@ export class WebSocketClient extends EventEmitter implements Connection {
     (await this._ws).send(JSON.stringify(req));
 
     // Promise for request
-    const request_promise = new Promise<ConnectionResponse>((resolve, reject) => {
-      // save request
-      this._requests.set(requestId, {
-        resolve,
-        reject,
-        settled: false,
-        /* If this is a watch request, set "persistent" flag to true so
+    const request_promise = new Promise<ConnectionResponse>(
+      (resolve, reject) => {
+        // save request
+        this._requests.set(requestId, {
+          resolve,
+          reject,
+          settled: false,
+          /* If this is a watch request, set "persistent" flag to true so
            this request will not get deleted after the first response */
-        persistent: callback ? true : false,
-        callback,
-      });
-    });
+          persistent: callback ? true : false,
+          callback,
+        });
+      }
+    );
 
     if (timeout && timeout > 0) {
       // If timeout is specified, create another promise and use Promise.race
-      const timeout_promise = new Promise<ConnectionResponse>((resolve, reject) => {
-        setTimeout(() => {
-          // If the original request is still pending, delete it.
-          // This is necessary to kill "zombie" requests.
-          const request = this._requests.get(requestId);
-          if (request && !request.settled) {
-            request.reject("Request timeout"); // reject request promise
-            this._requests.delete(requestId);
-          }
-          reject("Request timeout"); // reject timeout promise
-        }, timeout);
-      });
+      const timeout_promise = new Promise<ConnectionResponse>(
+        (resolve, reject) => {
+          setTimeout(() => {
+            // If the original request is still pending, delete it.
+            // This is necessary to kill "zombie" requests.
+            const request = this._requests.get(requestId);
+            if (request && !request.settled) {
+              request.reject("Request timeout"); // reject request promise
+              this._requests.delete(requestId);
+            }
+            reject("Request timeout"); // reject timeout promise
+          }, timeout);
+        }
+      );
       return Promise.race([request_promise, timeout_promise]);
     } else {
       // If timeout is not specified, simply return the request promise

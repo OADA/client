@@ -26,7 +26,7 @@ export {
   ConnectionRequest,
   ConnectionResponse,
   ConnectionChange,
-  Connection
+  Connection,
 } from "./client";
 
 export type Json =

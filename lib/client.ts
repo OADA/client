@@ -1,7 +1,7 @@
 import ksuid from "ksuid";
 import debug from "debug";
 import * as utils from "./utils";
-import { EventEmitter } from 'events';
+import { EventEmitter } from "events";
 import { WebSocketClient } from "./websocket";
 import { HttpClient } from "./http";
 
@@ -33,21 +33,23 @@ export interface ConnectionChange {
   change: Array<Change>;
 }
 
-
 export interface Connection extends EventEmitter {
   disconnect(): Promise<void>;
   isConnected(): boolean;
   awaitConnection(): Promise<void>;
-  request(req: ConnectionRequest, callback?: (response: Readonly<ConnectionChange>) => void, timeout?: number): Promise<ConnectionResponse>;
+  request(
+    req: ConnectionRequest,
+    callback?: (response: Readonly<ConnectionChange>) => void,
+    timeout?: number
+  ): Promise<ConnectionResponse>;
 }
 
 export interface Config {
   domain: string;
   token?: string;
   concurrency?: number;
-  connection?: 'ws'  | 'http' | Connection;
+  connection?: "ws" | "http" | Connection;
 }
-
 
 export type Response = ConnectionResponse;
 
@@ -107,12 +109,13 @@ export class OADAClient {
     this._concurrency = config.concurrency || this._concurrency;
     this._watchList = new Map<string, WatchRequest>();
     this._renewedReqIdMap = new Map<string, string>();
-    if (!config.connection || config.connection === 'ws') {
+    if (!config.connection || config.connection === "ws") {
       this._ws = new WebSocketClient(this._domain, this._concurrency);
-    } else if (config.connection === 'http') {
-      this._ws = new HttpClient(this._domain, this._token, this._concurrency); 
-    } else { // Otherwise, they gave us a WebSocketClient to use
-      this._ws = (config.connection as Connection);
+    } else if (config.connection === "http") {
+      this._ws = new HttpClient(this._domain, this._token, this._concurrency);
+    } else {
+      // Otherwise, they gave us a WebSocketClient to use
+      this._ws = config.connection as Connection;
     }
 
     /* Register handler for the "open" event.
@@ -609,7 +612,9 @@ export class OADAClient {
       } else if (msg.status == 403 && path.match(/^\/resources/)) {
         return { status: 404 }; // 403 is what you get on resources that don't exist (i.e. Forbidden)
       } else {
-        throw new Error(`Error: head for resource returned ${msg.statusText || msg}`);
+        throw new Error(
+          `Error: head for resource returned ${msg.statusText || msg}`
+        );
       }
     });
     // check status value

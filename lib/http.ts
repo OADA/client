@@ -1,4 +1,4 @@
-import fetch from 'cross-fetch';
+import fetch from "cross-fetch";
 import { EventEmitter } from "events";
 import ksuid from "ksuid";
 import PQueue from "p-queue";
@@ -8,10 +8,15 @@ const trace = debug("@oada/client:http:trace");
 const warn = debug("@oada/client:http:warn");
 //const error = debug("@oada/client:http:error");
 
-import { ConnectionRequest, ConnectionResponse, ConnectionChange, Connection } from './client';
+import {
+  ConnectionRequest,
+  ConnectionResponse,
+  ConnectionChange,
+  Connection,
+} from "./client";
 
 import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
-import { delay } from './utils';
+import { delay } from "./utils";
 
 enum ConnectionStatus {
   Disconnected,
@@ -34,16 +39,18 @@ export class HttpClient extends EventEmitter implements Connection {
   constructor(domain: string, token: string, concurrency = 10) {
     super();
     this._domain = domain.match(/^http/) ? domain : `https://${domain}`; // ensure leading https://
-    this._domain = this._domain.replace(/\/$/, ''); // ensure no trailing slash
+    this._domain = this._domain.replace(/\/$/, ""); // ensure no trailing slash
     this._token = token;
     this._status = ConnectionStatus.Connecting;
     // "Open" the http connection: just make sure a HEAD succeeds
-    trace(`Opening the HTTP connection to HEAD ${this._domain}/bookmarks w/ headers authorization: Bearer ${this._token}`);
+    trace(
+      `Opening the HTTP connection to HEAD ${this._domain}/bookmarks w/ headers authorization: Bearer ${this._token}`
+    );
     this.initialConnection = fetch(`${this._domain}/bookmarks`, {
-      method: 'HEAD',
-      headers: { 'authorization': `Bearer ${this._token}` }
-    }).then(result => {
-      trace('Initial HEAD returned status: ', result.status);
+      method: "HEAD",
+      headers: { authorization: `Bearer ${this._token}` },
+    }).then((result) => {
+      trace("Initial HEAD returned status: ", result.status);
       if (result.status < 400) {
         trace('Initial HEAD succeeded, emitting "open"');
         this._status = ConnectionStatus.Connected;
@@ -51,7 +58,7 @@ export class HttpClient extends EventEmitter implements Connection {
       } else {
         trace('Initial HEAD failed, emitting "close"');
         this._status = ConnectionStatus.Disconnected;
-        this.emit('close');
+        this.emit("close");
       }
     });
 
@@ -64,7 +71,7 @@ export class HttpClient extends EventEmitter implements Connection {
   /** Disconnect the WebSocket connection */
   public async disconnect(): Promise<void> {
     this._status = ConnectionStatus.Disconnected;
-    this.emit('close');
+    this.emit("close");
   }
 
   /** Return true if connected, otherwise false */
@@ -83,15 +90,17 @@ export class HttpClient extends EventEmitter implements Connection {
     callback?: (response: Readonly<ConnectionChange>) => void,
     timeout?: number
   ): Promise<ConnectionResponse> {
-    trace('Starting http request: ', req);
-    if (req.method === 'watch' || req.method === 'unwatch') {
-      throw new Error('HTTP (i.e. non-WebSocket) Client cannot do watches');
+    trace("Starting http request: ", req);
+    if (req.method === "watch" || req.method === "unwatch") {
+      throw new Error("HTTP (i.e. non-WebSocket) Client cannot do watches");
     }
     if (callback) {
-      throw new Error('HTTP (i.e. non-WebSocket) Client cannot handle a watch callback');
+      throw new Error(
+        "HTTP (i.e. non-WebSocket) Client cannot handle a watch callback"
+      );
     }
     if (!req.requestId) req.requestId = ksuid.randomSync().string;
-    trace('Adding http request w/ id ',req.requestId, ' to the queue');
+    trace("Adding http request w/ id ", req.requestId, " to the queue");
     return this._q.add(() => this.doRequest(req, timeout));
   }
 
@@ -101,20 +110,22 @@ export class HttpClient extends EventEmitter implements Connection {
     timeout?: number
   ): Promise<ConnectionResponse> {
     // Send object to the server.
-    trace('Pulled request ', req.requestId, ' from queue, starting on it');
+    trace("Pulled request ", req.requestId, " from queue, starting on it");
     assertOADASocketRequest(req);
-    trace(`Req looks like a socket request, awaiting race between timeout and fetch to ${this._domain}${req.path}`);
+    trace(
+      `Req looks like a socket request, awaiting race between timeout and fetch to ${this._domain}${req.path}`
+    );
 
     let timedout = false;
     if (timeout) {
-      setTimeout(() => timedout = true, timeout);
+      setTimeout(() => (timedout = true), timeout);
     }
     const result = await fetch(`${this._domain}${req.path}`, {
       method: req.method.toUpperCase(),
       body: JSON.stringify(req.data),
       headers: req.headers, // We are not explicitly sending token in each request because parent library sends it
-    }).then(res => {
-      if (timedout) throw new Error('Request timeout');
+    }).then((res) => {
+      if (timedout) throw new Error("Request timeout");
       return res;
     });
     trace(`Fetch did not throw, checking status of ${result.status}`);
@@ -126,12 +137,12 @@ export class HttpClient extends EventEmitter implements Connection {
     }
     trace(`result.status ok, pulling headers`);
     // have to construct the headers ourselves:
-    const headers: Record<string,string> = {};
-    result.headers.forEach((value, key) => headers[key] = value);
-    const length = +(result.headers.get('content-length') || 0);
+    const headers: Record<string, string> = {};
+    result.headers.forEach((value, key) => (headers[key] = value));
+    const length = +(result.headers.get("content-length") || 0);
     let data: any = null;
-    if (req.method.toUpperCase() !== 'HEAD') { 
-      const isJSON = (result.headers.get('content-type') || '').match(/json/);
+    if (req.method.toUpperCase() !== "HEAD") {
+      const isJSON = (result.headers.get("content-type") || "").match(/json/);
       if (!isJSON) {
         data = await result.arrayBuffer();
       } else {
@@ -145,9 +156,7 @@ export class HttpClient extends EventEmitter implements Connection {
       status: result.status,
       statusText: result.statusText,
       headers,
-      data
+      data,
     };
-
   }
 }
-
