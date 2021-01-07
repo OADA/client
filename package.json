@@ -36,7 +36,7 @@
     "@types/node": "^13.13.4",
     "@types/uuid": "^7.0.2",
     "@types/ws": "^7.2.4",
-    "axios": "^0.20.0",
+    "axios": "^0.21.1",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "mocha": "^7.1.1",
