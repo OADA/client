@@ -2,12 +2,15 @@
 
 A lightweight client tool for interacting with an OADA-compliant server
 
-| | `@oada/client` | `@oada/oada-cache` |
-| --- | --- | --- |
-| Language | TypeScript | JavaScript |
-| Supported protocols | websocket | websocket, HTTP |
-| Internal cache | No | Yes |
+[![npm](https://img.shields.io/npm/v/@oada/client)](https://www.npmjs.com/package/@oada/client)
 
+## Installation
+
+This module is available through npm. To install the module, simply run:
+
+```bash
+$ npm install @oada/client
+```
 
 ## Usage
 
@@ -16,8 +19,8 @@ A lightweight client tool for interacting with an OADA-compliant server
 ```javascript
 const client = require("@oada/client")
 const connection = await client.connect({
-  domain: "api.oada.com",
-  token: "abc"
+  domain: "api.oada.com", // domain of OADA server
+  token: "abc" // token
 })
 ```
 
