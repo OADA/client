@@ -42,7 +42,11 @@ enum ConnectionStatus {
  * @todo make sure this does not break in browser
  */
 class BetterWebSocket extends WebSocket {
-  constructor(url: string | URL, protocols = [], { maxPayload = 0, ...rest }) {
+  constructor(
+    url: string | URL,
+    protocols = [],
+    { maxPayload = 0, ...rest } = {}
+  ) {
     super(url, protocols, { maxPayload, ...rest });
   }
 }
