@@ -240,7 +240,7 @@ export class OADAClient {
   public async watch(request: WatchRequest): Promise<string> {
     let headers = {};
 
-    if (request.rev) {
+    if (typeof(request.rev) !== 'undefined' ) {
       headers["x-oada-rev"] = request.rev;
     }
 
