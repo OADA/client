@@ -36,6 +36,21 @@ enum ConnectionStatus {
   Connected,
 }
 
+/**
+ * Override defaults for ws in node
+ *
+ * @todo make sure this does not break in browser
+ */
+class BetterWebSocket extends WebSocket {
+  constructor(
+    url: string | URL,
+    protocols = [],
+    { maxPayload = 0, ...rest } = {}
+  ) {
+    super(url, protocols, { maxPayload, ...rest });
+  }
+}
+
 export class WebSocketClient extends EventEmitter implements Connection {
   private _ws: Promise<ReconnectingWebSocket>;
   private _domain: string;
@@ -56,7 +71,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     this._ws = new Promise<ReconnectingWebSocket>((resolve) => {
       // create websocket connection
       const ws = new ReconnectingWebSocket("wss://" + this._domain, [], {
-        WebSocket,
+        WebSocket: BetterWebSocket,
       });
 
       // register handlers
