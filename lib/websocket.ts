@@ -71,6 +71,8 @@ export class WebSocketClient extends EventEmitter implements Connection {
     this._ws = new Promise<ReconnectingWebSocket>((resolve) => {
       // create websocket connection
       const ws = new ReconnectingWebSocket("wss://" + this._domain, [], {
+        // Not sure why it needs so long, but 30s is the ws timeout
+        connectionTimeout: 30 * 1000,
         WebSocket: BetterWebSocket,
       });
 
