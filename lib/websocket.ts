@@ -68,7 +68,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     this._domain = domain;
     this._requests = new Map();
     this._status = ConnectionStatus.Connecting;
-    this._ws = new Promise<ReconnectingWebSocket>((resolve) => {
+    this._ws = new Promise<ReconnectingWebSocket>((resolve, reject) => {
       // create websocket connection
       const ws = new ReconnectingWebSocket("wss://" + this._domain, [], {
         // Not sure why it needs so long, but 30s is the ws timeout
@@ -92,7 +92,8 @@ export class WebSocketClient extends EventEmitter implements Connection {
         trace("Connection error %O", err);
         this._status = ConnectionStatus.Disconnected;
         ws.close();
-        this.emit("error", err);
+        //this.emit("error", err);
+        reject(err);
       };
       ws.onmessage = this._receive.bind(this); // explicitly pass the instance
     });
