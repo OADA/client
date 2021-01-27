@@ -20,7 +20,7 @@ import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response
 import { is as isOADASocketChange } from "@oada/types/oada/websockets/change";
 import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2";
 
-import { Json, Change } from ".";
+import { Json } from ".";
 
 interface ActiveRequest {
   resolve: Function;
@@ -87,6 +87,12 @@ export class WebSocketClient extends EventEmitter implements Connection {
         trace("Connection closed.");
         this._status = ConnectionStatus.Disconnected;
         this.emit("close");
+      };
+      ws.onerror = (err) => {
+        trace("Connection error %O", err);
+        this._status = ConnectionStatus.Disconnected;
+        ws.close();
+        this.emit("error", err);
       };
       ws.onmessage = this._receive.bind(this); // explicitly pass the instance
     });
