@@ -60,12 +60,32 @@ export interface GETRequest {
   timeout?: number;
 }
 
-export interface WatchRequest {
+/**
+ * Watch whose callback gets single changes
+ */
+export interface WatchRequestSingle {
+  type?: "single";
   path: string;
   rev?: string;
   watchCallback: (response: Readonly<Change>) => void;
   timeout?: number;
 }
+
+/**
+ * Watch whose callback gets change trees
+ */
+export interface WatchRequestTree {
+  type: "tree";
+  path: string;
+  rev?: string;
+  watchCallback: (response: readonly Readonly<Change>[]) => void;
+  timeout?: number;
+}
+
+/**
+ * Discriminated union of watch for single changes or watch for change trees
+ */
+export type WatchRequest = WatchRequestSingle | WatchRequestTree;
 
 export interface PUTRequest {
   path: string;
@@ -240,7 +260,7 @@ export class OADAClient {
   public async watch(request: WatchRequest): Promise<string> {
     let headers = {};
 
-    if (typeof(request.rev) !== 'undefined' ) {
+    if (typeof request.rev !== "undefined") {
       headers["x-oada-rev"] = request.rev;
     }
 
@@ -254,8 +274,13 @@ export class OADAClient {
         path: request.path,
       },
       (resp) => {
+        if (request.type === "tree") {
+          request.watchCallback(resp.change);
+        }
         for (const change of resp.change) {
-          request.watchCallback(change);
+          if (request.type === "single") {
+            request.watchCallback(change);
+          }
           if (change.path === "") {
             const watchRequest = this._watchList.get(resp.requestId[0]);
             if (watchRequest) {
