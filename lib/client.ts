@@ -278,7 +278,7 @@ export class OADAClient {
           request.watchCallback(resp.change);
         }
         for (const change of resp.change) {
-          if (request.type === "single") {
+          if (!request.type || request.type === "single") {
             request.watchCallback(change);
           }
           if (change.path === "") {
