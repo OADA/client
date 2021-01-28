@@ -1,6 +1,6 @@
 import WebSocket = require("isomorphic-ws");
 import ReconnectingWebSocket from "reconnecting-websocket";
-import { EventEmitter } from "events";
+import { EventEmitter, once } from "events";
 import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
@@ -68,35 +68,33 @@ export class WebSocketClient extends EventEmitter implements Connection {
     this._domain = domain;
     this._requests = new Map();
     this._status = ConnectionStatus.Connecting;
-    this._ws = new Promise<ReconnectingWebSocket>((resolve, reject) => {
-      // create websocket connection
-      const ws = new ReconnectingWebSocket("wss://" + this._domain, [], {
-        // Not sure why it needs so long, but 30s is the ws timeout
-        connectionTimeout: 30 * 1000,
-        WebSocket: BetterWebSocket,
-      });
-
-      // register handlers
-      ws.onopen = () => {
-        trace("Connection opened.");
-        this._status = ConnectionStatus.Connected;
-        resolve(ws);
-        this.emit("open");
-      };
-      ws.onclose = () => {
-        trace("Connection closed.");
-        this._status = ConnectionStatus.Disconnected;
-        this.emit("close");
-      };
-      ws.onerror = (err) => {
-        trace("Connection error %O", err);
-        this._status = ConnectionStatus.Disconnected;
-        ws.close();
-        //this.emit("error", err);
-        reject(err);
-      };
-      ws.onmessage = this._receive.bind(this); // explicitly pass the instance
+    // create websocket connection
+    const ws = new ReconnectingWebSocket("wss://" + this._domain, [], {
+      // Not sure why it needs so long, but 30s is the ws timeout
+      connectionTimeout: 30 * 1000,
+      WebSocket: BetterWebSocket,
     });
+    const openP = once(ws, "open").then(() => ws);
+    const errP = once(ws, "error").then((err) => Promise.reject(err));
+    this._ws = Promise.race([openP, errP]);
+
+    // register handlers
+    ws.onopen = () => {
+      trace("Connection opened.");
+      this._status = ConnectionStatus.Connected;
+      this.emit("open");
+    };
+    ws.onclose = () => {
+      trace("Connection closed.");
+      this._status = ConnectionStatus.Disconnected;
+      this.emit("close");
+    };
+    ws.onerror = (err) => {
+      trace("Connection error %O", err);
+      //this._status = ConnectionStatus.Disconnected;
+      //this.emit("error");
+    };
+    ws.onmessage = this._receive.bind(this); // explicitly pass the instance
 
     this._q = new PQueue({ concurrency });
     this._q.on("active", () => {
