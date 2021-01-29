@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "2.2.2",
+  "version": "2.3.0",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
