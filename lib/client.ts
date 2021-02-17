@@ -461,7 +461,7 @@ export class OADAClient {
                     1000 * (retryCount * retryCount + Math.random())
                   );
                   // Reset loop counter and do tree construction again.
-                  i = pathArray.length - 1;
+                  i = pathArray.length;
                   continue;
                 } else {
                   throw Error("If-match failed.");
