@@ -226,5 +226,34 @@ use(require("chai-as-promised"));
       expect(response.data).to.not.have.nested.property("test._id");
       expect(response.data).to.not.have.nested.property("test._rev");
     });
+
+    it("Should create the proper trees from simultaneous PUT requests", async function () {
+      // Adjust timeout because concurrent PUTs usually result in if-match errors and
+      // the client tries to resolve the conflicts using the exponential backoff algorithm
+      this.timeout(10000);
+      // Do concurrent PUTs
+      const paths = ["a", "b", "c"];
+      const promises = paths.map((v) => {
+        return client.put({
+          path: `/bookmarks/${testName}/concurrent-put/${v}`,
+          tree: testTree,
+          data: { foo: "bar" },
+        });
+      });
+      const responses = await Promise.all(promises);
+
+      // Check
+      for (const v of paths) {
+        const response = await utils.getAxios(
+          `/bookmarks/${testName}/concurrent-put/${v}`
+        );
+        expect(response.status).to.equal(200);
+        expect(response.headers).to.include.keys([
+          "content-location",
+          "x-oada-rev",
+        ]);
+        expect(response.data).to.include.keys(["_id", "_rev", "foo"]);
+      }
+    });
   });
 });
