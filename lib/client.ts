@@ -458,7 +458,7 @@ export class OADAClient {
                 // Retry with exponential backoff
                 if (retryCount++ < 5) {
                   await utils.delay(
-                    1000 * (retryCount * retryCount + Math.random())
+                    100 * (retryCount * retryCount + Math.random())
                   );
                   // Reset loop counter and do tree construction again.
                   i = pathArray.length;
