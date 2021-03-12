@@ -1,4 +1,4 @@
-import fetch from "./fetch";
+import fetch, { context, Disconnect } from "./fetch";
 import { EventEmitter } from "events";
 import ksuid from "ksuid";
 import PQueue from "p-queue";
@@ -32,6 +32,7 @@ export class HttpClient extends EventEmitter implements Connection {
   private _q: PQueue;
   private initialConnection: Promise<void>; // await on the initial HEAD
   private concurrency: number;
+  private context: { fetch: typeof fetch; disconnectAll?: Disconnect };
   private ws?: WebSocketClient; // Fall-back socket for watches
 
   /**
@@ -41,6 +42,9 @@ export class HttpClient extends EventEmitter implements Connection {
    */
   constructor(domain: string, token: string, concurrency = 10) {
     super();
+
+    this.context = context ? context() : { fetch };
+
     this._domain = domain.match(/^http/) ? domain : `https://${domain}`; // ensure leading https://
     this._domain = this._domain.replace(/\/$/, ""); // ensure no trailing slash
     this._token = token;
@@ -49,21 +53,23 @@ export class HttpClient extends EventEmitter implements Connection {
     trace(
       `Opening the HTTP connection to HEAD ${this._domain}/bookmarks w/ headers authorization: Bearer ${this._token}`
     );
-    this.initialConnection = fetch(`${this._domain}/bookmarks`, {
-      method: "HEAD",
-      headers: { authorization: `Bearer ${this._token}` },
-    }).then((result) => {
-      trace("Initial HEAD returned status: ", result.status);
-      if (result.status < 400) {
-        trace('Initial HEAD succeeded, emitting "open"');
-        this._status = ConnectionStatus.Connected;
-        this.emit("open");
-      } else {
-        trace('Initial HEAD failed, emitting "close"');
-        this._status = ConnectionStatus.Disconnected;
-        this.emit("close");
-      }
-    });
+    this.initialConnection = this.context
+      .fetch(`${this._domain}/bookmarks`, {
+        method: "HEAD",
+        headers: { authorization: `Bearer ${this._token}` },
+      })
+      .then((result) => {
+        trace("Initial HEAD returned status: ", result.status);
+        if (result.status < 400) {
+          trace('Initial HEAD succeeded, emitting "open"');
+          this._status = ConnectionStatus.Connected;
+          this.emit("open");
+        } else {
+          trace('Initial HEAD failed, emitting "close"');
+          this._status = ConnectionStatus.Disconnected;
+          this.emit("close");
+        }
+      });
 
     this.concurrency = concurrency;
     this._q = new PQueue({ concurrency });
@@ -72,9 +78,13 @@ export class HttpClient extends EventEmitter implements Connection {
     });
   }
 
-  /** Disconnect the WebSocket connection */
+  /** Disconnect the connection */
   public async disconnect(): Promise<void> {
     this._status = ConnectionStatus.Disconnected;
+    // Close our connections
+    await this.context.disconnectAll?.();
+    // Close our ws connection
+    await this.ws?.disconnect();
     this.emit("close");
   }
 
@@ -130,15 +140,17 @@ export class HttpClient extends EventEmitter implements Connection {
     if (timeout) {
       setTimeout(() => (timedout = true), timeout);
     }
-    const result = await fetch(`${this._domain}${req.path}`, {
-      // @ts-ignore
-      method: req.method.toUpperCase(),
-      body: JSON.stringify(req.data),
-      headers: req.headers, // We are not explicitly sending token in each request because parent library sends it
-    }).then((res) => {
-      if (timedout) throw new Error("Request timeout");
-      return res;
-    });
+    const result = await this.context
+      .fetch(`${this._domain}${req.path}`, {
+        // @ts-ignore
+        method: req.method.toUpperCase(),
+        body: JSON.stringify(req.data),
+        headers: req.headers, // We are not explicitly sending token in each request because parent library sends it
+      })
+      .then((res) => {
+        if (timedout) throw new Error("Request timeout");
+        return res;
+      });
     trace(`Fetch did not throw, checking status of ${result.status}`);
 
     // This is the same test as in ./websocket.ts

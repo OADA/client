@@ -1,11 +1,14 @@
-import { context } from "fetch-h2";
+import { fetch, context as _context, disconnectAll } from "fetch-h2";
+
+export type Disconnect = typeof disconnectAll;
 
 // Create our own context to honor NODE_TLS_REJECT_UNAUTHORIZED like https
-const { fetch } = context({
-  session: {
-    rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== "0",
-  },
-});
+export const context = () =>
+  _context({
+    session: {
+      rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== "0",
+    },
+  });
 
 // cross-fetch has fetch as default export
 export default fetch;
