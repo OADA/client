@@ -9,7 +9,7 @@
     "dist/**/*"
   ],
   "scripts": {
-    "test": "mocha -r ts-node/register test/**/*.test.ts",
+    "test": "mocha -r ts-node/register test/**/*.test.ts --timeout 10000",
     "build": "tsc",
     "prettier": "prettier --write '{lib,test}/**/*.ts'",
     "prepare": "npm run build",
