@@ -31,7 +31,7 @@ describe("HTTP Client test", function () {
     await client.disconnect();
   });
 
-  it("HTTP watch should throw", async () => {
+  it("HTTP watch should not throw", async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
@@ -42,7 +42,8 @@ describe("HTTP Client test", function () {
         path: "/bookmarks",
         watchCallback: console.log,
       })
-    ).to.eventually.be.rejected;
+    ).to.eventually.not.be.rejected;
+    await client.disconnect();
   });
 
   it("HTTP PUT->GET->DELETE", async () => {
@@ -62,6 +63,7 @@ describe("HTTP Client test", function () {
         return res.data;
       });
     expect(response).to.equal("aaa");
+    await client.disconnect();
   });
 
   it("Recursive PUT/GET", async () => {

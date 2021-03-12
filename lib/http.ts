@@ -1,8 +1,10 @@
-import fetch from "cross-fetch";
+import fetch, { context, Disconnect } from "./fetch";
 import { EventEmitter } from "events";
 import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
+
+import { WebSocketClient } from "./websocket";
 
 const trace = debug("@oada/client:http:trace");
 const warn = debug("@oada/client:http:warn");
@@ -16,7 +18,6 @@ import {
 } from "./client";
 
 import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
-import { delay } from "./utils";
 
 enum ConnectionStatus {
   Disconnected,
@@ -30,6 +31,9 @@ export class HttpClient extends EventEmitter implements Connection {
   private _status: ConnectionStatus;
   private _q: PQueue;
   private initialConnection: Promise<void>; // await on the initial HEAD
+  private concurrency: number;
+  private context: { fetch: typeof fetch; disconnectAll?: Disconnect };
+  private ws?: WebSocketClient; // Fall-back socket for watches
 
   /**
    * Constructor
@@ -38,6 +42,9 @@ export class HttpClient extends EventEmitter implements Connection {
    */
   constructor(domain: string, token: string, concurrency = 10) {
     super();
+
+    this.context = context ? context() : { fetch };
+
     this._domain = domain.match(/^http/) ? domain : `https://${domain}`; // ensure leading https://
     this._domain = this._domain.replace(/\/$/, ""); // ensure no trailing slash
     this._token = token;
@@ -46,31 +53,38 @@ export class HttpClient extends EventEmitter implements Connection {
     trace(
       `Opening the HTTP connection to HEAD ${this._domain}/bookmarks w/ headers authorization: Bearer ${this._token}`
     );
-    this.initialConnection = fetch(`${this._domain}/bookmarks`, {
-      method: "HEAD",
-      headers: { authorization: `Bearer ${this._token}` },
-    }).then((result) => {
-      trace("Initial HEAD returned status: ", result.status);
-      if (result.status < 400) {
-        trace('Initial HEAD succeeded, emitting "open"');
-        this._status = ConnectionStatus.Connected;
-        this.emit("open");
-      } else {
-        trace('Initial HEAD failed, emitting "close"');
-        this._status = ConnectionStatus.Disconnected;
-        this.emit("close");
-      }
-    });
+    this.initialConnection = this.context
+      .fetch(`${this._domain}/bookmarks`, {
+        method: "HEAD",
+        headers: { authorization: `Bearer ${this._token}` },
+      })
+      .then((result) => {
+        trace("Initial HEAD returned status: ", result.status);
+        if (result.status < 400) {
+          trace('Initial HEAD succeeded, emitting "open"');
+          this._status = ConnectionStatus.Connected;
+          this.emit("open");
+        } else {
+          trace('Initial HEAD failed, emitting "close"');
+          this._status = ConnectionStatus.Disconnected;
+          this.emit("close");
+        }
+      });
 
+    this.concurrency = concurrency;
     this._q = new PQueue({ concurrency });
     this._q.on("active", () => {
       trace(`HTTP Queue. Size: ${this._q.size} pending: ${this._q.pending}`);
     });
   }
 
-  /** Disconnect the WebSocket connection */
+  /** Disconnect the connection */
   public async disconnect(): Promise<void> {
     this._status = ConnectionStatus.Disconnected;
+    // Close our connections
+    await this.context.disconnectAll?.();
+    // Close our ws connection
+    await this.ws?.disconnect();
     this.emit("close");
   }
 
@@ -85,19 +99,25 @@ export class HttpClient extends EventEmitter implements Connection {
     await this.initialConnection;
   }
 
-  public request(
+  // TODO: Add support for WATCH via h2 push and/or RFC 8441
+  public async request(
     req: ConnectionRequest,
     callback?: (response: Readonly<ConnectionChange>) => void,
     timeout?: number
   ): Promise<ConnectionResponse> {
     trace("Starting http request: ", req);
-    if (req.method === "watch" || req.method === "unwatch") {
-      throw new Error("HTTP (i.e. non-WebSocket) Client cannot do watches");
-    }
-    if (callback) {
-      throw new Error(
-        "HTTP (i.e. non-WebSocket) Client cannot handle a watch callback"
+    // Check for WATCH/UNWATCH
+    if (req.method === "watch" || req.method === "unwatch" || callback) {
+      warn(
+        "WATCH/UNWATCH not currently supported for http(2), falling-back to ws"
       );
+      if (!this.ws) {
+        // Open a WebSocket connection
+        const domain = this._domain.replace(/^https?:\/\//, "");
+        this.ws = new WebSocketClient(domain, this.concurrency);
+        await this.ws.awaitConnection();
+      }
+      return this.ws?.request(req, callback, timeout);
     }
     if (!req.requestId) req.requestId = ksuid.randomSync().string;
     trace("Adding http request w/ id ", req.requestId, " to the queue");
@@ -120,14 +140,17 @@ export class HttpClient extends EventEmitter implements Connection {
     if (timeout) {
       setTimeout(() => (timedout = true), timeout);
     }
-    const result = await fetch(`${this._domain}${req.path}`, {
-      method: req.method.toUpperCase(),
-      body: JSON.stringify(req.data),
-      headers: req.headers, // We are not explicitly sending token in each request because parent library sends it
-    }).then((res) => {
-      if (timedout) throw new Error("Request timeout");
-      return res;
-    });
+    const result = await this.context
+      .fetch(`${this._domain}${req.path}`, {
+        // @ts-ignore
+        method: req.method.toUpperCase(),
+        body: JSON.stringify(req.data),
+        headers: req.headers, // We are not explicitly sending token in each request because parent library sends it
+      })
+      .then((res) => {
+        if (timedout) throw new Error("Request timeout");
+        return res;
+      });
     trace(`Fetch did not throw, checking status of ${result.status}`);
 
     // This is the same test as in ./websocket.ts
@@ -138,7 +161,14 @@ export class HttpClient extends EventEmitter implements Connection {
     trace(`result.status ok, pulling headers`);
     // have to construct the headers ourselves:
     const headers: Record<string, string> = {};
-    result.headers.forEach((value, key) => (headers[key] = value));
+    if (Array.isArray(result.headers)) {
+      // In browser they are an array?
+      result.headers.forEach((value, key) => (headers[key] = value));
+    } else {
+      for (const [key, value] of result.headers.entries()) {
+        headers[key] = value;
+      }
+    }
     const length = +(result.headers.get("content-length") || 0);
     let data: any = null;
     if (req.method.toUpperCase() !== "HEAD") {

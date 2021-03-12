@@ -4,6 +4,12 @@
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
+  "browser": {
+    "./lib/fetch": "cross-fetch"
+  },
+  "react-native": {
+    "./lib/fetch": "cross-fetch"
+  },
   "types": "dist/index.d.ts",
   "files": [
     "dist/**/*"
@@ -22,6 +28,7 @@
     "@oada/types": "^1.2.0",
     "cross-fetch": "^3.0.6",
     "debug": "^4.1.1",
+    "fetch-h2": "^2.5.1",
     "isomorphic-ws": "^4.0.1",
     "ksuid": "^1.2.0",
     "p-queue": "^6.4.0",
