@@ -3,7 +3,7 @@ import "mocha";
 import * as oada from "../lib/index";
 import * as config from "./config";
 import * as utils from "./utils";
-const ksuid = require("ksuid");
+import ksuid from "ksuid";
 use(require("chai-as-promised"));
 
 ["ws", "http"].forEach((connection) => {
@@ -72,7 +72,7 @@ use(require("chai-as-promised"));
       // Prepare a resource
       const testObj = { abc: "def" };
       const path = `/bookmarks/${testName}/testResource2`;
-      const r = await utils.putResourceAxios(testObj, path);
+      await utils.putResourceAxios(testObj, path);
 
       // Run
       const response = await client.get({
@@ -89,7 +89,7 @@ use(require("chai-as-promised"));
       // Prepare a resource
       const testObj = { abc: "def" };
       const path = `/bookmarks/${testName}/testResource3`;
-      const r = await utils.putResourceAxios(testObj, path);
+      await utils.putResourceAxios(testObj, path);
 
       // Run
       return expect(
