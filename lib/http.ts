@@ -1,11 +1,10 @@
-import fetch from "cross-fetch";
+import fetch from "./fetch";
 import { EventEmitter } from "events";
 import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
 
 const trace = debug("@oada/client:http:trace");
-const warn = debug("@oada/client:http:warn");
 //const error = debug("@oada/client:http:error");
 
 import {
@@ -16,7 +15,6 @@ import {
 } from "./client";
 
 import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
-import { delay } from "./utils";
 
 enum ConnectionStatus {
   Disconnected,
@@ -121,6 +119,7 @@ export class HttpClient extends EventEmitter implements Connection {
       setTimeout(() => (timedout = true), timeout);
     }
     const result = await fetch(`${this._domain}${req.path}`, {
+      // @ts-ignore
       method: req.method.toUpperCase(),
       body: JSON.stringify(req.data),
       headers: req.headers, // We are not explicitly sending token in each request because parent library sends it
@@ -138,7 +137,14 @@ export class HttpClient extends EventEmitter implements Connection {
     trace(`result.status ok, pulling headers`);
     // have to construct the headers ourselves:
     const headers: Record<string, string> = {};
-    result.headers.forEach((value, key) => (headers[key] = value));
+    if (Array.isArray(result.headers)) {
+      // In browser they are an array?
+      result.headers.forEach((value, key) => (headers[key] = value));
+    } else {
+      for (const [key, value] of result.headers.entries()) {
+        headers[key] = value;
+      }
+    }
     const length = +(result.headers.get("content-length") || 0);
     let data: any = null;
     if (req.method.toUpperCase() !== "HEAD") {
