@@ -4,7 +4,10 @@ import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
 
+import { WebSocketClient } from "./websocket";
+
 const trace = debug("@oada/client:http:trace");
+const warn = debug("@oada/client:http:warn");
 //const error = debug("@oada/client:http:error");
 
 import {
@@ -28,6 +31,8 @@ export class HttpClient extends EventEmitter implements Connection {
   private _status: ConnectionStatus;
   private _q: PQueue;
   private initialConnection: Promise<void>; // await on the initial HEAD
+  private concurrency: number;
+  private ws?: WebSocketClient; // Fall-back socket for watches
 
   /**
    * Constructor
@@ -60,6 +65,7 @@ export class HttpClient extends EventEmitter implements Connection {
       }
     });
 
+    this.concurrency = concurrency;
     this._q = new PQueue({ concurrency });
     this._q.on("active", () => {
       trace(`HTTP Queue. Size: ${this._q.size} pending: ${this._q.pending}`);
@@ -83,19 +89,25 @@ export class HttpClient extends EventEmitter implements Connection {
     await this.initialConnection;
   }
 
-  public request(
+  // TODO: Add support for WATCH via h2 push and/or RFC 8441
+  public async request(
     req: ConnectionRequest,
     callback?: (response: Readonly<ConnectionChange>) => void,
     timeout?: number
   ): Promise<ConnectionResponse> {
     trace("Starting http request: ", req);
-    if (req.method === "watch" || req.method === "unwatch") {
-      throw new Error("HTTP (i.e. non-WebSocket) Client cannot do watches");
-    }
-    if (callback) {
-      throw new Error(
-        "HTTP (i.e. non-WebSocket) Client cannot handle a watch callback"
+    // Check for WATCH/UNWATCH
+    if (req.method === "watch" || req.method === "unwatch" || callback) {
+      warn(
+        "WATCH/UNWATCH not currently supported for http(2), falling-back to ws"
       );
+      if (!this.ws) {
+        // Open a WebSocket connection
+        const domain = this._domain.replace(/^https?:\/\//, "");
+        this.ws = new WebSocketClient(domain, this.concurrency);
+        await this.ws.awaitConnection();
+      }
+      return this.ws?.request(req, callback, timeout);
     }
     if (!req.requestId) req.requestId = ksuid.randomSync().string;
     trace("Adding http request w/ id ", req.requestId, " to the queue");
