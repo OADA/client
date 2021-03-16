@@ -141,7 +141,7 @@ export class OADAClient {
     /* Register handler for the "open" event.
        This event is emitted when 1) this is an initial connection, or 2) the websocket is reconnected.
        For the initial connection, no special action is needed.
-       For the reconnection case, we need to re-establish the watches. */
+z      For the reconnection case, we need to re-establish the watches. */
     this._ws.on("open", async () => {
       const prevWatchList = this._watchList;
       this._watchList = new Map<string, WatchRequest>();
@@ -530,10 +530,11 @@ export class OADAClient {
 
     const data = request.data;
     if (request.tree) {
-      // TODO: Is a tree POST really just a tree PUT followed by a POST to that
-      // path?
-      request.data = {};
-      await this.put(request);
+      // We could go to all the trouble of re-implementing tree puts for posts, but it's much easier to just make
+      // a ksuid and do the tree put
+      const newkey = (await ksuid.random()).string;
+      request.path += `/${newkey}`;
+      return await this.put(request);
     }
 
     // Get content-type
