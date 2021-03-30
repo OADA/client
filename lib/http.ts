@@ -137,13 +137,22 @@ export class HttpClient extends EventEmitter implements Connection {
     );
 
     let timedout = false;
+    let signal: AbortSignal | undefined = undefined;
     if (timeout) {
-      setTimeout(() => (timedout = true), timeout);
+      const controller = new AbortController();
+      ({ signal } = controller);
+      setTimeout(() => {
+        controller.abort();
+        timedout = true;
+      }, timeout);
     }
     const result = await this.context
-      .fetch(`${this._domain}${req.path}`, {
+      .fetch(new URL(req.path, this._domain).toString(), {
         // @ts-ignore
         method: req.method.toUpperCase(),
+        // @ts-ignore
+        signal,
+        timeout,
         body: JSON.stringify(req.data),
         headers: req.headers, // We are not explicitly sending token in each request because parent library sends it
       })
