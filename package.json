@@ -5,10 +5,10 @@
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
   "browser": {
-    "./lib/fetch": "cross-fetch"
+    "./dist/fetch": "cross-fetch"
   },
   "react-native": {
-    "./lib/fetch": "cross-fetch"
+    "./dist/fetch": "cross-fetch"
   },
   "types": "dist/index.d.ts",
   "files": [
