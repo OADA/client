@@ -233,8 +233,8 @@ export class WebSocketClient extends EventEmitter implements Connection {
       }
     } catch (e) {
       error(`[Websocket ${this._domain}] Received invalid response. Ignoring.`);
-      error(`[Websocket ${this._domain}] Response was: ${m.data}`);
       trace(`[Websocket ${this._domain}] Received invalid response. %O`, e);
+      throw e;
     }
   }
 }
