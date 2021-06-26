@@ -234,7 +234,8 @@ export class WebSocketClient extends EventEmitter implements Connection {
     } catch (e) {
       error(`[Websocket ${this._domain}] Received invalid response. Ignoring.`);
       trace(`[Websocket ${this._domain}] Received invalid response. %O`, e);
-      throw e;
+      // No point in throwing here; the promise cannot be resolved because the 
+      // requestId cannot be retrieved; throwing will just blow up client
     }
   }
 }

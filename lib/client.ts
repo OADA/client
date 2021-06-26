@@ -1,4 +1,5 @@
 import ksuid from "ksuid";
+import deepClone from 'deep-clone';
 import debug from "debug";
 import * as utils from "./utils";
 import { EventEmitter } from "events";
@@ -275,11 +276,11 @@ z      For the reconnection case, we need to re-establish the watches. */
       },
       (resp) => {
         if (request.type === "tree") {
-          request.watchCallback(resp.change);
+          request.watchCallback(deepClone(resp.change));
         }
         for (const change of resp.change) {
           if (!request.type || request.type === "single") {
-            request.watchCallback(change);
+            request.watchCallback(deepClone(change));
           }
           if (change.path === "") {
             const watchRequest = this._watchList.get(resp.requestId[0]);

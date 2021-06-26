@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "2.4.4",
+  "version": "2.4.5",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
@@ -28,6 +28,7 @@
     "@oada/types": "^1.2.0",
     "cross-fetch": "^3.0.6",
     "debug": "^4.1.1",
+    "deep-clone": "^3.0.3",
     "fetch-h2": "^2.5.1",
     "isomorphic-ws": "^4.0.1",
     "ksuid": "^1.2.0",
