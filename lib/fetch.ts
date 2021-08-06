@@ -10,5 +10,7 @@ export const context = () =>
     },
   });
 
+export { Headers } from "cross-fetch";
+
 // cross-fetch has fetch as default export
 export default fetch;

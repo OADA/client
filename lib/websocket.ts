@@ -14,6 +14,7 @@ import {
   ConnectionChange,
   Connection,
 } from "./client";
+import { handleErrors } from "./errors";
 
 import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
 import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response";
@@ -126,7 +127,9 @@ export class WebSocketClient extends EventEmitter implements Connection {
     callback?: (response: Readonly<ConnectionChange>) => void,
     timeout?: number
   ): Promise<ConnectionResponse> {
-    return this._q.add(() => this.doRequest(req, callback, timeout));
+    return this._q.add(() =>
+      handleErrors(this.doRequest.bind(this), req, callback, timeout)
+    );
   }
 
   /** send a request to server */
@@ -160,7 +163,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     if (timeout && timeout > 0) {
       // If timeout is specified, create another promise and use Promise.race
       const timeout_promise = new Promise<ConnectionResponse>(
-        (resolve, reject) => {
+        (_resolve, reject) => {
           setTimeout(() => {
             // If the original request is still pending, delete it.
             // This is necessary to kill "zombie" requests.
@@ -234,7 +237,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     } catch (e) {
       error(`[Websocket ${this._domain}] Received invalid response. Ignoring.`);
       trace(`[Websocket ${this._domain}] Received invalid response. %O`, e);
-      // No point in throwing here; the promise cannot be resolved because the 
+      // No point in throwing here; the promise cannot be resolved because the
       // requestId cannot be retrieved; throwing will just blow up client
     }
   }

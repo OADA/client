@@ -1,5 +1,5 @@
 import ksuid from "ksuid";
-import deepClone from 'deep-clone';
+import deepClone from "deep-clone";
 import debug from "debug";
 import * as utils from "./utils";
 import { EventEmitter } from "events";
@@ -9,7 +9,7 @@ import { HttpClient } from "./http";
 import { Json, Change } from ".";
 
 const trace = debug("@oada/client:client:trace");
-const error = debug("@oada/client:client:error");
+//const error = debug("@oada/client:client:error");
 
 export interface ConnectionRequest {
   requestId?: string;

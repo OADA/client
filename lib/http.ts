@@ -5,6 +5,7 @@ import PQueue from "p-queue";
 import debug from "debug";
 
 import { WebSocketClient } from "./websocket";
+import { handleErrors } from "./errors";
 
 const trace = debug("@oada/client:http:trace");
 const warn = debug("@oada/client:http:warn");
@@ -121,7 +122,9 @@ export class HttpClient extends EventEmitter implements Connection {
     }
     if (!req.requestId) req.requestId = ksuid.randomSync().string;
     trace("Adding http request w/ id ", req.requestId, " to the queue");
-    return this._q.add(() => this.doRequest(req, timeout));
+    return this._q.add(() =>
+      handleErrors(this.doRequest.bind(this), req, timeout)
+    );
   }
 
   /** send a request to server */
