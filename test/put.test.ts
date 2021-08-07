@@ -3,7 +3,7 @@ import "mocha";
 import * as oada from "../lib/index";
 import * as config from "./config";
 import * as utils from "./utils";
-const ksuid = require("ksuid");
+import ksuid from "ksuid";
 use(require("chai-as-promised"));
 
 ["ws", "http"].forEach((connection) => {
@@ -240,7 +240,7 @@ use(require("chai-as-promised"));
           data: { foo: "bar" },
         });
       });
-      const responses = await Promise.all(promises);
+      await Promise.all(promises);
 
       // Check
       for (const v of paths) {

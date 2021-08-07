@@ -35,9 +35,9 @@ describe("Client test", function () {
       domain: config.domain,
       token: config.token,
     });
-    const response = await client.watch({
+    await client.watch({
       path: "/bookmarks",
-      watchCallback: (d) => {
+      watchCallback: (d: unknown) => {
         console.log(d);
       },
     });
@@ -48,7 +48,7 @@ describe("Client test", function () {
       domain: config.domain,
       token: config.token,
     });
-    const response = await client.put({
+    await client.put({
       path: "/bookmarks",
       data: { test10: "aaa" },
     });

@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig, AxiosPromise } from "axios";
+import axios from "axios";
 import ksuid from "ksuid";
 import * as config from "./config";
 

@@ -2,11 +2,11 @@ import ksuid from "ksuid";
 import deepClone from "deep-clone";
 import debug from "debug";
 import * as utils from "./utils";
-import { EventEmitter } from "events";
+import type { EventEmitter } from "events";
 import { WebSocketClient } from "./websocket";
 import { HttpClient } from "./http";
 
-import { Json, Change } from ".";
+import type { Json, Change } from ".";
 
 const trace = debug("@oada/client:client:trace");
 //const error = debug("@oada/client:client:error");
@@ -113,6 +113,15 @@ export interface HEADRequest {
 export interface DELETERequest {
   path: string;
   timeout?: number;
+}
+
+/**
+ * @internal
+ */
+export interface OADATree {
+  // @ts-ignore
+  _type: string;
+  [k: string]: OADATree;
 }
 
 /** Main  OADAClient class */
@@ -226,7 +235,10 @@ z      For the reconnection case, we need to re-establish the watches. */
     if (request.tree) {
       // Get subtree
       const arrayPath = utils.toArrayPath(request.path);
-      const subTree = utils.getObjectAtPath(request.tree, arrayPath);
+      const subTree = utils.getObjectAtPath(
+        request.tree,
+        arrayPath
+      ) as OADATree;
 
       // Replace "data" with the recursive GET result
       // @ts-ignore
@@ -259,7 +271,7 @@ z      For the reconnection case, we need to re-establish the watches. */
    * @param request watch request
    */
   public async watch(request: WatchRequest): Promise<string> {
-    let headers = {};
+    const headers: Record<string, string> = {};
 
     if (typeof request.rev !== "undefined") {
       headers["x-oada-rev"] = request.rev;
@@ -283,7 +295,7 @@ z      For the reconnection case, we need to re-establish the watches. */
             request.watchCallback(deepClone(change));
           }
           if (change.path === "") {
-            const watchRequest = this._watchList.get(resp.requestId[0]);
+            const watchRequest = this._watchList.get(resp.requestId[0]!);
             if (watchRequest) {
               const newRev = change.body?.["_rev"];
               if (newRev) {
@@ -309,7 +321,7 @@ z      For the reconnection case, we need to re-establish the watches. */
 
     // Get requestId from the response
     const requestId: string = Array.isArray(r.requestId)
-      ? r.requestId[0]
+      ? r.requestId[0]!
       : r.requestId; // server should always return an array requestId
 
     // Save watch request
@@ -357,7 +369,7 @@ z      For the reconnection case, we need to re-establish the watches. */
   // GET resource recursively
   private async _recursiveGet(
     path: string,
-    subTree: object,
+    subTree: OADATree,
     data: Json
   ): Promise<Json> {
     // If either subTree or data does not exist, there's mismatch between
@@ -378,7 +390,7 @@ z      For the reconnection case, we need to re-establish the watches. */
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
       children = Object.keys(data).reduce((acc, key) => {
-        if (data && typeof data[key] == "object") {
+        if (data && typeof data[key] === "object") {
           acc.push({ treeKey: "*", dataKey: key });
         }
         return acc;
@@ -386,7 +398,7 @@ z      For the reconnection case, we need to re-establish the watches. */
     } else {
       // Otherwise, get children from the tree provided by the user
       children = Object.keys(subTree || {}).reduce((acc, key) => {
-        if (data && typeof data[key] == "object") {
+        if (data && typeof data[key] === "object") {
           acc.push({ treeKey: key, dataKey: key });
         }
         return acc;
@@ -394,14 +406,14 @@ z      For the reconnection case, we need to re-establish the watches. */
     }
 
     // initiate recursive calls
-    let promises = children.map(async (item) => {
+    const promises = children.map(async (item) => {
       const childPath = path + "/" + item.dataKey;
       if (!data) {
         return;
       }
       const res = await this._recursiveGet(
         childPath,
-        subTree[item.treeKey],
+        subTree[item.treeKey]!,
         data[item.dataKey]
       );
       data[item.dataKey] = res;
@@ -430,10 +442,13 @@ z      For the reconnection case, we need to re-establish the watches. */
         // get current path
         const partialPathArray = pathArray.slice(0, i + 1);
         // get corresponding data definition from the provided tree
-        const treeObj = utils.getObjectAtPath(request.tree, partialPathArray);
+        const treeObj = utils.getObjectAtPath(
+          request.tree,
+          partialPathArray
+        ) as OADATree;
         if ("_type" in treeObj) {
           // it's a resource
-          const contentType = treeObj["_type"];
+          const contentType = treeObj["_type"]!;
           const partialPath = utils.toStringPath(partialPathArray);
           // check if resource already exists on the remote server
           const resourceCheckResult = await this._resourceExists(partialPath);
@@ -495,7 +510,7 @@ z      For the reconnection case, we need to re-establish the watches. */
     }
 
     // Get content-type
-    let contentType =
+    const contentType =
       request.contentType || // 1) get content-type from the argument
       (request.data && request.data["_type"]) || // 2) get content-type from the resource body
       (request.tree
@@ -539,7 +554,7 @@ z      For the reconnection case, we need to re-establish the watches. */
     }
 
     // Get content-type
-    let contentType =
+    const contentType =
       request.contentType || // 1) get content-type from the argument
       (request.data && request.data["_type"]) || // 2) get content-type from the resource body
       (request.tree
@@ -637,7 +652,8 @@ z      For the reconnection case, we need to re-establish the watches. */
       if (msg.status == 404) {
         return msg;
       } else if (msg.status == 403 && path.match(/^\/resources/)) {
-        return { status: 404 }; // 403 is what you get on resources that don't exist (i.e. Forbidden)
+        // 403 is what you get on resources that don't exist (i.e. Forbidden)
+        return { status: 404 };
       } else {
         throw new Error(
           `Error: head for resource returned ${msg.statusText || msg}`

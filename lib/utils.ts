@@ -30,7 +30,7 @@ export function getObjectAtPath(tree: object, path: Array<string>): object {
 }
 
 export function toTreePath(tree: object, path: Array<string>): Array<string> {
-  let treePath: string[] = [];
+  const treePath: string[] = [];
   path.reduce((acc, nextKey) => {
     if (acc[nextKey]) {
       treePath.push(nextKey);

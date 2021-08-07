@@ -8,7 +8,7 @@ import debug from "debug";
 const trace = debug("@oada/client:ws:trace");
 const error = debug("@oada/client:ws:error");
 
-import {
+import type {
   ConnectionRequest,
   ConnectionResponse,
   ConnectionChange,
@@ -21,7 +21,7 @@ import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response
 import { is as isOADASocketChange } from "@oada/types/oada/websockets/change";
 import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2";
 
-import { Json } from ".";
+import type { Json } from ".";
 
 interface ActiveRequest {
   resolve: Function;
@@ -31,7 +31,7 @@ interface ActiveRequest {
   settled: boolean;
 }
 
-enum ConnectionStatus {
+const enum ConnectionStatus {
   Disconnected,
   Connecting,
   Connected,
@@ -81,17 +81,17 @@ export class WebSocketClient extends EventEmitter implements Connection {
 
     // register handlers
     ws.onopen = () => {
-      trace("Connection opened.");
+      trace("Connection opened");
       this._status = ConnectionStatus.Connected;
       this.emit("open");
     };
     ws.onclose = () => {
-      trace("Connection closed.");
+      trace("Connection closed");
       this._status = ConnectionStatus.Disconnected;
       this.emit("close");
     };
     ws.onerror = (err) => {
-      trace("Connection error %O", err);
+      trace(err, "Connection error");
       //this._status = ConnectionStatus.Disconnected;
       //this.emit("error");
     };
@@ -99,7 +99,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
 
     this._q = new PQueue({ concurrency });
     this._q.on("active", () => {
-      trace(`WS Queue. Size: ${this._q.size} pending: ${this._q.pending}`);
+      trace("WS Queue. Size: %d pending: %d", this._q.size, this._q.pending);
     });
   }
 
@@ -187,16 +187,13 @@ export class WebSocketClient extends EventEmitter implements Connection {
     try {
       const msg = JSON.parse(m.data.toString());
 
-      let requestIds: Array<string>;
-      if (Array.isArray(msg.requestId)) {
-        requestIds = msg.requestId;
-      } else {
-        requestIds = [msg.requestId];
-      }
+      const requestIds: readonly string[] = Array.isArray(msg.requestId)
+        ? msg.requestId
+        : [msg.requestId];
 
       for (const requestId of requestIds) {
         // find original request
-        let request = this._requests.get(requestId);
+        const request = this._requests.get(requestId);
         if (request) {
           if (isOADASocketResponse(msg)) {
             if (!request.persistent) {
@@ -207,7 +204,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
             if (!request.settled) {
               request.settled = true;
 
-              if (msg.status && msg.status >= 200 && msg.status < 300) {
+              if (msg.status >= 200 && msg.status < 300) {
                 request.resolve(msg);
               } else if (msg.status) {
                 request.reject(msg);
@@ -235,8 +232,11 @@ export class WebSocketClient extends EventEmitter implements Connection {
         }
       }
     } catch (e) {
-      error(`[Websocket ${this._domain}] Received invalid response. Ignoring.`);
-      trace(`[Websocket ${this._domain}] Received invalid response. %O`, e);
+      error(
+        "[Websocket %s] Received invalid response. Ignoring.",
+        this._domain
+      );
+      trace(e, "[Websocket %s] Received invalid response", this._domain);
       // No point in throwing here; the promise cannot be resolved because the
       // requestId cannot be retrieved; throwing will just blow up client
     }
