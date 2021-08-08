@@ -115,6 +115,13 @@ export interface DELETERequest {
   timeout?: number;
 }
 
+export interface ENSURERequest {
+  path: string;
+  timeout?: number;
+  tree?: object;
+  data: Json;
+}
+
 /**
  * @internal
  */
@@ -614,6 +621,30 @@ z      For the reconnection case, we need to re-establish the watches. */
       request.timeout
     );
   }
+
+  /**
+   * Ensure a particular path with tree exists 
+   * @param request ENSURERequest
+   */
+  public async ensure(request: ENSURERequest): Promise<Response> {
+    // return ENSURE response
+    return this._ws.request(
+      {
+        method: "head",
+        headers: {
+          authorization: `Bearer ${this._token}`,
+        },
+        path: request.path,
+      },
+      undefined, // omitting an optional parameter
+      request.timeout
+    ).catch(err => {
+      if (err.status !== 404) throw err;
+      trace('Path to ensure did not exist. Creating')
+      return this.put(request);
+    })
+  }
+
 
   /** Create a new resource. Returns resource ID */
   private async _createResource(
