@@ -58,15 +58,17 @@ export async function handleErrors<R extends unknown[]>(
   try {
     return await req(...args);
   } catch (err) {
-    trace(err, "Attempting to handle error");
-    switch (err.status) {
+    // TODO: WTF why is error an array sometimes???
+    const e = err?.[0]?.error ?? err?.[0] ?? err?.error ?? err;
+    trace(e, "Attempting to handle error");
+    switch (e.status) {
       case 429:
-        return await handleRatelimit(err, req, ...args);
+        return await handleRatelimit(e, req, ...args);
       // Some servers use 503 for rate limit...
       case 503: {
-        const headers = new Headers(err.headers);
+        const headers = new Headers(e.headers);
         if (headers.has("Retry-After")) {
-          return await handleRatelimit(err, req, ...args);
+          return await handleRatelimit(e, req, ...args);
         }
         // If no Retry-After, don't assume rate-limit?
       }
