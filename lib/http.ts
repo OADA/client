@@ -27,14 +27,14 @@ enum ConnectionStatus {
 }
 
 export class HttpClient extends EventEmitter implements Connection {
-  private _domain: string;
-  private _token: string;
-  private _status: ConnectionStatus;
-  private _q: PQueue;
-  private initialConnection: Promise<void>; // await on the initial HEAD
-  private concurrency: number;
-  private context: { fetch: typeof fetch; disconnectAll?: Disconnect };
-  private ws?: WebSocketClient; // Fall-back socket for watches
+  #domain: string;
+  #token;
+  #status;
+  #q: PQueue;
+  #initialConnection: Promise<void>; // await on the initial HEAD
+  #concurrency;
+  #context: { fetch: typeof fetch; disconnectAll?: Disconnect };
+  #ws?: WebSocketClient; // Fall-back socket for watches
 
   /**
    * Constructor
@@ -44,64 +44,64 @@ export class HttpClient extends EventEmitter implements Connection {
   constructor(domain: string, token: string, concurrency = 10) {
     super();
 
-    this.context = context ? context() : { fetch };
+    this.#context = context ? context() : { fetch };
 
     // ensure leading https://
-    this._domain = domain.match(/^http/) ? domain : `https://${domain}`;
+    this.#domain = domain.match(/^http/) ? domain : `https://${domain}`;
     // ensure no trailing slash
-    this._domain = this._domain.replace(/\/$/, "");
-    this._token = token;
-    this._status = ConnectionStatus.Connecting;
+    this.#domain = this.#domain.replace(/\/$/, "");
+    this.#token = token;
+    this.#status = ConnectionStatus.Connecting;
     // "Open" the http connection: just make sure a HEAD succeeds
     trace(
       "Opening HTTP connection to HEAD %s/bookmarks w/authorization: Bearer %s",
-      this._domain,
-      this._token
+      this.#domain,
+      this.#token
     );
-    this.initialConnection = this.context
-      .fetch(`${this._domain}/bookmarks`, {
+    this.#initialConnection = this.#context
+      .fetch(`${this.#domain}/bookmarks`, {
         method: "HEAD",
-        headers: { authorization: `Bearer ${this._token}` },
+        headers: { authorization: `Bearer ${this.#token}` },
       })
       .then((result) => {
         trace("Initial HEAD returned status: ", result.status);
         if (result.status < 400) {
           trace('Initial HEAD succeeded, emitting "open"');
-          this._status = ConnectionStatus.Connected;
+          this.#status = ConnectionStatus.Connected;
           this.emit("open");
         } else {
           trace('Initial HEAD failed, emitting "close"');
-          this._status = ConnectionStatus.Disconnected;
+          this.#status = ConnectionStatus.Disconnected;
           this.emit("close");
         }
       });
 
-    this.concurrency = concurrency;
-    this._q = new PQueue({ concurrency });
-    this._q.on("active", () => {
-      trace(`HTTP Queue. Size: ${this._q.size} pending: ${this._q.pending}`);
+    this.#concurrency = concurrency;
+    this.#q = new PQueue({ concurrency });
+    this.#q.on("active", () => {
+      trace(`HTTP Queue. Size: ${this.#q.size} pending: ${this.#q.pending}`);
     });
   }
 
   /** Disconnect the connection */
   public async disconnect(): Promise<void> {
-    this._status = ConnectionStatus.Disconnected;
+    this.#status = ConnectionStatus.Disconnected;
     // Close our connections
-    await this.context.disconnectAll?.();
+    await this.#context.disconnectAll?.();
     // Close our ws connection
-    await this.ws?.disconnect();
+    await this.#ws?.disconnect();
     this.emit("close");
   }
 
   /** Return true if connected, otherwise false */
   public isConnected(): boolean {
-    return this._status == ConnectionStatus.Connected;
+    return this.#status == ConnectionStatus.Connected;
   }
 
   /** Wait for the connection to open */
   public async awaitConnection(): Promise<void> {
     // Wait for the initial HEAD request to return
-    await this.initialConnection;
+    await this.#initialConnection;
   }
 
   // TODO: Add support for WATCH via h2 push and/or RFC 8441
@@ -116,17 +116,17 @@ export class HttpClient extends EventEmitter implements Connection {
       warn(
         "WATCH/UNWATCH not currently supported for http(2), falling-back to ws"
       );
-      if (!this.ws) {
+      if (!this.#ws) {
         // Open a WebSocket connection
-        const domain = this._domain.replace(/^https?:\/\//, "");
-        this.ws = new WebSocketClient(domain, this.concurrency);
-        await this.ws.awaitConnection();
+        const domain = this.#domain.replace(/^https?:\/\//, "");
+        this.#ws = new WebSocketClient(domain, this.#concurrency);
+        await this.#ws.awaitConnection();
       }
-      return this.ws?.request(req, callback, timeout);
+      return this.#ws!.request(req, callback, timeout);
     }
     if (!req.requestId) req.requestId = ksuid.randomSync().string;
     trace("Adding http request w/ id %s to the queue", req.requestId);
-    return this._q.add(() =>
+    return this.#q.add(() =>
       handleErrors(this.doRequest.bind(this), req, timeout)
     );
   }
@@ -141,7 +141,7 @@ export class HttpClient extends EventEmitter implements Connection {
     assertOADASocketRequest(req);
     trace(
       "Req looks like socket request, awaiting race of timeout and fetch to %s%s",
-      this._domain,
+      this.#domain,
       req.path
     );
 
@@ -155,8 +155,8 @@ export class HttpClient extends EventEmitter implements Connection {
         timedout = true;
       }, timeout);
     }
-    const result = await this.context
-      .fetch(new URL(req.path, this._domain).toString(), {
+    const result = await this.#context
+      .fetch(new URL(req.path, this.#domain).toString(), {
         // @ts-ignore
         method: req.method.toUpperCase(),
         // @ts-ignore

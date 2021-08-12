@@ -52,11 +52,11 @@ class BetterWebSocket extends WebSocket {
 }
 
 export class WebSocketClient extends EventEmitter implements Connection {
-  private _ws: Promise<ReconnectingWebSocket>;
-  private _domain: string;
-  private _status: ConnectionStatus;
-  private _requests: Map<string, ActiveRequest>;
-  private _q: PQueue;
+  #ws: Promise<ReconnectingWebSocket>;
+  #domain: string;
+  #status: ConnectionStatus;
+  #requests: Map<string, ActiveRequest>;
+  #q: PQueue;
 
   /**
    * Constructor
@@ -65,60 +65,60 @@ export class WebSocketClient extends EventEmitter implements Connection {
    */
   constructor(domain: string, concurrency = 10) {
     super();
-    this._domain = domain;
-    this._requests = new Map();
-    this._status = ConnectionStatus.Connecting;
+    this.#domain = domain;
+    this.#requests = new Map();
+    this.#status = ConnectionStatus.Connecting;
     // create websocket connection
-    const ws = new ReconnectingWebSocket("wss://" + this._domain, [], {
+    const ws = new ReconnectingWebSocket("wss://" + this.#domain, [], {
       // Not sure why it needs so long, but 30s is the ws timeout
       connectionTimeout: 30 * 1000,
       WebSocket: BetterWebSocket,
     });
     const openP = once(ws, "open").then(() => ws);
     const errP = once(ws, "error").then((err) => Promise.reject(err));
-    this._ws = Promise.race([openP, errP]);
+    this.#ws = Promise.race([openP, errP]);
 
     // register handlers
     ws.onopen = () => {
       trace("Connection opened");
-      this._status = ConnectionStatus.Connected;
+      this.#status = ConnectionStatus.Connected;
       this.emit("open");
     };
     ws.onclose = () => {
       trace("Connection closed");
-      this._status = ConnectionStatus.Disconnected;
+      this.#status = ConnectionStatus.Disconnected;
       this.emit("close");
     };
     ws.onerror = (err) => {
       trace(err, "Connection error");
-      //this._status = ConnectionStatus.Disconnected;
+      //this.#status = ConnectionStatus.Disconnected;
       //this.emit("error");
     };
-    ws.onmessage = this._receive.bind(this); // explicitly pass the instance
+    ws.onmessage = this.#receive.bind(this); // explicitly pass the instance
 
-    this._q = new PQueue({ concurrency });
-    this._q.on("active", () => {
-      trace("WS Queue. Size: %d pending: %d", this._q.size, this._q.pending);
+    this.#q = new PQueue({ concurrency });
+    this.#q.on("active", () => {
+      trace("WS Queue. Size: %d pending: %d", this.#q.size, this.#q.pending);
     });
   }
 
   /** Disconnect the WebSocket connection */
   public async disconnect(): Promise<void> {
-    if (this._status == ConnectionStatus.Disconnected) {
+    if (this.#status == ConnectionStatus.Disconnected) {
       return;
     }
-    (await this._ws).close();
+    (await this.#ws).close();
   }
 
   /** Return true if connected, otherwise false */
   public isConnected(): boolean {
-    return this._status == ConnectionStatus.Connected;
+    return this.#status == ConnectionStatus.Connected;
   }
 
   /** Wait for the connection to open */
   public async awaitConnection(): Promise<void> {
     // Wait for _ws to resolve and return
-    await this._ws;
+    await this.#ws;
   }
 
   public request(
@@ -126,7 +126,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     callback?: (response: Readonly<ConnectionChange>) => void,
     timeout?: number
   ): Promise<ConnectionResponse> {
-    return this._q.add(() =>
+    return this.#q.add(() =>
       handleErrors(this.doRequest.bind(this), req, callback, timeout)
     );
   }
@@ -141,13 +141,13 @@ export class WebSocketClient extends EventEmitter implements Connection {
     const requestId = req.requestId || ksuid.randomSync().string;
     req.requestId = requestId;
     assertOADASocketRequest(req);
-    (await this._ws).send(JSON.stringify(req));
+    (await this.#ws).send(JSON.stringify(req));
 
     // Promise for request
     const request_promise = new Promise<ConnectionResponse>(
       (resolve, reject) => {
         // save request
-        this._requests.set(requestId, {
+        this.#requests.set(requestId, {
           resolve,
           reject,
           settled: false,
@@ -166,10 +166,10 @@ export class WebSocketClient extends EventEmitter implements Connection {
           setTimeout(() => {
             // If the original request is still pending, delete it.
             // This is necessary to kill "zombie" requests.
-            const request = this._requests.get(requestId);
+            const request = this.#requests.get(requestId);
             if (request && !request.settled) {
               request.reject("Request timeout"); // reject request promise
-              this._requests.delete(requestId);
+              this.#requests.delete(requestId);
             }
             reject("Request timeout"); // reject timeout promise
           }, timeout);
@@ -182,7 +182,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     }
   }
 
-  private _receive(m: any) {
+  #receive(m: any) {
     try {
       const msg = JSON.parse(m.data.toString());
 
@@ -192,11 +192,11 @@ export class WebSocketClient extends EventEmitter implements Connection {
 
       for (const requestId of requestIds) {
         // find original request
-        const request = this._requests.get(requestId);
+        const request = this.#requests.get(requestId);
         if (request) {
           if (isOADASocketResponse(msg)) {
             if (!request.persistent) {
-              this._requests.delete(requestId);
+              this.#requests.delete(requestId);
             }
 
             // if the request is not settled, resolve/reject the corresponding promise
@@ -233,9 +233,9 @@ export class WebSocketClient extends EventEmitter implements Connection {
     } catch (e) {
       error(
         "[Websocket %s] Received invalid response. Ignoring.",
-        this._domain
+        this.#domain
       );
-      trace(e, "[Websocket %s] Received invalid response", this._domain);
+      trace(e, "[Websocket %s] Received invalid response", this.#domain);
       // No point in throwing here; the promise cannot be resolved because the
       // requestId cannot be retrieved; throwing will just blow up client
     }
