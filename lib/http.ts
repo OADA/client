@@ -4,6 +4,7 @@ import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
 import typeis from "type-is";
+import { Buffer } from "buffer";
 
 import { WebSocketClient } from "./websocket";
 import { handleErrors } from "./errors";
