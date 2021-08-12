@@ -1,5 +1,7 @@
 // Some useful functions
 
+import type { OADATree } from "./client";
+
 export function toStringPath(path: Array<string>): string {
   return "/" + path.join("/");
 }
@@ -15,7 +17,8 @@ export function toArrayPath(path: string): Array<string> {
   return arrayPath;
 }
 
-export function getObjectAtPath(tree: object, path: Array<string>): object {
+export function getObjectAtPath(tree: OADATree, path: Array<string>): OADATree {
+  // @ts-ignore
   return path.reduce((acc, nextKey) => {
     if (acc[nextKey]) {
       return acc[nextKey];
@@ -29,8 +32,9 @@ export function getObjectAtPath(tree: object, path: Array<string>): object {
   }, tree);
 }
 
-export function toTreePath(tree: object, path: Array<string>): Array<string> {
+export function toTreePath(tree: OADATree, path: Array<string>): Array<string> {
   const treePath: string[] = [];
+  // @ts-ignore
   path.reduce((acc, nextKey) => {
     if (acc[nextKey]) {
       treePath.push(nextKey);
@@ -47,7 +51,7 @@ export function toTreePath(tree: object, path: Array<string>): Array<string> {
   return treePath;
 }
 
-export function isResource(tree: object, path: Array<string>): boolean {
+export function isResource(tree: OADATree, path: Array<string>): boolean {
   const obj = getObjectAtPath(tree, path);
   if ("_id" in obj) {
     return true;
@@ -62,9 +66,7 @@ export function createNestedObject(
 ): object {
   const reversedArray = nestPath.slice().reverse();
   return reversedArray.reduce((acc, nextKey) => {
-    let newObj = {};
-    newObj[nextKey] = acc;
-    return newObj;
+    return { [nextKey]: acc };
   }, obj);
 }
 

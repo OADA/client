@@ -5,7 +5,12 @@ export function createInstance(config: Config): OADAClient {
   return new OADAClient(config);
 }
 
+/** @deprecated ws is deprecated, use http */
+export async function connect(
+  config: Config & { connection: "ws" }
+): Promise<OADAClient>;
 /** Create a new instance and wrap it with Promise */
+export async function connect(config: Config): Promise<OADAClient>;
 export async function connect(config: Config): Promise<OADAClient> {
   // Create an instance of client and start connection
   const client = new OADAClient(config);
@@ -29,13 +34,10 @@ export {
   Connection,
 } from "./client";
 
-export type Json =
-  | null
-  | boolean
-  | number
-  | string
-  | Json[]
-  | { [prop: string]: Json };
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonArray = Json[];
+export type JsonObject = { [prop in string]?: Json };
+export type Json = JsonPrimitive | JsonObject | JsonArray;
 
 export type JsonCompatible<T> = {
   [P in keyof T]: T[P] extends Json
@@ -49,7 +51,7 @@ export type JsonCompatible<T> = {
 
 export interface Change {
   type: "merge" | "delete";
-  body: Json;
+  body: JsonObject & { _rev: number | string };
   path: string;
   resource_id: string;
 }

@@ -8,6 +8,11 @@ import debug from "debug";
 const trace = debug("@oada/client:ws:trace");
 const error = debug("@oada/client:ws:error");
 
+import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
+import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response";
+import { is as isOADASocketChange } from "@oada/types/oada/websockets/change";
+import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2";
+
 import type {
   ConnectionRequest,
   ConnectionResponse,
@@ -15,13 +20,7 @@ import type {
   Connection,
 } from "./client";
 import { handleErrors } from "./errors";
-
-import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
-import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response";
-import { is as isOADASocketChange } from "@oada/types/oada/websockets/change";
-import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2";
-
-import type { Json } from ".";
+import type { Change } from "./";
 
 interface ActiveRequest {
   resolve: Function;
@@ -221,7 +220,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
               resourceId: msg.resourceId,
               path_leftover: msg.path_leftover,
               change: msg.change.map(({ body, ...rest }) => {
-                return { ...rest, body: body as Json };
+                return { ...rest, body } as Change;
               }),
             };
 
