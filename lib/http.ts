@@ -3,9 +3,11 @@ import { EventEmitter } from "events";
 import ksuid from "ksuid";
 import PQueue from "p-queue";
 import debug from "debug";
+import typeis from "type-is";
 
 import { WebSocketClient } from "./websocket";
 import { handleErrors } from "./errors";
+import type { Body } from "./client";
 
 const trace = debug("@oada/client:http:trace");
 const warn = debug("@oada/client:http:warn");
@@ -155,6 +157,10 @@ export class HttpClient extends EventEmitter implements Connection {
         timedout = true;
       }, timeout);
     }
+    // Assume anything that is not a Buffer should be JSON?
+    const body = Buffer.isBuffer(req.data)
+      ? req.data
+      : JSON.stringify(req.data);
     const result = await this.#context
       .fetch(new URL(req.path, this.#domain).toString(), {
         // @ts-ignore
@@ -162,7 +168,7 @@ export class HttpClient extends EventEmitter implements Connection {
         // @ts-ignore
         signal,
         timeout,
-        body: JSON.stringify(req.data),
+        body,
         // We are not explicitly sending token in each request
         // because parent library sends it
         headers: req.headers,
@@ -174,8 +180,8 @@ export class HttpClient extends EventEmitter implements Connection {
     trace("Fetch did not throw, checking status of %s", result.status);
 
     // This is the same test as in ./websocket.ts
-    if (result.status < 200 || result.status >= 300) {
-      trace(`result.status (${result.status}) is not 2xx, throwing`);
+    if (!result.ok) {
+      trace("result.status %s is not 2xx, throwing", result.status);
       throw result;
     }
     trace("result.status ok, pulling headers");
@@ -190,11 +196,10 @@ export class HttpClient extends EventEmitter implements Connection {
       }
     }
     const length = +(result.headers.get("content-length") || 0);
-    let data: any = null;
+    let data: Body | undefined;
     if (req.method.toUpperCase() !== "HEAD") {
-      const isJSON = (result.headers.get("content-type") || "").match(/json/);
-      if (!isJSON) {
-        data = await result.arrayBuffer();
+      if (!typeis.is(result.headers.get("content-type")!, ["json", "+json"])) {
+        data = Buffer.from(await result.arrayBuffer());
       } else {
         // this json() function is really finicky,
         // have to do all these tests prior to get it to work

@@ -1,7 +1,9 @@
 import { use, expect } from "chai";
 import "mocha";
+
 import * as oada from "../lib/index";
 import * as config from "./config";
+import type { OADATree } from "../lib/client";
 use(require("chai-as-promised"));
 
 const generateRandomStr = () => {
@@ -68,34 +70,34 @@ describe("HTTP Client test", function () {
 
   it("Recursive PUT/GET", async () => {
     const randomStr = generateRandomStr();
-    var tree = {
+    var tree = ({
       bookmarks: {
         _type: "application/json",
         _rev: 0,
-      },
-    };
-    tree.bookmarks[randomStr] = {
-      _type: "application/json",
-      _rev: 0,
-      level1: {
-        "*": {
+        [randomStr]: {
           _type: "application/json",
           _rev: 0,
-          level2: {
+          level1: {
             "*": {
               _type: "application/json",
               _rev: 0,
-              level3: {
+              level2: {
                 "*": {
                   _type: "application/json",
                   _rev: 0,
+                  level3: {
+                    "*": {
+                      _type: "application/json",
+                      _rev: 0,
+                    },
+                  },
                 },
               },
             },
           },
         },
       },
-    };
+    } as unknown) as OADATree;
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,

@@ -1,6 +1,8 @@
 import ksuid from "ksuid";
 import deepClone from "deep-clone";
 import debug from "debug";
+import { Buffer } from "buffer";
+
 import * as utils from "./utils";
 import type { EventEmitter } from "events";
 import { WebSocketClient } from "./websocket";
@@ -11,12 +13,17 @@ import type { Json, Change, JsonObject } from ".";
 const trace = debug("@oada/client:client:trace");
 //const error = debug("@oada/client:client:error");
 
+/**
+ * @todo Support more than just Buffer?
+ */
+export type Body = Json | Buffer;
+
 export interface ConnectionRequest {
   requestId?: string;
   path: string;
   method: "head" | "get" | "put" | "post" | "delete" | "watch" | "unwatch";
   headers: Record<string, string>;
-  data?: Json;
+  data?: Body;
 }
 
 export interface ConnectionResponse {
@@ -24,7 +31,7 @@ export interface ConnectionResponse {
   status: number;
   statusText: string;
   headers: Record<string, string>;
-  data: Json;
+  data?: Body;
 }
 
 export interface ConnectionChange {
@@ -122,7 +129,7 @@ export interface DELETERequest {
  */
 export interface OADATree {
   // @ts-ignore
-  _type: string;
+  _type?: string;
   [k: string]: OADATree;
 }
 
@@ -249,7 +256,6 @@ z      For the reconnection case, we need to re-establish the watches. */
       ) as OADATree;
 
       // Replace "data" with the recursive GET result
-      // @ts-ignore
       topLevelResponse.data = await this.#recursiveGet(
         request.path,
         subTree,
@@ -381,8 +387,8 @@ z      For the reconnection case, we need to re-establish the watches. */
   async #recursiveGet(
     path: string,
     subTree: OADATree | undefined,
-    data: Json | undefined
-  ): Promise<Json> {
+    data: Body | undefined
+  ): Promise<Body> {
     // If either subTree or data does not exist, there's mismatch between
     // the provided tree and the actual data stored on the server
     if (!subTree || !data) {
@@ -395,25 +401,28 @@ z      For the reconnection case, we need to re-establish the watches. */
       data = (await this.get({ path })).data || {};
     }
 
+    // TODO: should this error?
+    if (Buffer.isBuffer(data)) {
+      return data;
+    }
+
     // select children to traverse
-    let children: Array<any>; // FIXME: don't use 'any'
+    const children: { treeKey: string; dataKey: string }[] = [];
     if (subTree["*"]) {
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
-      children = Object.keys(data).reduce((acc, key) => {
-        if (typeof (data as JsonObject)[key] === "object") {
-          acc.push({ treeKey: "*", dataKey: key });
+      for (const key of Object.keys(data)) {
+        if (typeof data[key as keyof typeof data] === "object") {
+          children.push({ treeKey: "*", dataKey: key });
         }
-        return acc;
-      }, <Array<any>>[]);
+      }
     } else {
       // Otherwise, get children from the tree provided by the user
-      children = Object.keys(subTree || {}).reduce((acc, key) => {
-        if (typeof (data as JsonObject)[key] === "object") {
-          acc.push({ treeKey: key, dataKey: key });
+      for (const key of Object.keys(subTree || {})) {
+        if (typeof data[key as keyof typeof data] === "object") {
+          children.push({ treeKey: key, dataKey: key });
         }
-        return acc;
-      }, <Array<any>>[]);
+      }
     }
 
     // initiate recursive calls
@@ -427,6 +436,7 @@ z      For the reconnection case, we need to re-establish the watches. */
         subTree[item.treeKey],
         (data as JsonObject)[item.dataKey]
       );
+      // @ts-ignore
       (data as JsonObject)[item.dataKey] = res;
       return;
     });

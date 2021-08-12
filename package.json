@@ -26,6 +26,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@oada/types": "^1.5.1",
+    "buffer": "^6.0.3",
     "cross-fetch": "^3.0.6",
     "debug": "^4.1.1",
     "deep-clone": "^3.0.3",
@@ -34,6 +35,7 @@
     "ksuid": "^2.0.0",
     "p-queue": "^6.4.0",
     "reconnecting-websocket": "^4.4.0",
+    "type-is": "^1.6.18",
     "ws": "^8.0.0"
   },
   "devDependencies": {
@@ -43,6 +45,7 @@
     "@types/events": "^3.0.0",
     "@types/mocha": "^9.0.0",
     "@types/node": "^16.4.13",
+    "@types/type-is": "^1",
     "@types/uuid": "^8.3.1",
     "@types/ws": "^7.4.7",
     "@yarnpkg/sdks": "^2.4.1-rc.4",

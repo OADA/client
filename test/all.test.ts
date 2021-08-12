@@ -1,5 +1,7 @@
 import { expect } from "chai";
 import "mocha";
+
+import type { OADATree } from "../lib/client";
 import * as oada from "../lib/index";
 import * as config from "./config";
 
@@ -58,34 +60,34 @@ describe("Client test", function () {
 
   xit("Recursive PUT/GET", async () => {
     const randomStr = generateRandomStr();
-    var tree = {
+    const tree = ({
       bookmarks: {
         _type: "application/json",
-        _rev: 0,
-      },
-    };
-    tree.bookmarks[randomStr] = {
-      _type: "application/json",
-      _rev: 0,
-      level1: {
-        "*": {
+        //_rev: 0,
+        [randomStr]: {
           _type: "application/json",
-          _rev: 0,
-          level2: {
+          //_rev: 0,
+          level1: {
             "*": {
               _type: "application/json",
-              _rev: 0,
-              level3: {
+              //_rev: 0,
+              level2: {
                 "*": {
                   _type: "application/json",
-                  _rev: 0,
+                  //_rev: 0,
+                  level3: {
+                    "*": {
+                      _type: "application/json",
+                      //_rev: 0,
+                    },
+                  },
                 },
               },
             },
           },
         },
       },
-    };
+    } as unknown) as OADATree;
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,

@@ -33,7 +33,7 @@ import * as utils from "./utils";
     // Cleanup
     after("Destroy connection", async function () {
       // Disconnect
-      await client.disconnect();
+      await client?.disconnect();
       // this does not delete resources... oh well.
       await utils.deleteLinkAxios("/bookmarks/" + testName);
     });
