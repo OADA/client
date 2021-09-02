@@ -99,7 +99,7 @@ export type WatchRequest = WatchRequestSingle | WatchRequestTree;
 
 export interface PUTRequest {
   path: string;
-  data: Json;
+  data: Body;
   contentType?: string;
   revIfMatch?: number; // if-match
   tree?: object;
@@ -108,7 +108,7 @@ export interface PUTRequest {
 
 export interface POSTRequest {
   path: string;
-  data: Json;
+  data: Body;
   contentType?: string;
   tree?: object;
   timeout?: number;
