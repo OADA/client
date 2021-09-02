@@ -584,7 +584,9 @@ z      For the reconnection case, we need to re-establish the watches. */
     // Get content-type
     const contentType =
       request.contentType || // 1) get content-type from the argument
-      (request.data && (request.data as JsonObject)["_type"]) || // 2) get content-type from the resource body
+      (Buffer.isBuffer(request.data) &&
+        (await fromBuffer(request.data))?.mime) ||
+      (request.data as JsonObject)?.["_type"] || // 2) get content-type from the resource body
       (request.tree
         ? utils.getObjectAtPath(request.tree, pathArray)["_type"] // 3) get content-type from the tree
         : "application/json"); // 4) Assume application/json
