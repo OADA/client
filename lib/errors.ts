@@ -57,7 +57,7 @@ export async function handleErrors<R extends unknown[]>(
 ): Promise<ConnectionResponse> {
   try {
     return await req(...args);
-  } catch (err) {
+  } catch (err: any) {
     // TODO: WTF why is error an array sometimes???
     const e = err?.[0]?.error ?? err?.[0] ?? err?.error ?? err;
     trace(e, "Attempting to handle error");

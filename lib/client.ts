@@ -360,23 +360,63 @@ z      For the reconnection case, we need to re-establish the watches. */
         if (request.type === "tree") {
           request.watchCallback(deepClone(resp.change))
         }
-        for (const change of resp.change) {
+        let persistEvery : boolean[] = Array(resp.change.length).fill(false);
+        for (const [_i, change] of resp.change.entries()) {
           if (!request.type || request.type === "single") {
-            request.watchCallback(deepClone(change)).then(async () => {
-              if (request.persist && request.persist.name && change.path === "") {
-                const persistPath = request.path+`/_meta/watchPersists/${request.persist.name}`;
-                const rev = change.body?.["_rev"];
-                let p = this._persistList.get(persistPath)
-                if (p && p.items) {
-                  p.items[rev] = true;
-                  this._persistList.set(persistPath, p)
-                }
-                if (p && p.active === false) {
-                  p.active = true;
-                  this._persistList.set(persistPath, p)
-                  await this._persistWatch(persistPath, rev)
+            request.watchCallback(deepClone(change))
+            .then(() => {
+              if (request.persist && request.persist.name) {
+                persistEvery[_i] = true;
+
+                // Persist the new parent rev 
+                if (request.persist && persistEvery.every(i => i)) {
+                  const bod = (resp?.change.find(c => c.path === ""))?.body
+                  let rev;
+                  if (typeof bod === 'object' && bod !== null && !Array.isArray(bod)) {
+                    rev = bod._rev;
+                  }
+          
+                  const persistPath = request.path+`/_meta/watchPersists/${request.persist.name}`;
+                  let p = this._persistList.get(persistPath)
+                  if (p && p.items && typeof rev === 'number') {
+                    p.items[rev] = true;
+                    this._persistList.set(persistPath, p)
+                  }
+                  if (p && p.active === false && typeof rev === 'number') {
+                    p.active = true;
+                    this._persistList.set(persistPath, p)
+                    this._persistWatch(persistPath, rev)
+                  }
                 }
               }
+            })
+            .catch((err) => {
+              if (request.persist && request.persist.name) {
+                persistEvery[_i] = true;
+
+              // Persist the new parent rev 
+                if (request.persist && persistEvery.every(i => i)) {
+                  const bod = (resp?.change.find(c => c.path === ""))?.body
+                  let rev;
+                  if (typeof bod === 'object' && bod !== null && !Array.isArray(bod)) {
+                    rev = bod._rev;
+                  }
+          
+                  const persistPath = request.path+`/_meta/watchPersists/${request.persist.name}`;
+                  let p = this._persistList.get(persistPath)
+                  if (p && p.items && typeof rev === 'number') {
+                    p.items[rev] = true;
+                    this._persistList.set(persistPath, p)
+                  }
+                  if (p && p.active === false && typeof rev === 'number') {
+                    p.active = true;
+                    this._persistList.set(persistPath, p)
+                    this._persistWatch(persistPath, rev)
+                  }
+                }
+
+              }
+              throw err;
             })
           }
           if (change.path === "") {
@@ -396,6 +436,7 @@ z      For the reconnection case, we need to re-establish the watches. */
             }
           }
         }
+
       },
       request.timeout
     );
