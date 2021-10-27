@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "2.6.2",
+  "version": "2.6.3",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
@@ -17,6 +17,7 @@
   "scripts": {
     "test": "mocha -r ts-node/register test/**/*.test.ts --timeout 10000",
     "build": "tsc",
+    "dev": "tsc -w",
     "prettier": "prettier --write '{lib,test}/**/*.ts'",
     "prepare": "npm run build",
     "prestart": "npm run build",

@@ -196,7 +196,7 @@ export class HttpClient extends EventEmitter implements Connection {
         headers[key] = value;
       }
     }
-    const length = +(result.headers.get("content-length") || 0);
+    //const length = +(result.headers.get("content-length") || 0);
     let data: Body | undefined;
     if (req.method.toUpperCase() !== "HEAD") {
       if (!typeis.is(result.headers.get("content-type")!, ["json", "+json"])) {
@@ -207,7 +207,7 @@ export class HttpClient extends EventEmitter implements Connection {
         data = await result.json();
       }
     }
-    trace("length = %d, result.headers = %O", length, headers);
+    //trace("length = %d, result.headers = %O", length, headers);
     return {
       requestId: req.requestId,
       status: result.status,
