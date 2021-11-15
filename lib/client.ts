@@ -74,11 +74,16 @@ export interface GETRequest {
 
 export interface PersistConfig {
   name: string;
+  recordLapsedTimeout: number; //ms
 }
 
 export interface WatchPersist {
-  lastRev: number,
-  items: {[key: string]: boolean};
+  lastRev: number;
+  recordLapsedTimeout: number | undefined;
+  lastCheck: number | undefined;
+//  items: {[key: string]: boolean | number};
+  items: {[key: string]: object};
+  recorded: {[key: string]: boolean | number};
 }
 
 /**
@@ -315,9 +320,10 @@ z      For the reconnection case, we need to re-establish the watches. */
       headers["x-oada-rev"] = request.rev + "";
     }
 
+    let persistPath : string;
     if (request.persist && request.persist.name) {
       const name = request.persist.name;
-      const persistPath = request.path+`/_meta/watchPersists/${name}`;
+      persistPath = request.path+`/_meta/watchPersists/${name}`;
       let lastRev : any;
 
       let rev = await this.get({
@@ -343,6 +349,7 @@ z      For the reconnection case, we need to re-establish the watches. */
             path: persistPath+`/rev`,
             data: rev!
           })
+          lastRev = rev;
         }
       }).catch(async () => {
         lastRev = rev;
@@ -366,7 +373,20 @@ z      For the reconnection case, we need to re-establish the watches. */
         })
         info(`Watch persist did not find _meta entry for [${name}]. Current resource _rev is ${lastRev}. Not setting x-oada-rev header. _meta entry created.`);
       })
-      this.#persistList[persistPath] = {lastRev, items: {}}
+
+      // Retrieve list of previously lapsed revs
+      let recorded;
+      await this.get({
+        path: persistPath+`/items`,
+      }).then(r => {
+        recorded = r.data;
+      }).catch((err) => {
+        if (err.status === 404) {
+          recorded = {};
+        } else throw err;
+      })
+      recorded = recorded || {};
+      this.#persistList[persistPath] = {lastCheck: undefined, recordLapsedTimeout: request.persist.recordLapsedTimeout, lastRev, items: {}, recorded}
     }
 
     const r = await this.#ws.request(
@@ -380,10 +400,14 @@ z      For the reconnection case, we need to re-establish the watches. */
       },
       (resp) => {
         let parentRev: number | string;
+
         if (request.persist) {
           const bod = (resp?.change.find(c => c.path === ""))?.body
           if (typeof bod === 'object' && bod !== null && !Array.isArray(bod)) {
             parentRev = bod._rev;
+            if (persistPath && this.#persistList[persistPath] !== undefined) {
+              this.#persistList[persistPath]!.items[parentRev] = Date.now()
+            }
             console.log({parentRev})
           }
         }
@@ -418,18 +442,8 @@ z      For the reconnection case, we need to re-establish the watches. */
         if (request.persist) {
           Promise.allSettled(persistProms).then(() => {
           // Persist the new parent rev 
-            const bod = (resp?.change.find(c => c.path === ""))?.body
-            let rev;
-            if (typeof bod === 'object' && bod !== null && !Array.isArray(bod)) {
-              rev = bod._rev;
-            }
-      
-            let persistPath;
-            if (request.persist && request.persist.name) {
-              persistPath = request.path+'/_meta/watchPersists/'+request.persist.name;
-              if (typeof rev === 'number' && this.#persistList[persistPath] !== undefined) {
-                this._persistWatch(persistPath, rev)
-              }
+            if (typeof parentRev === 'number' && this.#persistList[persistPath] !== undefined) {
+              this._persistWatch(persistPath, parentRev)
             }
           })
         }
@@ -777,32 +791,75 @@ z      For the reconnection case, we need to re-establish the watches. */
   /** Attempt to save the latest rev processed, accomodating concurrency */
   private async _persistWatch(
     persistPath: string,
-    rev: number
+    rev: number,
   ): Promise<void> {
     info(`Persisting watch for path ${persistPath} to rev ${rev}`);
     console.log(rev, this.#persistList[persistPath] !== undefined)
     if (this.#persistList[persistPath] !== undefined) {
-      let {lastRev, items} = this.#persistList[persistPath]!;
-      items[rev] = true;
-      console.log('check 2', rev, lastRev, rev === lastRev+1)
-      if (rev === lastRev+1) {
-        console.log('items', rev, items[lastRev+1], items)
-        while (items[lastRev+1]) {
-          lastRev++;
-          this.#persistList[persistPath]!.lastRev = lastRev;
-          delete items[lastRev];
+      let {lastRev, recorded, items, recordLapsedTimeout, lastCheck} = this.#persistList[persistPath]!;
+      if (recordLapsedTimeout !== undefined) {
+
+        //Handle finished revs that were previously recorded
+        if (recorded[rev]) {
+          info(`Lapsed rev [${rev}] on path ${persistPath} is now resolved. Removing from 'items' list.`)
+          await this.delete({
+            path: persistPath+`/items/${rev}`
+          })
         }
 
-        await this.put({
-          path: persistPath+`/rev`,
-          data: lastRev,
-        })
-        console.log({items, lastRev});
-        info(`Persisted watch: path: [${persistPath}], rev: [${lastRev}]`);
+        // Record lapsed revs
+        let now = Date.now();
+        if (lastCheck === undefined || lastCheck+recordLapsedTimeout > now) {
+          await this._recordLapsedRevs(persistPath, now)
+        }
+        this.#persistList[persistPath]!.lastCheck = now;
       }
+      items[rev] = true;
+      console.log('check 2', {rev, lastRev}, 'rev = lastRev+1:', rev === lastRev+1)
+      console.log('items', rev, items[lastRev+1], items)
+      while (items[lastRev+1] === true) {//truthy won't work with items as timestamps
+        lastRev++;
+        this.#persistList[persistPath]!.lastRev = lastRev;
+        delete items[lastRev];
+      }
+
+      await this.put({
+        path: persistPath+`/rev`,
+        data: lastRev,
+      })
+      console.log({items, lastRev});
+      info(`Persisted watch: path: [${persistPath}], rev: [${lastRev}]`);
     }
     return;
   }
+
+  /** Record unfinished revs and bring persisted rev up to date */
+  // This does not resolve the promise (it can still resolve later).
+  private async _recordLapsedRevs(
+    persistPath: string,
+    now: number,
+  ): Promise<void> {
+    info(`Checking for lapsed revs for path [${persistPath}] time: [${now}]`)
+    let {items, recorded, recordLapsedTimeout} = this.#persistList[persistPath]!;
+    // Iterate over items;
+    Object.keys(items).forEach(async key => {
+      let item = items[key];
+      if (recordLapsedTimeout !== undefined && typeof item === 'number' && now > item + recordLapsedTimeout) {
+        //record those that have gone stale
+        let path = persistPath+`/items/${key}`;
+        info(`Recording lapsed rev: ${path}`)
+        await this.put({
+          path,
+          data: item
+        })
+
+        //Mark them as resolved
+        items[key] = true;
+        recorded[key] = true;
+      }
+    })
+  }
+
 
 
   /** Create a new resource. Returns resource ID */
