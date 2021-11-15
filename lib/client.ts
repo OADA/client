@@ -408,7 +408,6 @@ z      For the reconnection case, we need to re-establish the watches. */
             if (persistPath && this.#persistList[persistPath] !== undefined) {
               this.#persistList[persistPath]!.items[parentRev] = Date.now()
             }
-            console.log({parentRev})
           }
         }
         if (request.type === "tree") {
@@ -794,7 +793,6 @@ z      For the reconnection case, we need to re-establish the watches. */
     rev: number,
   ): Promise<void> {
     info(`Persisting watch for path ${persistPath} to rev ${rev}`);
-    console.log(rev, this.#persistList[persistPath] !== undefined)
     if (this.#persistList[persistPath] !== undefined) {
       let {lastRev, recorded, items, recordLapsedTimeout, lastCheck} = this.#persistList[persistPath]!;
       if (recordLapsedTimeout !== undefined) {
@@ -815,8 +813,6 @@ z      For the reconnection case, we need to re-establish the watches. */
         this.#persistList[persistPath]!.lastCheck = now;
       }
       items[rev] = true;
-      console.log('check 2', {rev, lastRev}, 'rev = lastRev+1:', rev === lastRev+1)
-      console.log('items', rev, items[lastRev+1], items)
       while (items[lastRev+1] === true) {//truthy won't work with items as timestamps
         lastRev++;
         this.#persistList[persistPath]!.lastRev = lastRev;
@@ -827,7 +823,6 @@ z      For the reconnection case, we need to re-establish the watches. */
         path: persistPath+`/rev`,
         data: lastRev,
       })
-      console.log({items, lastRev});
       info(`Persisted watch: path: [${persistPath}], rev: [${lastRev}]`);
     }
     return;
