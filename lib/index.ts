@@ -1,4 +1,4 @@
-import { OADAClient, Config } from "./client";
+import { OADAClient, Config } from './client';
 
 /** Create a new instance of OADAClient */
 export function createInstance(config: Config): OADAClient {
@@ -7,7 +7,7 @@ export function createInstance(config: Config): OADAClient {
 
 /** @deprecated ws is deprecated, use http */
 export async function connect(
-  config: Config & { connection: "ws" }
+  config: Config & { connection: 'ws' }
 ): Promise<OADAClient>;
 /** Create a new instance and wrap it with Promise */
 export async function connect(config: Config): Promise<OADAClient>;
@@ -32,7 +32,7 @@ export {
   ConnectionResponse,
   ConnectionChange,
   Connection,
-} from "./client";
+} from './client';
 
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonArray = Json[];
@@ -50,7 +50,7 @@ export type JsonCompatible<T> = {
 };
 
 export interface Change {
-  type: "merge" | "delete";
+  type: 'merge' | 'delete';
   body: JsonObject & { _rev: number | string };
   path: string;
   resource_id: string;

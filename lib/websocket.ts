@@ -1,26 +1,26 @@
-import WebSocket = require("isomorphic-ws");
-import ReconnectingWebSocket from "reconnecting-websocket";
-import { EventEmitter, once } from "events";
-import ksuid from "ksuid";
-import PQueue from "p-queue";
-import debug from "debug";
+import WebSocket = require('isomorphic-ws');
+import ReconnectingWebSocket from 'reconnecting-websocket';
+import { EventEmitter, once } from 'events';
+import ksuid from 'ksuid';
+import PQueue from 'p-queue';
+import debug from 'debug';
 
-const trace = debug("@oada/client:ws:trace");
-const error = debug("@oada/client:ws:error");
+const trace = debug('@oada/client:ws:trace');
+const error = debug('@oada/client:ws:error');
 
-import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request";
-import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response";
-import { is as isOADASocketChange } from "@oada/types/oada/websockets/change";
-import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2";
+import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request';
+import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response';
+import { is as isOADASocketChange } from '@oada/types/oada/websockets/change';
+import { assert as assertOADAChangeV2 } from '@oada/types/oada/change/v2';
 
 import type {
   ConnectionRequest,
   ConnectionResponse,
   ConnectionChange,
   Connection,
-} from "./client";
-import { handleErrors } from "./errors";
-import type { Change } from "./";
+} from './client';
+import { handleErrors } from './errors';
+import type { Change } from './';
 
 interface ActiveRequest {
   resolve: Function;
@@ -69,36 +69,36 @@ export class WebSocketClient extends EventEmitter implements Connection {
     this.#requests = new Map();
     this.#status = ConnectionStatus.Connecting;
     // create websocket connection
-    const ws = new ReconnectingWebSocket("wss://" + this.#domain, [], {
+    const ws = new ReconnectingWebSocket('wss://' + this.#domain, [], {
       // Not sure why it needs so long, but 30s is the ws timeout
       connectionTimeout: 30 * 1000,
       WebSocket: BetterWebSocket,
     });
-    const openP = once(ws, "open").then(() => ws);
-    const errP = once(ws, "error").then((err) => Promise.reject(err));
+    const openP = once(ws, 'open').then(() => ws);
+    const errP = once(ws, 'error').then((err) => Promise.reject(err));
     this.#ws = Promise.race([openP, errP]);
 
     // register handlers
     ws.onopen = () => {
-      trace("Connection opened");
+      trace('Connection opened');
       this.#status = ConnectionStatus.Connected;
-      this.emit("open");
+      this.emit('open');
     };
     ws.onclose = () => {
-      trace("Connection closed");
+      trace('Connection closed');
       this.#status = ConnectionStatus.Disconnected;
-      this.emit("close");
+      this.emit('close');
     };
     ws.onerror = (err) => {
-      trace(err, "Connection error");
+      trace(err, 'Connection error');
       //this.#status = ConnectionStatus.Disconnected;
       //this.emit("error");
     };
     ws.onmessage = this.#receive.bind(this); // explicitly pass the instance
 
     this.#q = new PQueue({ concurrency });
-    this.#q.on("active", () => {
-      trace("WS Queue. Size: %d pending: %d", this.#q.size, this.#q.pending);
+    this.#q.on('active', () => {
+      trace('WS Queue. Size: %d pending: %d', this.#q.size, this.#q.pending);
     });
   }
 
@@ -168,10 +168,10 @@ export class WebSocketClient extends EventEmitter implements Connection {
             // This is necessary to kill "zombie" requests.
             const request = this.#requests.get(requestId);
             if (request && !request.settled) {
-              request.reject("Request timeout"); // reject request promise
+              request.reject('Request timeout'); // reject request promise
               this.#requests.delete(requestId);
             }
-            reject("Request timeout"); // reject timeout promise
+            reject('Request timeout'); // reject timeout promise
           }, timeout);
         }
       );
@@ -208,13 +208,13 @@ export class WebSocketClient extends EventEmitter implements Connection {
               } else if (msg.status) {
                 request.reject(msg);
               } else {
-                throw new Error("Request failed");
+                throw new Error('Request failed');
               }
             }
           } else if (request.callback && isOADASocketChange(msg)) {
             assertOADAChangeV2(msg.change);
 
-            // TODO: Would be nice if @oad/types know "unkown" as Json
+            // TODO: Would be nice if @oad/types know "unknown" as Json
             const m: ConnectionChange = {
               requestId: [requestId],
               resourceId: msg.resourceId,
@@ -226,16 +226,16 @@ export class WebSocketClient extends EventEmitter implements Connection {
 
             request.callback(m);
           } else {
-            throw new Error("Invalid websocket payload received");
+            throw new Error('Invalid websocket payload received');
           }
         }
       }
     } catch (e) {
       error(
-        "[Websocket %s] Received invalid response. Ignoring.",
+        '[Websocket %s] Received invalid response. Ignoring.',
         this.#domain
       );
-      trace(e, "[Websocket %s] Received invalid response", this.#domain);
+      trace(e, '[Websocket %s] Received invalid response', this.#domain);
       // No point in throwing here; the promise cannot be resolved because the
       // requestId cannot be retrieved; throwing will just blow up client
     }

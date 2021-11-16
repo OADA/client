@@ -1,5 +1,7 @@
 node_modules/
-yarn.lock
+
+.history
+.dccache
 
 # ts build stuff
 dist/
@@ -13,5 +15,3 @@ dist/
 .pnp.*
 # ignore sdk stuff
 .vim
-.vscode
-

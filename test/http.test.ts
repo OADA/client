@@ -1,93 +1,95 @@
-import { use, expect } from "chai";
-import "mocha";
+import { use, expect } from 'chai';
+import 'mocha';
 
-import * as oada from "../lib/index";
-import * as config from "./config";
-import type { OADATree } from "../lib/client";
-use(require("chai-as-promised"));
+import * as oada from '../lib/index';
+import * as config from './config';
+import type { OADATree } from '../lib/client';
+use(require('chai-as-promised'));
 
 const generateRandomStr = () => {
   return Math.random().toString(36).substring(7);
 };
 
-describe("HTTP Client test", function () {
-  it("HTTP Connect/Disconnect", async () => {
+describe('HTTP Client test', function () {
+  it('HTTP Connect/Disconnect', async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: "http",
+      connection: 'http',
     });
     await client.disconnect();
   });
 
-  it("HTTP Single GET", async () => {
+  it('HTTP Single GET', async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: "http",
+      connection: 'http',
     });
-    const response = await client.get({ path: "/bookmarks" });
+    const response = await client.get({ path: '/bookmarks' });
     expect(response.status).to.equal(200);
     expect(response.data).to.have.nested.property(`_type`);
     //expect(response.data?._type).to.equal("application/vnd.oada.bookmarks.1+json");
     await client.disconnect();
   });
 
-  it("HTTP watch should not throw", async () => {
+  it('HTTP watch should not throw', async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: "http",
+      connection: 'http',
     });
     await expect(
       client.watch({
-        path: "/bookmarks",
-        watchCallback: console.log,
+        path: '/bookmarks',
+        async watchCallback(change: unknown) {
+          console.dir(change);
+        },
       })
     ).to.eventually.not.be.rejected;
     await client.disconnect();
   });
 
-  it("HTTP PUT->GET->DELETE", async () => {
+  it('HTTP PUT->GET->DELETE', async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: "http",
+      connection: 'http',
     });
     const response = await client
       .put({
-        path: "/bookmarks",
-        data: { test10: "aaa" },
+        path: '/bookmarks',
+        data: { test10: 'aaa' },
       })
       .then(() => client.get({ path: `/bookmarks/test10` }))
       .then(async (res) => {
         await client.delete({ path: `/bookmarks/test10` });
         return res.data;
       });
-    expect(response).to.equal("aaa");
+    expect(response).to.equal('aaa');
     await client.disconnect();
   });
 
-  it("Recursive PUT/GET", async () => {
+  it('Recursive PUT/GET', async () => {
     const randomStr = generateRandomStr();
-    var tree = ({
+    var tree = {
       bookmarks: {
-        _type: "application/json",
+        _type: 'application/json',
         _rev: 0,
         [randomStr]: {
-          _type: "application/json",
+          _type: 'application/json',
           _rev: 0,
           level1: {
-            "*": {
-              _type: "application/json",
+            '*': {
+              _type: 'application/json',
               _rev: 0,
               level2: {
-                "*": {
-                  _type: "application/json",
+                '*': {
+                  _type: 'application/json',
                   _rev: 0,
                   level3: {
-                    "*": {
-                      _type: "application/json",
+                    '*': {
+                      _type: 'application/json',
                       _rev: 0,
                     },
                   },
@@ -97,16 +99,16 @@ describe("HTTP Client test", function () {
           },
         },
       },
-    } as unknown) as OADATree;
+    } as unknown as OADATree;
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
-      connection: "http",
+      connection: 'http',
     });
     // Tree PUT
     await client.put({
       path: `/bookmarks/${randomStr}/level1/abc/level2/def/level3/ghi/`,
-      data: { thingy: "abc" },
+      data: { thingy: 'abc' },
       tree,
     });
     // Recursive GET

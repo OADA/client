@@ -1,4 +1,4 @@
-import { fetch, context as _context, disconnectAll } from "fetch-h2";
+import { fetch, context as _context, disconnectAll } from 'fetch-h2';
 
 export type Disconnect = typeof disconnectAll;
 
@@ -6,11 +6,11 @@ export type Disconnect = typeof disconnectAll;
 export const context = () =>
   _context({
     session: {
-      rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== "0",
+      rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
     },
   });
 
-export { Headers } from "cross-fetch";
+export { Headers } from 'cross-fetch';
 
 // cross-fetch has fetch as default export
 export default fetch;

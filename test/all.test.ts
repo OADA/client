@@ -1,16 +1,16 @@
-import { expect } from "chai";
-import "mocha";
+import { expect } from 'chai';
+import 'mocha';
 
-import type { OADATree } from "../lib/client";
-import * as oada from "../lib/index";
-import * as config from "./config";
+import type { OADATree } from '../lib/client';
+import * as oada from '../lib/index';
+import * as config from './config';
 
 const generateRandomStr = () => {
   return Math.random().toString(36).substring(7);
 };
 
-describe("Client test", function () {
-  it("Connect/Disconnect", async () => {
+describe('Client test', function () {
+  it('Connect/Disconnect', async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
@@ -18,12 +18,12 @@ describe("Client test", function () {
     await client.disconnect();
   });
 
-  it("Single GET", async () => {
+  it('Single GET', async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
     });
-    const response = await client.get({ path: "/bookmarks" });
+    const response = await client.get({ path: '/bookmarks' });
     expect(response.status).to.equal(200);
     expect(response.data).to.have.nested.property(`_type`);
     // expect(response.data["_type"]).to.equal(
@@ -32,52 +32,52 @@ describe("Client test", function () {
     await client.disconnect();
   });
 
-  xit("watch", async () => {
+  xit('watch', async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
     });
     await client.watch({
-      path: "/bookmarks",
-      watchCallback: (d: unknown) => {
+      path: '/bookmarks',
+      watchCallback: async (d: unknown) => {
         console.log(d);
       },
     });
   });
 
-  xit("Single PUT", async () => {
+  xit('Single PUT', async () => {
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
     });
     await client.put({
-      path: "/bookmarks",
-      data: { test10: "aaa" },
+      path: '/bookmarks',
+      data: { test10: 'aaa' },
     });
 
     client.disconnect();
   });
 
-  xit("Recursive PUT/GET", async () => {
+  xit('Recursive PUT/GET', async () => {
     const randomStr = generateRandomStr();
-    const tree = ({
+    const tree = {
       bookmarks: {
-        _type: "application/json",
+        _type: 'application/json',
         //_rev: 0,
         [randomStr]: {
-          _type: "application/json",
+          _type: 'application/json',
           //_rev: 0,
           level1: {
-            "*": {
-              _type: "application/json",
+            '*': {
+              _type: 'application/json',
               //_rev: 0,
               level2: {
-                "*": {
-                  _type: "application/json",
+                '*': {
+                  _type: 'application/json',
                   //_rev: 0,
                   level3: {
-                    "*": {
-                      _type: "application/json",
+                    '*': {
+                      _type: 'application/json',
                       //_rev: 0,
                     },
                   },
@@ -87,7 +87,7 @@ describe("Client test", function () {
           },
         },
       },
-    } as unknown) as OADATree;
+    } as unknown as OADATree;
     const client = await oada.connect({
       domain: config.domain,
       token: config.token,
@@ -95,7 +95,7 @@ describe("Client test", function () {
     // Tree PUT
     await client.put({
       path: `/bookmarks/${randomStr}/level1/abc/level2/def/level3/ghi/`,
-      data: { thingy: "abc" },
+      data: { thingy: 'abc' },
       tree,
     });
     // Recursive GET
