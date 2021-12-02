@@ -1,17 +1,17 @@
 // Some useful functions
 
-import type { OADATree } from "./client";
+import type { OADATree } from './client';
 
 export function toStringPath(path: Array<string>): string {
-  return "/" + path.join("/");
+  return '/' + path.join('/');
 }
 
 export function toArrayPath(path: string): Array<string> {
-  let arrayPath = path.split("/");
-  if (arrayPath.length > 0 && arrayPath[0] == "") {
+  let arrayPath = path.split('/');
+  if (arrayPath.length > 0 && arrayPath[0] == '') {
     arrayPath.shift();
   }
-  if (arrayPath.length > 0 && arrayPath[arrayPath.length - 1] == "") {
+  if (arrayPath.length > 0 && arrayPath[arrayPath.length - 1] == '') {
     arrayPath.pop();
   }
   return arrayPath;
@@ -22,11 +22,11 @@ export function getObjectAtPath(tree: OADATree, path: Array<string>): OADATree {
   return path.reduce((acc, nextKey) => {
     if (acc[nextKey]) {
       return acc[nextKey];
-    } else if (acc["*"]) {
-      return acc["*"];
+    } else if (acc['*']) {
+      return acc['*'];
     } else {
       throw new Error(
-        "Specified path /" + path.join("/") + " does not exist in the tree."
+        'Specified path /' + path.join('/') + ' does not exist in the tree.'
       );
     }
   }, tree);
@@ -39,12 +39,12 @@ export function toTreePath(tree: OADATree, path: Array<string>): Array<string> {
     if (acc[nextKey]) {
       treePath.push(nextKey);
       return acc[nextKey];
-    } else if (acc["*"]) {
-      treePath.push("*");
-      return acc["*"];
+    } else if (acc['*']) {
+      treePath.push('*');
+      return acc['*'];
     } else {
       throw new Error(
-        "Specified path /" + path.join("/") + " does not exist in the tree."
+        'Specified path /' + path.join('/') + ' does not exist in the tree.'
       );
     }
   }, tree);
@@ -53,7 +53,7 @@ export function toTreePath(tree: OADATree, path: Array<string>): Array<string> {
 
 export function isResource(tree: OADATree, path: Array<string>): boolean {
   const obj = getObjectAtPath(tree, path);
-  if ("_id" in obj) {
+  if ('_id' in obj) {
     return true;
   } else {
     return false;

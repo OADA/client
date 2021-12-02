@@ -1,13 +1,13 @@
-import axios from "axios";
-import ksuid from "ksuid";
-import * as config from "./config";
+import axios from 'axios';
+import ksuid from 'ksuid';
+import * as config from './config';
 
 export async function getAxios(path: string) {
   const response = await axios({
-    method: "get",
-    url: "https://" + config.domain + path,
+    method: 'get',
+    url: 'https://' + config.domain + path,
     headers: {
-      Authorization: "Bearer " + config.token,
+      Authorization: 'Bearer ' + config.token,
     },
   });
 
@@ -16,11 +16,11 @@ export async function getAxios(path: string) {
 
 export async function putAxios(data: object, path: string) {
   const response = await axios({
-    method: "put",
-    url: "https://" + config.domain + path,
+    method: 'put',
+    url: 'https://' + config.domain + path,
     headers: {
-      Authorization: "Bearer " + config.token,
-      "Content-Type": "application/json",
+      'Authorization': 'Bearer ' + config.token,
+      'Content-Type': 'application/json',
     },
     data,
   });
@@ -29,22 +29,22 @@ export async function putAxios(data: object, path: string) {
 }
 
 export async function putResourceAxios(data: object, path: string) {
-  let _id = "resources/" + ksuid.randomSync().string;
+  let _id = 'resources/' + ksuid.randomSync().string;
   const resource = await axios({
-    method: "put",
-    url: "https://" + config.domain + "/" + _id,
+    method: 'put',
+    url: 'https://' + config.domain + '/' + _id,
     headers: {
-      Authorization: "Bearer " + config.token,
-      "Content-Type": "application/json",
+      'Authorization': 'Bearer ' + config.token,
+      'Content-Type': 'application/json',
     },
     data,
   });
   const link = await axios({
-    method: "put",
-    url: "https://" + config.domain + path,
+    method: 'put',
+    url: 'https://' + config.domain + path,
     headers: {
-      Authorization: "Bearer " + config.token,
-      "Content-Type": "application/json",
+      'Authorization': 'Bearer ' + config.token,
+      'Content-Type': 'application/json',
     },
     data: { _id, _rev: 0 },
   });
@@ -54,11 +54,11 @@ export async function putResourceAxios(data: object, path: string) {
 
 export async function deleteLinkAxios(path: string) {
   const link = await axios({
-    method: "delete",
-    url: "https://" + config.domain + path,
+    method: 'delete',
+    url: 'https://' + config.domain + path,
     headers: {
-      Authorization: "Bearer " + config.token,
-      "Content-Type": "application/json",
+      'Authorization': 'Bearer ' + config.token,
+      'Content-Type': 'application/json',
     },
     data: null,
   });
@@ -69,28 +69,28 @@ export async function deleteLinkAxios(path: string) {
 export function getTreeWithTestName(testName: string) {
   return {
     bookmarks: {
-      _type: "application/json",
+      _type: 'application/json',
       _rev: 0,
       [testName]: {
-        _type: "application/json",
-        _rev: 0,
-        aaa: {
-          _type: "application/json",
+        '_type': 'application/json',
+        '_rev': 0,
+        'aaa': {
+          _type: 'application/json',
           _rev: 0,
           bbb: {
-            _type: "application/json",
-            _rev: 0,
-            "index-one": {
-              "*": {
-                _type: "application/json",
-                _rev: 0,
-                "index-two": {
-                  "*": {
-                    _type: "application/json",
-                    _rev: 0,
-                    "index-three": {
-                      "*": {
-                        _type: "application/json",
+            '_type': 'application/json',
+            '_rev': 0,
+            'index-one': {
+              '*': {
+                '_type': 'application/json',
+                '_rev': 0,
+                'index-two': {
+                  '*': {
+                    '_type': 'application/json',
+                    '_rev': 0,
+                    'index-three': {
+                      '*': {
+                        _type: 'application/json',
                         test: {},
                       },
                     },
@@ -100,11 +100,11 @@ export function getTreeWithTestName(testName: string) {
             },
           },
         },
-        "concurrent-put": {
-          _type: "application/json",
-          _rev: 0,
-          "*": {
-            _type: "application/json",
+        'concurrent-put': {
+          '_type': 'application/json',
+          '_rev': 0,
+          '*': {
+            _type: 'application/json',
             _rev: 0,
           },
         },

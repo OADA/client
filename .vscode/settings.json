@@ -1,0 +1,28 @@
+{
+  "files.exclude": {
+    "*.log": true,
+    "tags.*": true,
+    "node_modules": true,
+    ".vim": true,
+    ".nvimlog": true,
+    "dist": true,
+    ".history": true,
+    ".dccache": true,
+    ".yarn": true,
+    ".pnp.*": true
+  },
+  "search.exclude": {
+    "*.log": true,
+    "tags.*": true,
+    "node_modules": true,
+    ".vim": true,
+    ".nvimlog": true,
+    "dist": true,
+    ".history": true,
+    ".dccache": true,
+    ".yarn": true,
+    ".pnp.*": true
+  },
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "cSpell.words": ["ksuid"]
+}
