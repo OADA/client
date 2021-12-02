@@ -81,8 +81,8 @@ export interface WatchPersist {
   lastRev: number;
   recordLapsedTimeout: number | undefined;
   lastCheck: number | undefined;
-//  items: {[key: string]: boolean | number};
-  items: {[key: string]: object};
+  items: {[key: string]: boolean | number};
+//  items: {[key: string]: object};
   recorded: {[key: string]: boolean | number};
 }
 
