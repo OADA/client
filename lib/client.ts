@@ -2,7 +2,7 @@ import ksuid from 'ksuid';
 import deepClone from 'deep-clone';
 import debug from 'debug';
 import { Buffer } from 'buffer';
-import { fromBuffer } from 'file-type';
+import { fileTypeFromBuffer } from 'file-type';
 
 import * as utils from './utils';
 import type { EventEmitter } from 'events';
@@ -682,7 +682,7 @@ z      For the reconnection case, we need to re-establish the watches. */
     const contentType =
       request.contentType || // 1) get content-type from the argument
       (Buffer.isBuffer(request.data) &&
-        (await fromBuffer(request.data))?.mime) ||
+        (await fileTypeFromBuffer(request.data))?.mime) ||
       (request.data as JsonObject)?.['_type'] || // 2) get content-type from the resource body
       (request.tree
         ? utils.getObjectAtPath(request.tree as OADATree, pathArray)['_type'] // 3) get content-type from the tree
@@ -729,7 +729,7 @@ z      For the reconnection case, we need to re-establish the watches. */
     const contentType =
       request.contentType || // 1) get content-type from the argument
       (Buffer.isBuffer(request.data) &&
-        (await fromBuffer(request.data))?.mime) ||
+        (await fileTypeFromBuffer(request.data))?.mime) ||
       (request.data as JsonObject)?.['_type'] || // 2) get content-type from the resource body
       (request.tree
         ? utils.getObjectAtPath(request.tree, pathArray)['_type'] // 3) get content-type from the tree
