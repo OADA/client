@@ -1,15 +1,33 @@
 /**
+ * @license
+ * Copyright 2021 Open Ag Data Alliance
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
  * Stuff for having client handle "recoverable" errors
  * rather than passing everything up to the user
  *
  * @packageDocumentation
  */
 
-import debug from 'debug';
-import { Headers } from './fetch';
+import { setTimeout } from 'node:timers/promises';
 
-import type { ConnectionResponse } from './client';
-import { delay } from './utils';
+import { Headers } from './fetch';
+import debug from 'debug';
+
+import type { IConnectionResponse } from './client';
 
 const warn = debug('@oada/client:errors:warn');
 const trace = debug('@oada/client:errors:trace');
@@ -19,7 +37,7 @@ const trace = debug('@oada/client:errors:trace');
  *
  * @todo add override for this in client config?
  */
-const DEFAULT_RETRY_TIMEOUT = 5 * 60 * 10000;
+const DEFAULT_RETRY_TIMEOUT = 5 * 60 * 10_000;
 
 /**
  * Handle rate limit errors
@@ -28,23 +46,23 @@ const DEFAULT_RETRY_TIMEOUT = 5 * 60 * 10000;
  * or `DEFAULT_RETRY_TIMEOUT` if the header is not present.
  */
 async function handleRatelimit<R extends unknown[]>(
-  err: any,
-  req: (...args: R) => Promise<ConnectionResponse>,
-  ...args: R
+  error: any,
+  request: (...arguments_: R) => Promise<IConnectionResponse>,
+  ...rest: R
 ) {
-  const headers = new Headers(err.headers);
+  const headers = new Headers(error.headers);
 
   // Figure out how many ms to wait
   // Header is either number of seconds, or a date/time
   const retry = headers.get('Retry-After');
   const timeout = retry
-    ? +retry * 1000 || +new Date(retry) - Date.now()
+    ? Number(retry) * 1000 || Number(new Date(retry)) - Date.now()
     : DEFAULT_RETRY_TIMEOUT;
 
-  warn('Received %s, retrying in %d ms', err.status, timeout);
-  await delay(timeout);
+  warn('Received %s, retrying in %d ms', error.status, timeout);
+  await setTimeout(timeout);
 
-  return await handleErrors(req, ...args);
+  return handleErrors(request, ...rest);
 }
 
 /**
@@ -52,28 +70,36 @@ async function handleRatelimit<R extends unknown[]>(
  * otherwise reject with original error.
  */
 export async function handleErrors<R extends unknown[]>(
-  req: (...args: R) => Promise<ConnectionResponse>,
-  ...args: R
-): Promise<ConnectionResponse> {
+  request: (...arguments_: R) => Promise<IConnectionResponse>,
+  ...rest: R
+): Promise<IConnectionResponse> {
   try {
-    return await req(...args);
-  } catch (err: any) {
-    // TODO: WTF why is error an array sometimes???
-    const e = err?.[0]?.error ?? err?.[0] ?? err?.error ?? err;
-    trace(e, 'Attempting to handle error');
-    switch (e.status) {
+    return await request(...rest);
+  } catch (cError: unknown) {
+    // FIXME: WTF why is error an array sometimes???
+    // @ts-expect-error stupid error handling
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const error = cError?.[0]?.error ?? cError?.[0] ?? cError?.error ?? cError;
+    trace(error, 'Attempting to handle error');
+    switch (error.status) {
       case 429:
-        return await handleRatelimit(e, req, ...args);
+        return await handleRatelimit(error, request, ...rest);
       // Some servers use 503 for rate limit...
       case 503: {
-        const headers = new Headers(e.headers);
+        const headers = new Headers(error.headers);
         if (headers.has('Retry-After')) {
-          return await handleRatelimit(e, req, ...args);
+          return await handleRatelimit(error, request, ...rest);
         }
+
         // If no Retry-After, don't assume rate-limit?
+        break;
       }
+
+      default:
+      // Do nothing
     }
+
     // Pass error up
-    throw err;
+    throw cError;
   }
 }

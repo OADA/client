@@ -1,19 +1,43 @@
-import ksuid from 'ksuid';
-import deepClone from 'deep-clone';
+/**
+ * @license
+ * Copyright 2021 Open Ag Data Alliance
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { Buffer } from 'node:buffer';
+import type { EventEmitter } from 'node:events';
+import { setTimeout } from 'node:timers/promises';
+
 import debug from 'debug';
-import { Buffer } from 'buffer';
+import deepClone from 'deep-clone';
 import { fileTypeFromBuffer } from 'file-type';
+import ksuid from 'ksuid';
 
-import * as utils from './utils';
-import type { EventEmitter } from 'events';
-import { WebSocketClient } from './websocket';
+import {
+  createNestedObject,
+  getObjectAtPath,
+  toArrayPath,
+  toStringPath,
+} from './utils';
 import { HttpClient } from './http';
+import { WebSocketClient } from './websocket';
 
-import type { Json, Change, JsonObject } from '.';
+import type { Change, Json, JsonObject } from '.';
 
 const trace = debug('@oada/client:client:trace');
 const info = debug('@oada/client:client:info');
-//const error = debug("@oada/client:client:error");
+// Const error = debug("@oada/client:client:error");
 
 /**
  * @todo Support more than just Buffer?
@@ -29,7 +53,7 @@ export interface ConnectionRequest {
 }
 
 export interface ConnectionResponse {
-  requestId: string | Array<string>;
+  requestId: string | string[];
   status: number;
   statusText: string;
   headers: Record<string, string>;
@@ -37,21 +61,24 @@ export interface ConnectionResponse {
 }
 
 export interface ConnectionChange {
-  requestId: Array<string>;
+  requestId: string[];
   resourceId: string;
-  path_leftover: string | Array<string>;
-  change: Array<Change>;
+  path_leftover: string | string[];
+  change: Change[];
 }
 
+export type IConnectionResponse = [
+  response: ConnectionResponse,
+  updates?: AsyncIterableIterator<Readonly<ConnectionChange>>
+];
 export interface Connection extends EventEmitter {
   disconnect(): Promise<void>;
   isConnected(): boolean;
   awaitConnection(): Promise<void>;
   request(
-    req: ConnectionRequest,
-    callback?: (response: Readonly<ConnectionChange>) => void,
-    timeout?: number
-  ): Promise<ConnectionResponse>;
+    request: ConnectionRequest,
+    options?: { timeout?: number; signal?: AbortSignal }
+  ): Promise<IConnectionResponse>;
 }
 
 export interface Config {
@@ -67,23 +94,22 @@ export type Response = ConnectionResponse;
 
 export interface GETRequest {
   path: string;
-  tree?: object;
-  watchCallback?: (response: Readonly<Change>) => Promise<void>;
+  tree?: Record<string, unknown>;
   timeout?: number;
 }
 
 export interface PersistConfig {
   name: string;
-  recordLapsedTimeout: number; //ms
+  recordLapsedTimeout: number; // Ms
 }
 
 export interface WatchPersist {
   lastRev: number;
   recordLapsedTimeout: number | undefined;
   lastCheck: number | undefined;
-  items: { [key: string]: boolean | number };
-  //items: {[key: string]: object};
-  recorded: { [key: string]: boolean | number };
+  items: Record<number, boolean | number>;
+  // Items: {[key: string]: object};
+  recorded: Record<number, boolean | number>;
 }
 
 /**
@@ -94,7 +120,6 @@ export interface WatchRequestSingle {
   path: string;
   rev?: number | string;
   persist?: PersistConfig;
-  watchCallback: (response: Readonly<Change>) => Promise<void>;
   timeout?: number;
 }
 
@@ -106,7 +131,6 @@ export interface WatchRequestTree {
   path: string;
   rev?: string;
   persist?: PersistConfig;
-  watchCallback: (response: readonly Readonly<Change>[]) => void;
   timeout?: number;
 }
 
@@ -119,8 +143,8 @@ export interface PUTRequest {
   path: string;
   data: Body;
   contentType?: string;
-  revIfMatch?: number; // if-match
-  tree?: object;
+  revIfMatch?: number; // If-match
+  tree?: Record<string, unknown>;
   timeout?: number;
 }
 
@@ -128,7 +152,7 @@ export interface POSTRequest {
   path: string;
   data: Body;
   contentType?: string;
-  tree?: object;
+  tree?: Record<string, unknown>;
   timeout?: number;
 }
 
@@ -145,7 +169,7 @@ export interface DELETERequest {
 export interface ENSURERequest {
   path: string;
   timeout?: number;
-  tree?: object;
+  tree?: Record<string, unknown>;
   data: Json;
 }
 
@@ -153,9 +177,9 @@ export interface ENSURERequest {
  * @internal
  */
 export interface OADATree {
-  // @ts-ignore
-  _type?: string;
   [k: string]: OADATree;
+  // @ts-expect-error dumb trees
+  _type?: string;
 }
 
 /** Main  OADAClient class */
@@ -163,10 +187,8 @@ export class OADAClient {
   #token;
   #domain;
   #concurrency;
-  #ws: Connection;
-  #watchList: Map<string, WatchRequest>; // currentRequestId -> WatchRequest
-  #renewedReqIdMap: Map<string, string>; // currentRequestId -> originalRequestId
-  #persistList: { [key: string]: WatchPersist };
+  #connection: Connection;
+  #persistList: Map<string, WatchPersist>;
 
   constructor({
     domain,
@@ -174,44 +196,23 @@ export class OADAClient {
     concurrency = 1,
     connection = 'http',
   }: Config) {
-    // help for those who can't remember if https should be there
+    // Help for those who can't remember if https should be there
     this.#domain = domain.replace(/^https:\/\//, '');
     this.#token = token;
     this.#concurrency = concurrency;
-    this.#watchList = new Map<string, WatchRequest>();
-    this.#persistList = {};
-    this.#renewedReqIdMap = new Map<string, string>();
+    this.#persistList = new Map();
     if (connection === 'ws') {
-      this.#ws = new WebSocketClient(this.#domain, this.#concurrency);
+      this.#connection = new WebSocketClient(this.#domain, this.#concurrency);
     } else if (connection === 'http') {
-      this.#ws = new HttpClient(this.#domain, this.#token, this.#concurrency);
+      this.#connection = new HttpClient(
+        this.#domain,
+        this.#token,
+        this.#concurrency
+      );
     } else {
       // Otherwise, they gave us a WebSocketClient to use
-      this.#ws = connection;
+      this.#connection = connection;
     }
-
-    /* Register handler for the "open" event.
-       This event is emitted when 1) this is an initial connection, or 2) the websocket is reconnected.
-       For the initial connection, no special action is needed.
-z      For the reconnection case, we need to re-establish the watches. */
-    this.#ws.on('open', async () => {
-      const prevWatchList = this.#watchList;
-      this.#watchList = new Map<string, WatchRequest>();
-      for (const [oldRequestId, watchRequest] of prevWatchList.entries()) {
-        // Re-establish watch
-        const newRequestId = await this.watch(watchRequest);
-        // If requestId had been already renewed, keep the original requestId so that unwatch() can use that
-        const originalRequestId = this.#renewedReqIdMap.get(oldRequestId);
-        if (originalRequestId) {
-          this.#renewedReqIdMap.set(newRequestId, originalRequestId);
-          this.#renewedReqIdMap.delete(oldRequestId);
-        } else {
-          this.#renewedReqIdMap.set(newRequestId, oldRequestId);
-        }
-        // Debug message
-        trace('Update requestId: %s -> %s', oldRequestId, newRequestId);
-      }
-    });
   }
 
   /**
@@ -219,15 +220,13 @@ z      For the reconnection case, we need to re-establish the watches. */
    * @param token New token.
    */
   public clone(token: string): OADAClient {
-    const c = new OADAClient({
+    return new OADAClient({
       domain: this.#domain,
-      token: token,
+      token,
       concurrency: this.#concurrency,
       // Reuse existing WS connection
-      connection: this.#ws,
+      connection: this.#connection,
     });
-
-    return c;
   }
 
   /**
@@ -245,14 +244,14 @@ z      For the reconnection case, we need to re-establish the watches. */
   }
 
   /** Disconnect from server */
-  public disconnect(): Promise<void> {
-    // close
-    return this.#ws.disconnect();
+  public async disconnect(): Promise<void> {
+    // Close
+    return this.#connection.disconnect();
   }
 
   /** Wait for the connection to open */
-  public awaitConnection(): Promise<void> {
-    return this.#ws.awaitConnection();
+  public async awaitConnection(): Promise<void> {
+    return this.#connection.awaitConnection();
   }
 
   /**
@@ -261,7 +260,7 @@ z      For the reconnection case, we need to re-establish the watches. */
    */
   public async get(request: GETRequest): Promise<Response> {
     // ===  Top-level GET ===
-    const topLevelResponse = await this.#ws.request(
+    const [topLevelResponse] = await this.#connection.request(
       {
         method: 'get',
         headers: {
@@ -269,38 +268,21 @@ z      For the reconnection case, we need to re-establish the watches. */
         },
         path: request.path,
       },
-      undefined, // omitting an optional parameter
-      request.timeout
+      { timeout: request.timeout }
     );
 
     // ===  Recursive GET  ===
     if (request.tree) {
       // Get subtree
-      const arrayPath = utils.toArrayPath(request.path);
-      const subTree = utils.getObjectAtPath(
-        request.tree as OADATree,
-        arrayPath
-      ) as OADATree;
+      const arrayPath = toArrayPath(request.path);
+      const subTree = getObjectAtPath(request.tree as OADATree, arrayPath);
 
       // Replace "data" with the recursive GET result
       topLevelResponse.data = await this.#recursiveGet(
         request.path,
         subTree,
-        topLevelResponse.data || {}
+        topLevelResponse.data ?? {}
       );
-    }
-
-    // ===  Register Watch  ===
-    if (request.watchCallback) {
-      const rev = topLevelResponse.headers
-        ? topLevelResponse.headers['x-oada-rev']
-        : undefined;
-
-      await this.watch({
-        path: request.path,
-        rev,
-        watchCallback: request.watchCallback,
-      });
     }
 
     // Return top-level response
@@ -311,108 +293,129 @@ z      For the reconnection case, we need to re-establish the watches. */
    * Set up watch
    * @param request watch request
    */
-  public async watch(request: WatchRequest): Promise<string> {
+  public watch(
+    request: WatchRequestTree
+  ): AsyncIterableIterator<Array<Readonly<Change>>>;
+  public watch(
+    request: WatchRequestSingle
+  ): AsyncIterableIterator<Readonly<Change>>;
+  /** @internal */
+  public watch(
+    request: WatchRequest
+  ): AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>>;
+  public async *watch(
+    request: WatchRequest
+  ): AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>> {
+    const restart = new AbortController();
     const headers: Record<string, string> = {};
 
-    //TODO: Decide whether this should go after persist to allow it to override the persist rev
+    // TODO: Decide whether this should go after persist to allow it to override the persist rev
     if (typeof request.rev !== 'undefined') {
-      headers['x-oada-rev'] = request.rev + '';
+      headers['x-oada-rev'] = `${request.rev}`;
     }
 
-    let persistPath: string;
-    if (request.persist && request.persist.name) {
-      const name = request.persist.name;
-      persistPath = request.path + `/_meta/watchPersists/${name}`;
-      let lastRev: any;
+    let persistPath = '';
+    if (request.persist?.name) {
+      const { name, recordLapsedTimeout } = request.persist;
+      persistPath = `${request.path}/_meta/watchPersists/${name}`;
+      let lastRev: number | undefined;
 
-      let rev = await this.get({
-        path: request.path + `/_meta`,
-      }).then((r) => {
-        if (
-          typeof r.data === 'object' &&
-          !Buffer.isBuffer(r.data) &&
-          !Array.isArray(r.data)
-        ) {
-          return r?.data?._rev;
-        }
-        return;
+      const { data } = await this.get({
+        path: `${request.path}/_meta`,
       });
+      const rev =
+        typeof data === 'object' &&
+        !Buffer.isBuffer(data) &&
+        !Array.isArray(data)
+          ? Number(data?._rev)
+          : undefined;
 
-      await this.get({
-        path: persistPath,
-      })
-        .then(async (r) => {
-          if (
-            typeof r.data === 'object' &&
-            !Buffer.isBuffer(r.data) &&
-            !Array.isArray(r.data)
-          ) {
-            lastRev = r?.data?.rev;
-            headers['x-oada-rev'] = lastRev;
-            info(
-              `Watch persist found _meta entry for [${name}]. Setting x-oada-rev header to ${lastRev}`
-            );
-          }
-          if (!lastRev) {
-            info(
-              `Watch persist found _meta entry for [${name}], but 'rev' is undefined. Writing 'rev' as ${rev}`
-            );
-            await this.put({
-              path: persistPath + `/rev`,
-              data: rev!,
-            });
-            lastRev = rev;
-          }
-        })
-        .catch(async () => {
-          lastRev = rev;
-          let _id;
-          if (typeof lastRev === 'number') {
-            _id = await this.post({
-              path: `/resources`,
-              data: { rev: lastRev },
-            }).then((r) => {
-              if (r.headers && r.headers['content-location']) {
-                return r.headers['content-location'].replace(/^\//, '');
-              } else return;
-            });
-          }
-
-          if (_id === undefined) return;
-
-          await this.put({
-            path: persistPath,
-            data: { _id },
-          });
-          info(
-            `Watch persist did not find _meta entry for [${name}]. Current resource _rev is ${lastRev}. Not setting x-oada-rev header. _meta entry created.`
-          );
+      try {
+        const { data: r } = await this.get({
+          path: persistPath,
         });
+        if (typeof r === 'object' && !Buffer.isBuffer(r) && !Array.isArray(r)) {
+          lastRev = Number(r?.rev);
+          headers['x-oada-rev'] = lastRev.toString();
+          info(
+            `Watch persist found _meta entry for [${name}]. Setting x-oada-rev header to ${lastRev}`
+          );
+        }
+
+        if (!lastRev) {
+          info(
+            `Watch persist found _meta entry for [${name}], but 'rev' is undefined. Writing 'rev' as ${rev}`
+          );
+          await this.put({
+            path: `${persistPath}/rev`,
+            data: rev!,
+          });
+          lastRev = Number(rev);
+        }
+      } catch {
+        lastRev = Number(rev);
+        let _id;
+        if (typeof lastRev === 'number') {
+          const { headers: postHeaders } = await this.post({
+            path: `/resources`,
+            data: { rev: lastRev },
+          });
+          _id = postHeaders['content-location']?.replace(/^\//, '');
+        }
+
+        if (_id === undefined) {
+          return '';
+        }
+
+        await this.put({
+          path: persistPath,
+          data: { _id },
+        });
+        info(
+          `Watch persist did not find _meta entry for [${name}]. Current resource _rev is ${lastRev}. Not setting x-oada-rev header. _meta entry created.`
+        );
+      }
 
       // Retrieve list of previously lapsed revs
       let recorded;
-      await this.get({
-        path: persistPath + `/items`,
-      })
-        .then((r) => {
-          recorded = r.data;
-        })
-        .catch((err) => {
-          if (err.status === 404) {
-            recorded = {};
-          } else throw err;
+      try {
+        const { data: revData } = await this.get({
+          path: `${persistPath}/items`,
         });
-      recorded = recorded || {};
-      this.#persistList[persistPath] = {
+        recorded =
+          revData && !Buffer.isBuffer(revData)
+            ? (revData as Record<number, boolean | number>)
+            : {};
+      } catch (error: unknown) {
+        // @ts-expect-error stupid error handling
+        if (error.status === 404) {
+          recorded = {};
+        } else {
+          throw error;
+        }
+      }
+
+      this.#persistList.set(persistPath, {
         lastCheck: undefined,
-        recordLapsedTimeout: request.persist.recordLapsedTimeout,
+        recordLapsedTimeout,
         lastRev,
         items: {},
         recorded,
-      };
+      });
     }
 
-    const r = await this.#ws.request(
+    /**
+     * Register handler for the "open" event.
+     * This event is emitted when 1) this is an initial connection,
+     * or 2) the websocket is reconnected.
+     * For the initial connection, no special action is needed.
+     * For the reconnection case, we need to re-establish the watches.
+     */
+    this.#connection.on('open', () => {
+      restart.abort();
+    });
+
+    const [r, w] = await this.#connection.request(
       {
         method: 'watch',
         headers: {
@@ -421,59 +424,7 @@ z      For the reconnection case, we need to re-establish the watches. */
         },
         path: request.path,
       },
-      (resp) => {
-        let parentRev: number | string;
-
-        if (request.persist) {
-          const bod = resp?.change.find((c) => c.path === '')?.body;
-          if (typeof bod === 'object' && bod !== null && !Array.isArray(bod)) {
-            parentRev = bod._rev;
-            if (persistPath && this.#persistList[persistPath] !== undefined) {
-              this.#persistList[persistPath]!.items[parentRev] = Date.now();
-            }
-          }
-        }
-        if (request.type === 'tree') {
-          request.watchCallback(deepClone(resp.change));
-        }
-        let persistProms: Promise<void>[] = [];
-        for (const [_i, change] of resp.change.entries()) {
-          if (!request.type || request.type === 'single') {
-            persistProms.push(request.watchCallback(deepClone(change)));
-          }
-          if (change.path === '') {
-            const watchRequest = this.#watchList.get(resp.requestId[0]!);
-            if (watchRequest) {
-              const newRev = change.body?.['_rev'];
-              if (newRev) {
-                watchRequest.rev = newRev;
-                trace(
-                  'Updated the rev of request %s to %s',
-                  resp.requestId[0],
-                  newRev
-                );
-              } else {
-                throw new Error('The _rev field is missing.');
-              }
-            } else {
-              throw new Error('The original watch request does not exist.');
-            }
-          }
-        }
-
-        if (request.persist) {
-          Promise.allSettled(persistProms).then(() => {
-            // Persist the new parent rev
-            if (
-              typeof parentRev === 'number' &&
-              this.#persistList[persistPath] !== undefined
-            ) {
-              this._persistWatch(persistPath, parentRev);
-            }
-          });
-        }
-      },
-      request.timeout
+      { timeout: request.timeout, signal: restart.signal }
     );
 
     if (r.status !== 200) {
@@ -483,47 +434,79 @@ z      For the reconnection case, we need to re-establish the watches. */
     // Get requestId from the response
     const requestId: string = Array.isArray(r.requestId)
       ? r.requestId[0]!
-      : r.requestId; // server should always return an array requestId
+      : r.requestId; // Server should always return an array requestId
 
-    // Save watch request
-    this.#watchList.set(requestId, request);
+    try {
+      for await (const resp of w!) {
+        let parentRev;
 
-    return requestId;
+        if (request.persist) {
+          const bod = resp?.change.find((c) => c.path === '')?.body;
+          if (typeof bod === 'object' && bod !== null && !Array.isArray(bod)) {
+            parentRev = bod._rev;
+            if (persistPath && this.#persistList.has(persistPath)) {
+              this.#persistList.get(persistPath)!.items[Number(parentRev)] =
+                Date.now();
+            }
+          }
+        }
+
+        if (request.type === 'tree') {
+          yield deepClone(resp.change);
+        } else if (!request.type || request.type === 'single') {
+          for (const change of resp.change) {
+            yield deepClone(change);
+
+            if (change.path === '') {
+              const newRev = change.body?._rev;
+              if (newRev) {
+                // WatchRev = newRev;
+                trace(
+                  'Updated the rev of request %s to %s',
+                  resp.requestId[0],
+                  newRev
+                );
+              } else {
+                throw new Error('The _rev field is missing.');
+              }
+            }
+          }
+        }
+
+        // Persist the new parent rev
+        if (
+          request.persist &&
+          typeof parentRev === 'number' &&
+          this.#persistList.has(persistPath)
+        ) {
+          await this.#persistWatch(persistPath, parentRev);
+        }
+      }
+    } finally {
+      // End the watch once we're done with it
+      await this.unwatch(requestId);
+    }
+
+    // If the connection died, restart the watch
+    if (restart.signal.aborted) {
+      // FIXME: Possible stack overflow here?
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      yield* this.watch(request);
+    }
   }
 
   public async unwatch(requestId: string): Promise<Response> {
-    // Retrieve the original requestId if it had been renewed
-    // TODO: better way to do this?
-    let activeRequestId = requestId;
-    for (const [
-      currentRequestId,
-      originalRequestId,
-    ] of this.#renewedReqIdMap.entries()) {
-      if (originalRequestId === requestId) {
-        activeRequestId = currentRequestId;
-      }
-    }
+    trace('Unwatch requestId=%s', requestId);
 
-    trace('Unwatch requestId=%s, actual=%s', requestId, activeRequestId);
-
-    const response = await this.#ws.request({
+    const [response] = await this.#connection.request({
       path: '',
       headers: {
         authorization: '',
       },
       method: 'unwatch',
-      requestId: activeRequestId,
+      requestId,
     });
     // TODO: add timeout
-
-    // Remove watch state info (this should always exist)
-    if (!this.#watchList.delete(activeRequestId)) {
-      throw new Error('Could not find watch state information.');
-    }
-
-    // Remove renewed requestId data
-    // (this may not exist if requestId has not been renewed)
-    this.#renewedReqIdMap.delete(activeRequestId);
 
     return response;
   }
@@ -540,10 +523,10 @@ z      For the reconnection case, we need to re-establish the watches. */
       throw new Error('Path mismatch.');
     }
 
-    // if the object is a link to another resource (i.e., contains "_type"),
+    // If the object is a link to another resource (i.e., contains "_type"),
     // then perform GET
-    if (subTree['_type']) {
-      data = (await this.get({ path })).data || {};
+    if (subTree._type) {
+      ({ data = {} } = await this.get({ path }));
     }
 
     // TODO: should this error?
@@ -551,43 +534,45 @@ z      For the reconnection case, we need to re-establish the watches. */
       return data;
     }
 
-    // select children to traverse
-    const children: { treeKey: string; dataKey: string }[] = [];
+    // Select children to traverse
+    const children: Array<{ treeKey: string; dataKey: string }> = [];
     if (subTree['*']) {
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
-      for (const key of Object.keys(data)) {
-        if (typeof data[key as keyof typeof data] === 'object') {
+      for (const [key, value] of Object.entries(
+        data as Record<string, unknown>
+      )) {
+        if (typeof value === 'object') {
           children.push({ treeKey: '*', dataKey: key });
         }
       }
     } else {
       // Otherwise, get children from the tree provided by the user
-      for (const key of Object.keys(subTree || {})) {
-        if (typeof data[key as keyof typeof data] === 'object') {
+      for (const key of Object.keys(subTree ?? {})) {
+        if (typeof data![key as keyof typeof data] === 'object') {
           children.push({ treeKey: key, dataKey: key });
         }
       }
     }
 
-    // initiate recursive calls
+    // Initiate recursive calls
     const promises = children.map(async (item) => {
-      const childPath = path + '/' + item.dataKey;
+      const childPath = `${path}/${item.dataKey}`;
       if (!data) {
         return;
       }
-      const res = await this.#recursiveGet(
+
+      const response = await this.#recursiveGet(
         childPath,
         subTree[item.treeKey],
         (data as JsonObject)[item.dataKey]
       );
-      // @ts-ignore
-      (data as JsonObject)[item.dataKey] = res;
-      return;
+      // @ts-expect-error
+      (data as JsonObject)[item.dataKey] = response;
     });
 
     await Promise.all(promises);
-    return data; // return object at "path"
+    return data; // Return object at "path"
   }
 
   /**
@@ -595,84 +580,90 @@ z      For the reconnection case, we need to re-establish the watches. */
    * @param request PUT request
    */
   public async put(request: PUTRequest): Promise<Response> {
-    // convert string path to array
+    // Convert string path to array
     // (e.g., /bookmarks/abc/def -> ['bookmarks', 'abc', 'def'])
-    const pathArray = utils.toArrayPath(request.path);
+    const pathArray = toArrayPath(request.path);
 
     if (request.tree) {
       // Retry counter
       let retryCount = 0;
-      // link object (eventually substituted by an actual link object)
-      let linkObj: Json = null;
-      let newResourcePathArray: Array<string> = [];
-      for (let i = pathArray.length - 1; i >= 0; i--) {
-        // get current path
-        const partialPathArray = pathArray.slice(0, i + 1);
-        // get corresponding data definition from the provided tree
-        const treeObj = utils.getObjectAtPath(
+      // Link object (eventually substituted by an actual link object)
+      // eslint-disable-next-line unicorn/no-null
+      let linkObject: Json = null;
+      let newResourcePathArray: string[] = [];
+      for (let index = pathArray.length - 1; index >= 0; index--) {
+        // Get current path
+        const partialPathArray = pathArray.slice(0, index + 1);
+        // Get corresponding data definition from the provided tree
+        const treeObject = getObjectAtPath(
           request.tree as OADATree,
           partialPathArray
-        ) as OADATree;
-        if ('_type' in treeObj) {
-          // it's a resource
-          const contentType = treeObj['_type']!;
-          const partialPath = utils.toStringPath(partialPathArray);
-          // check if resource already exists on the remote server
+        );
+        if ('_type' in treeObject) {
+          // It's a resource
+          const contentType = treeObject._type!;
+          const partialPath = toStringPath(partialPathArray);
+          // Check if resource already exists on the remote server
+          // eslint-disable-next-line no-await-in-loop
           const resourceCheckResult = await this.#resourceExists(partialPath);
           if (resourceCheckResult.exist) {
             // CASE 1: resource exists on server.
             // simply create a link using PUT request
-            if (linkObj && newResourcePathArray.length > 0) {
+            if (linkObject && newResourcePathArray.length > 0) {
+              // eslint-disable-next-line no-await-in-loop
               const linkPutResponse = await this.put({
-                path: utils.toStringPath(newResourcePathArray),
+                path: toStringPath(newResourcePathArray),
                 contentType,
-                data: linkObj,
+                data: linkObject,
                 // Ensure the resource has not been modified (opportunistic lock)
                 revIfMatch: resourceCheckResult.rev,
-              }).catch((msg) => {
-                if (msg.status == 412) {
-                  return msg;
-                } else {
-                  throw new Error(msg.statusText);
+              }).catch((error) => {
+                if (error.status === 412) {
+                  return error;
                 }
+
+                throw new Error(error.statusText);
               });
 
               // Handle return code 412 (If-Match failed)
-              if (linkPutResponse.status == 412) {
+              if (linkPutResponse.status === 412) {
                 // Retry with exponential backoff
                 if (retryCount++ < 5) {
-                  await utils.delay(
+                  // eslint-disable-next-line no-await-in-loop
+                  await setTimeout(
                     100 * (retryCount * retryCount + Math.random())
                   );
                   // Reset loop counter and do tree construction again.
-                  i = pathArray.length;
+                  index = pathArray.length;
                   continue;
                 } else {
-                  throw Error('If-match failed.');
+                  throw new Error('If-match failed.');
                 }
               }
             }
+
             // We hit a resource that already exists.
             // No need to further traverse the tree.
             break;
           } else {
             // CASE 2: resource does NOT exist on server.
             // create a new nested object containing a link
-            const relativePathArray = newResourcePathArray.slice(i + 1);
-            const newResource = linkObj
-              ? utils.createNestedObject(linkObj, relativePathArray)
+            const relativePathArray = newResourcePathArray.slice(index + 1);
+            const newResource = linkObject
+              ? createNestedObject(linkObject, relativePathArray)
               : {};
-            // create a new resource
+            // Create a new resource
+            // eslint-disable-next-line no-await-in-loop
             const resourceId: string = await this.#createResource(
               contentType,
-              newResource
+              newResource as Json
             );
-            // save a link
-            linkObj =
-              '_rev' in treeObj
-                ? { _id: resourceId, _rev: 0 } // versioned link
-                : { _id: resourceId }; // non-versioned link
-            newResourcePathArray = partialPathArray.slice(); // clone
+            // Save a link
+            linkObject =
+              '_rev' in treeObject
+                ? { _id: resourceId, _rev: 0 } // Versioned link
+                : { _id: resourceId }; // Non-versioned link
+            newResourcePathArray = partialPathArray.slice(); // Clone
           }
         }
       }
@@ -682,14 +673,15 @@ z      For the reconnection case, we need to re-establish the watches. */
     const contentType =
       request.contentType || // 1) get content-type from the argument
       (Buffer.isBuffer(request.data) &&
+        // eslint-disable-next-line unicorn/no-await-expression-member
         (await fileTypeFromBuffer(request.data))?.mime) ||
-      (request.data as JsonObject)?.['_type'] || // 2) get content-type from the resource body
+      (request.data as JsonObject)?._type || // 2) get content-type from the resource body
       (request.tree
-        ? utils.getObjectAtPath(request.tree as OADATree, pathArray)['_type'] // 3) get content-type from the tree
+        ? getObjectAtPath(request.tree as OADATree, pathArray)._type // 3) get content-type from the tree
         : 'application/json'); // 4) Assume application/json
 
     // return PUT response
-    return this.#ws.request(
+    const [response] = await this.#connection.request(
       {
         method: 'put',
         headers: {
@@ -702,9 +694,9 @@ z      For the reconnection case, we need to re-establish the watches. */
         path: request.path,
         data: request.data,
       },
-      undefined, // omitting an optional parameter
-      request.timeout
+      { timeout: request.timeout }
     );
+    return response;
   }
 
   /**
@@ -712,43 +704,43 @@ z      For the reconnection case, we need to re-establish the watches. */
    * @param request PUT request
    */
   public async post(request: POSTRequest): Promise<Response> {
-    // convert string path to array
+    // Convert string path to array
     // (e.g., /bookmarks/abc/def -> ['bookmarks', 'abc', 'def'])
-    const pathArray = utils.toArrayPath(request.path);
+    const pathArray = toArrayPath(request.path);
 
-    const data = request.data;
-    if (request.tree) {
+    const { data, tree, path, timeout } = request;
+    if (tree) {
       // We could go to all the trouble of re-implementing tree puts for posts,
       // but it's much easier to just make a ksuid and do the tree put
-      const newkey = (await ksuid.random()).string;
+      const { string: newkey } = await ksuid.random();
       request.path += `/${newkey}`;
-      return await this.put(request);
+      return this.put(request);
     }
 
     // Get content-type
     const contentType =
-      request.contentType || // 1) get content-type from the argument
-      (Buffer.isBuffer(request.data) &&
-        (await fileTypeFromBuffer(request.data))?.mime) ||
-      (request.data as JsonObject)?.['_type'] || // 2) get content-type from the resource body
-      (request.tree
-        ? utils.getObjectAtPath(request.tree, pathArray)['_type'] // 3) get content-type from the tree
+      request.contentType ?? // 1) get content-type from the argument
+      // eslint-disable-next-line unicorn/no-await-expression-member
+      (Buffer.isBuffer(data) && (await fileTypeFromBuffer(data))?.mime) ??
+      (data as JsonObject)?._type ?? // 2) get content-type from the resource body
+      (tree
+        ? getObjectAtPath(tree, pathArray)._type // 3) get content-type from the tree
         : 'application/json'); // 4) Assume application/json
 
     // return PUT response
-    return this.#ws.request(
+    const [response] = await this.#connection.request(
       {
         method: 'post',
         headers: {
           'authorization': `Bearer ${this.#token}`,
           'content-type': contentType as string,
         },
-        path: request.path,
+        path,
         data,
       },
-      undefined, // omitting an optional parameter
-      request.timeout
+      { timeout }
     );
+    return response;
   }
 
   /**
@@ -756,8 +748,8 @@ z      For the reconnection case, we need to re-establish the watches. */
    * @param request HEAD request
    */
   public async head(request: HEADRequest): Promise<Response> {
-    // return HEAD response
-    return this.#ws.request(
+    // Return HEAD response
+    const [response] = await this.#connection.request(
       {
         method: 'head',
         headers: {
@@ -765,9 +757,9 @@ z      For the reconnection case, we need to re-establish the watches. */
         },
         path: request.path,
       },
-      undefined, // omitting an optional parameter
-      request.timeout
+      { timeout: request.timeout }
     );
+    return response;
   }
 
   /**
@@ -775,8 +767,8 @@ z      For the reconnection case, we need to re-establish the watches. */
    * @param request DELETE request
    */
   public async delete(request: DELETERequest): Promise<Response> {
-    // return HEAD response
-    return this.#ws.request(
+    // Return HEAD response
+    const [response] = await this.#connection.request(
       {
         method: 'delete',
         headers: {
@@ -784,9 +776,9 @@ z      For the reconnection case, we need to re-establish the watches. */
         },
         path: request.path,
       },
-      undefined, // omitting an optional parameter
-      request.timeout
+      { timeout: request.timeout }
     );
+    return response;
   }
 
   /**
@@ -794,9 +786,9 @@ z      For the reconnection case, we need to re-establish the watches. */
    * @param request ENSURERequest
    */
   public async ensure(request: ENSURERequest): Promise<Response> {
-    // return ENSURE response
-    return this.#ws
-      .request(
+    // Return ENSURE response
+    try {
+      const [response] = await this.#connection.request(
         {
           method: 'head',
           headers: {
@@ -804,106 +796,111 @@ z      For the reconnection case, we need to re-establish the watches. */
           },
           path: request.path,
         },
-        undefined, // omitting an optional parameter
-        request.timeout
-      )
-      .catch((err) => {
-        if (err.status !== 404) throw err;
-        trace('Path to ensure did not exist. Creating');
-        return this.put(request);
-      });
+        { timeout: request.timeout }
+      );
+      return response;
+    } catch (error: unknown) {
+      // @ts-expect-error stupid errors
+      if (error.status !== 404) {
+        throw error;
+      }
+
+      trace('Path to ensure did not exist. Creating');
+      return await this.put(request);
+    }
   }
 
   /** Attempt to save the latest rev processed, accommodating concurrency */
-  private async _persistWatch(persistPath: string, rev: number): Promise<void> {
+  async #persistWatch(persistPath: string, rev: number): Promise<void> {
     info(`Persisting watch for path ${persistPath} to rev ${rev}`);
-    if (this.#persistList[persistPath] !== undefined) {
+    if (this.#persistList.has(persistPath)) {
       let { lastRev, recorded, items, recordLapsedTimeout, lastCheck } =
-        this.#persistList[persistPath]!;
+        this.#persistList.get(persistPath)!;
       if (recordLapsedTimeout !== undefined) {
-        //Handle finished revs that were previously recorded
-        if (recorded[rev]) {
+        // Handle finished revs that were previously recorded
+        if (rev in recorded) {
           info(
             `Lapsed rev [${rev}] on path ${persistPath} is now resolved. Removing from 'items' list.`
           );
           await this.delete({
-            path: persistPath + `/items/${rev}`,
+            path: `${persistPath}/items/${rev}`,
           });
         }
 
         // Record lapsed revs
-        let now = Date.now();
+        const now = Date.now();
         if (lastCheck === undefined || lastCheck + recordLapsedTimeout > now) {
-          await this._recordLapsedRevs(persistPath, now);
+          await this.#recordLapsedRevs(persistPath, now);
         }
-        this.#persistList[persistPath]!.lastCheck = now;
+
+        this.#persistList.get(persistPath)!.lastCheck = now;
       }
-      items[rev] = true;
+
+      items[Number(rev)] = true;
       while (items[lastRev + 1] === true) {
-        //truthy won't work with items as timestamps
+        // Truthy won't work with items as timestamps
         lastRev++;
-        this.#persistList[persistPath]!.lastRev = lastRev;
-        delete items[lastRev];
+        this.#persistList.get(persistPath)!.lastRev = lastRev;
+        delete items[Number(lastRev)];
       }
 
       await this.put({
-        path: persistPath + `/rev`,
+        path: `${persistPath}/rev`,
         data: lastRev,
       });
-      info(`Persisted watch: path: [${persistPath}], rev: [${lastRev}]`);
+      info('Persisted watch: path: [%s], rev: [%d]', persistPath, lastRev);
     }
-    return;
   }
 
-  /** Record unfinished revs and bring persisted rev up to date */
-  // This does not resolve the promise (it can still resolve later).
-  private async _recordLapsedRevs(
-    persistPath: string,
-    now: number
-  ): Promise<void> {
+  /**
+   * Record unfinished revs and bring persisted rev up to date
+   */
+  async #recordLapsedRevs(persistPath: string, now: number): Promise<void> {
     info(`Checking for lapsed revs for path [${persistPath}] time: [${now}]`);
-    let { items, recorded, recordLapsedTimeout } =
-      this.#persistList[persistPath]!;
+    const { items, recorded, recordLapsedTimeout } =
+      this.#persistList.get(persistPath)!;
     // Iterate over items;
-    Object.keys(items).forEach(async (key) => {
-      let item = items[key];
+    for (const [key, item] of Object.entries(items)) {
       if (
         recordLapsedTimeout !== undefined &&
         typeof item === 'number' &&
-        now > item + recordLapsedTimeout
+        now > Number(item) + recordLapsedTimeout
       ) {
-        //record those that have gone stale
-        let path = persistPath + `/items/${key}`;
-        info(`Recording lapsed rev: ${path}`);
+        // Record those that have gone stale
+        const path = `${persistPath}/items/${key}`;
+        info('Recording lapsed rev: %s', path);
+        // eslint-disable-next-line no-await-in-loop
         await this.put({
           path,
           data: item,
         });
 
-        //Mark them as resolved
-        items[key] = true;
-        recorded[key] = true;
+        // Mark them as resolved
+        items[Number(key)] = true;
+        recorded[Number(key)] = true;
       }
-    });
+    }
   }
 
   /** Create a new resource. Returns resource ID */
   async #createResource(contentType: string, data: Json): Promise<string> {
     // Create unique resource ID
-    const resourceId = 'resources/' + ksuid.randomSync().string;
-    // append resource ID and content type to object
+    const resourceId = `resources/${ksuid.randomSync().string}`;
+    // Append resource ID and content type to object
     // const fullData = { _id: resourceId, _type: contentType, ...data };
     // send PUT request
     await this.put({
-      path: '/' + resourceId,
+      path: `/${resourceId}`,
       data,
       contentType,
     });
-    // return resource ID
+    // Return resource ID
     return resourceId;
   }
 
-  /** check if the specified path exists. Returns boolean value. */
+  /**
+   * Check if the specified path exists. Returns boolean value.
+   */
   async #resourceExists(
     path: string
   ): Promise<{ exist: boolean; rev?: number }> {
@@ -915,27 +912,36 @@ z      For the reconnection case, we need to re-establish the watches. */
     }
 
     // Otherwise, send HEAD request for resource
-    const headResponse = await this.head({
-      path,
-    }).catch((msg) => {
-      if (msg.status == 404) {
-        return msg;
-      } else if (msg.status == 403 && path.match(/^\/resources/)) {
-        // 403 is what you get on resources that don't exist (i.e. Forbidden)
-        return { status: 404 };
-      } else {
-        throw new Error(
-          `Error: head for resource returned ${msg.statusText || msg}`
-        );
+    try {
+      const headResponse = await this.head({
+        path,
+      });
+      // Check status value
+      if (headResponse.status === 200) {
+        return { exist: true, rev: Number(headResponse.headers['x-oada-rev']) };
       }
-    });
-    // check status value
-    if (headResponse.status == 200) {
-      return { exist: true, rev: headResponse.headers['x-oada-rev'] };
-    } else if (headResponse.status == 404) {
-      return { exist: false };
-    } else {
-      throw Error('Status code is neither 200 nor 404.');
+
+      if (headResponse.status === 404) {
+        return { exist: false };
+      }
+    } catch (error: unknown) {
+      // @ts-expect-error stupid stupid error handling
+      if (error.status === 404) {
+        return { exist: false };
+      }
+
+      // @ts-expect-error stupid stupid error handling
+      if (error.status === 403 && path.startsWith('/resources')) {
+        // 403 is what you get on resources that don't exist (i.e. Forbidden)
+        return { exist: false };
+      }
+
+      throw new Error(
+        // @ts-expect-error stupid stupid error handling
+        `Error: head for resource returned ${error.statusText ?? error}`
+      );
     }
+
+    throw new Error('Status code is neither 200 nor 404.');
   }
 }
