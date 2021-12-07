@@ -1,44 +1,73 @@
+/**
+ * @license
+ * Copyright 2021 Open Ag Data Alliance
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* eslint-disable sonarjs/no-duplicate-string */
+
+// eslint-disable-next-line import/no-namespace
+import * as chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
-import 'mocha';
-import * as oada from '../lib/index';
-import * as config from './config';
-import * as utils from './utils';
 import ksuid from 'ksuid';
-use(require('chai-as-promised'));
 
-['ws', 'http'].forEach((connection) => {
-  if (connection !== 'ws' && connection !== 'http') return;
+// eslint-disable-next-line import/no-namespace
+import * as oada from '../lib/index';
+import {
+  deleteLinkAxios,
+  getAxios,
+  getTreeWithTestName,
+  putResourceAxios,
+} from './utils';
+import { domain, token } from './config';
 
-  describe(`${connection}: PUT test`, function () {
+use(chaiAsPromised);
+
+for (const connection of ['ws', 'http']) {
+  if (connection !== 'ws' && connection !== 'http') continue;
+
+  // eslint-disable-next-line @typescript-eslint/no-loop-func
+  describe(`${connection}: PUT test`, () => {
     // Client instance
     let client: oada.OADAClient;
 
     // Tree
     let testName: string;
-    let testTree: object;
+    let testTree: Record<string, unknown>;
 
     // Initialization
-    before('Initialize connection', async function () {
-      testName = 'test-' + ksuid.randomSync().string;
-      testTree = utils.getTreeWithTestName(testName);
-      await utils.putResourceAxios({}, '/bookmarks/' + testName);
+    before('Initialize connection', async () => {
+      testName = `test-${ksuid.randomSync().string}`;
+      testTree = getTreeWithTestName(testName);
+      await putResourceAxios({}, `/bookmarks/${testName}`);
       // Connect
       client = await oada.connect({
-        domain: config.domain,
-        token: config.token,
+        domain,
+        token,
         connection,
       });
     });
 
     // Cleanup
-    after('Destroy connection', async function () {
+    after('Destroy connection', async () => {
       // Disconnect
       await client?.disconnect();
-      // this does not delete resources... oh well.
-      await utils.deleteLinkAxios('/bookmarks/' + testName);
+      // This does not delete resources... oh well.
+      await deleteLinkAxios(`/bookmarks/${testName}`);
     });
 
-    it("Shouldn't error when the Content-Type header can be derived from the _type key in the PUT body", async function () {
+    it("Shouldn't error when the Content-Type header can be derived from the _type key in the PUT body", async () => {
       const response = await client.put({
         path: `/bookmarks/${testName}/sometest`,
         data: { _type: 'application/json' },
@@ -50,7 +79,7 @@ use(require('chai-as-promised'));
       ]);
     });
 
-    it("Shouldn't error when the Content-Type header can be derived from the contentType key", async function () {
+    it("Shouldn't error when the Content-Type header can be derived from the contentType key", async () => {
       const response = await client.put({
         path: `/bookmarks/${testName}/somethingnew`,
         data: `"abc123"`,
@@ -63,8 +92,8 @@ use(require('chai-as-promised'));
       ]);
     });
 
-    it("Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'", async function () {
-      var response = await client.put({
+    it("Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'", async () => {
+      const response = await client.put({
         path: `/bookmarks/${testName}/aaa/bbb/index-one/sometest`,
         tree: testTree,
         data: `"abc123"`,
@@ -76,40 +105,37 @@ use(require('chai-as-promised'));
       ]);
     });
 
-    xit('Should error when _type cannot be derived from the above tested sources', async function () {
-      return expect(
+    xit('Should error when _type cannot be derived from the above tested sources', async () =>
+      expect(
         client.put({
           path: `/bookmarks/${testName}/sometest`,
           data: `"abc123"`,
         })
-      ).to.be.rejected;
-      // TODO: Check the rejection reason
-    });
+      ).to.be.rejected);
+    // TODO: Check the rejection reason
 
-    it('Should error when using a contentType parameter for which your token does not have access to read/write', async function () {
-      return expect(
+    it('Should error when using a contentType parameter for which your token does not have access to read/write', async () =>
+      expect(
         client.put({
           path: `/bookmarks/${testName}/sometest2`,
           data: { anothertest: 123 },
           contentType: 'application/vnd.oada.foobar.1+json',
         })
-      ).to.be.rejected;
-      // TODO: Check the rejection reason
-    });
+      ).to.be.rejected);
+    // TODO: Check the rejection reason
 
-    it('Should error when timeout occurs during a PUT request', async function () {
-      return expect(
+    it('Should error when timeout occurs during a PUT request', async () =>
+      expect(
         client.put({
           path: `/bookmarks/${testName}/sometest3`,
           data: { anothertest: 123 },
           contentType: 'application/json',
           timeout: 1,
         })
-      ).to.be.rejected;
-      // TODO: Check the rejection reason
-    });
+      ).to.be.rejected);
+    // TODO: Check the rejection reason
 
-    it('Should create the proper resource breaks on the server when a tree parameter is supplied to a deep endpoint', async function () {
+    it('Should create the proper resource breaks on the server when a tree parameter is supplied to a deep endpoint', async () => {
       const putResp = await client.put({
         path: `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`,
         tree: testTree,
@@ -122,7 +148,7 @@ use(require('chai-as-promised'));
       ]);
 
       // Path: aaa
-      var response = await utils.getAxios(`/bookmarks/${testName}/aaa`);
+      let response = await getAxios(`/bookmarks/${testName}/aaa`);
       expect(response.status).to.equal(200);
       expect(response.headers).to.include.keys([
         'content-location',
@@ -134,7 +160,7 @@ use(require('chai-as-promised'));
       expect(response.data).to.not.have.nested.property('bbb.index-one');
 
       // Path: aaa/bbb
-      response = await utils.getAxios(`/bookmarks/${testName}/aaa/bbb`);
+      response = await getAxios(`/bookmarks/${testName}/aaa/bbb`);
       expect(response.status).to.equal(200);
       expect(response.headers).to.include.keys([
         'content-location',
@@ -146,9 +172,7 @@ use(require('chai-as-promised'));
       expect(response.data).to.have.nested.property('index-one.ccc');
 
       // Path: aaa/bbb/index-one
-      response = await utils.getAxios(
-        `/bookmarks/${testName}/aaa/bbb/index-one`
-      );
+      response = await getAxios(`/bookmarks/${testName}/aaa/bbb/index-one`);
       expect(response.status).to.equal(200);
       expect(response.headers).to.include.keys([
         'content-location',
@@ -160,9 +184,7 @@ use(require('chai-as-promised'));
       expect(response.data).to.have.nested.property('ccc._rev');
 
       // Path: aaa/bbb/index-one/ccc
-      response = await utils.getAxios(
-        `/bookmarks/${testName}/aaa/bbb/index-one/ccc`
-      );
+      response = await getAxios(`/bookmarks/${testName}/aaa/bbb/index-one/ccc`);
       expect(response.status).to.equal(200);
       expect(response.headers).to.include.keys([
         'content-location',
@@ -173,7 +195,7 @@ use(require('chai-as-promised'));
       expect(response.data).to.not.have.nested.property('index-two._rev');
 
       // Path: aaa/bbb/index-one/ccc/index-two
-      response = await utils.getAxios(
+      response = await getAxios(
         `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two`
       );
       expect(response.status).to.equal(200);
@@ -186,7 +208,7 @@ use(require('chai-as-promised'));
       expect(response.data).to.have.nested.property('ddd._rev');
 
       // Path: aaa/bbb/index-one/ccc/index-two/ddd
-      response = await utils.getAxios(
+      response = await getAxios(
         `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd`
       );
       expect(response.status).to.equal(200);
@@ -200,7 +222,7 @@ use(require('chai-as-promised'));
       expect(response.data).to.have.nested.property('index-three.eee');
 
       // Path: aaa/bbb/index-one/ccc/index-two/ddd/index-three
-      response = await utils.getAxios(
+      response = await getAxios(
         `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three`
       );
       expect(response.status).to.equal(200);
@@ -214,7 +236,7 @@ use(require('chai-as-promised'));
       expect(response.data).to.not.have.nested.property('eee._rev');
 
       // Path: aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee
-      response = await utils.getAxios(
+      response = await getAxios(
         `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`
       );
       expect(response.status).to.equal(200);
@@ -230,21 +252,23 @@ use(require('chai-as-promised'));
     it('Should create the proper trees from simultaneous PUT requests', async function () {
       // Adjust timeout because concurrent PUTs usually result in if-match errors and
       // the client tries to resolve the conflicts using the exponential backoff algorithm
-      this.timeout(10000);
+      // eslint-disable-next-line @typescript-eslint/no-invalid-this
+      this.timeout(10_000);
       // Do concurrent PUTs
       const paths = ['a', 'b', 'c'];
-      const promises = paths.map((v) => {
-        return client.put({
+      const promises = paths.map(async (v) =>
+        client.put({
           path: `/bookmarks/${testName}/concurrent-put/${v}`,
           tree: testTree,
           data: { foo: 'bar' },
-        });
-      });
+        })
+      );
       await Promise.all(promises);
 
       // Check
       for (const v of paths) {
-        const response = await utils.getAxios(
+        // eslint-disable-next-line no-await-in-loop
+        const response = await getAxios(
           `/bookmarks/${testName}/concurrent-put/${v}`
         );
         expect(response.status).to.equal(200);
@@ -256,4 +280,4 @@ use(require('chai-as-promised'));
       }
     });
   });
-});
+}

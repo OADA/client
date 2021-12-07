@@ -42,6 +42,9 @@ overrides:
       - plugin:import/typescript
       - xo-typescript
       - prettier
+    parserOptions:
+      ecmaVersion: 2020
+      project: './tsconfig.eslint.json'
     rules:
       '@typescript-eslint/naming-convention':
         [

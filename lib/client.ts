@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
+/* eslint-disable max-depth */
+/* eslint-disable complexity */
+/* eslint-disable sonarjs/cognitive-complexity */
+
 import { Buffer } from 'node:buffer';
 import type { EventEmitter } from 'node:events';
 import { setTimeout } from 'node:timers/promises';

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { EventEmitter, once, on } from 'node:events';
+import { EventEmitter, on, once } from 'node:events';
 import { setTimeout } from 'node:timers/promises';
 
 import PQueue from 'p-queue';

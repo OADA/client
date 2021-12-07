@@ -1,82 +1,107 @@
-import { use, expect } from 'chai';
-import 'mocha';
+/**
+ * @license
+ * Copyright 2021 Open Ag Data Alliance
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import * as oada from '../lib/index';
-import * as config from './config';
+/* eslint-disable no-console */
+
+// eslint-disable-next-line import/no-namespace
+import * as chaiAsPromised from 'chai-as-promised';
+import { expect, use } from 'chai';
+
+import { domain, token } from './config';
 import type { OADATree } from '../lib/client';
-use(require('chai-as-promised'));
+import { connect } from '../lib/index';
 
-const generateRandomStr = () => {
-  return Math.random().toString(36).substring(7);
-};
+use(chaiAsPromised);
 
-describe('HTTP Client test', function () {
+const generateRandomString = () => Math.random().toString(36).slice(7);
+
+describe('HTTP Client test', () => {
   it('HTTP Connect/Disconnect', async () => {
-    const client = await oada.connect({
-      domain: config.domain,
-      token: config.token,
+    const client = await connect({
+      domain,
+      token,
       connection: 'http',
     });
     await client.disconnect();
   });
 
   it('HTTP Single GET', async () => {
-    const client = await oada.connect({
-      domain: config.domain,
-      token: config.token,
+    const client = await connect({
+      domain,
+      token,
       connection: 'http',
     });
     const response = await client.get({ path: '/bookmarks' });
     expect(response.status).to.equal(200);
     expect(response.data).to.have.nested.property(`_type`);
-    //expect(response.data?._type).to.equal("application/vnd.oada.bookmarks.1+json");
+    // Expect(response.data?._type).to.equal("application/vnd.oada.bookmarks.1+json");
     await client.disconnect();
   });
 
   it('HTTP watch should not throw', async () => {
-    const client = await oada.connect({
-      domain: config.domain,
-      token: config.token,
+    const client = await connect({
+      domain,
+      token,
       connection: 'http',
     });
-    await expect(
-      client.watch({
+    try {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      const watch = client.watch({
         path: '/bookmarks',
-        async watchCallback(change: unknown) {
-          console.dir(change);
-        },
-      })
-    ).to.eventually.not.be.rejected;
-    await client.disconnect();
+      });
+      // eslint-disable-next-line no-unreachable-loop
+      for await (const change of watch) {
+        console.dir(change);
+        break;
+      }
+    } finally {
+      await client.disconnect();
+    }
   });
 
   it('HTTP PUT->GET->DELETE', async () => {
-    const client = await oada.connect({
-      domain: config.domain,
-      token: config.token,
+    const client = await connect({
+      domain,
+      token,
       connection: 'http',
     });
-    const response = await client
-      .put({
+    try {
+      await client.put({
         path: '/bookmarks',
         data: { test10: 'aaa' },
-      })
-      .then(() => client.get({ path: `/bookmarks/test10` }))
-      .then(async (res) => {
-        await client.delete({ path: `/bookmarks/test10` });
-        return res.data;
       });
-    expect(response).to.equal('aaa');
-    await client.disconnect();
+      const { data: response } = await client.get({
+        path: `/bookmarks/test10`,
+      });
+      await client.delete({ path: `/bookmarks/test10` });
+      expect(response).to.equal('aaa');
+    } finally {
+      await client.disconnect();
+    }
   });
 
   it('Recursive PUT/GET', async () => {
-    const randomStr = generateRandomStr();
-    var tree = {
+    const randomString = generateRandomString();
+    const tree = {
       bookmarks: {
+        // eslint-disable-next-line sonarjs/no-duplicate-string
         _type: 'application/json',
         _rev: 0,
-        [randomStr]: {
+        [randomString]: {
           _type: 'application/json',
           _rev: 0,
           level1: {
@@ -100,24 +125,24 @@ describe('HTTP Client test', function () {
         },
       },
     } as unknown as OADATree;
-    const client = await oada.connect({
-      domain: config.domain,
-      token: config.token,
+    const client = await connect({
+      domain,
+      token,
       connection: 'http',
     });
     // Tree PUT
     await client.put({
-      path: `/bookmarks/${randomStr}/level1/abc/level2/def/level3/ghi/`,
+      path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
       data: { thingy: 'abc' },
       tree,
     });
     // Recursive GET
     const response = await client.get({
-      path: `/bookmarks/${randomStr}`,
+      path: `/bookmarks/${randomString}`,
       tree,
     });
     const responseData = response.data;
-    // check
+    // Check
     expect(responseData).to.have.nested.property(`_type`);
     expect(responseData).to.have.nested.property(`level1.abc._type`);
     expect(responseData).to.have.nested.property(`level1.abc.level2.def._type`);
@@ -126,8 +151,8 @@ describe('HTTP Client test', function () {
     );
     // Cleanup
     await client.delete({
-      path: `/bookmarks/${randomStr}`,
+      path: `/bookmarks/${randomString}`,
     });
-    client.disconnect();
+    await client.disconnect();
   });
 });

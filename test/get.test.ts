@@ -1,41 +1,67 @@
+/**
+ * @license
+ * Copyright 2021 Open Ag Data Alliance
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// eslint-disable-next-line import/no-namespace
+import * as chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
-import 'mocha';
-import * as oada from '../lib/index';
-import * as config from './config';
-import * as utils from './utils';
 import ksuid from 'ksuid';
-use(require('chai-as-promised'));
 
-['ws', 'http'].forEach((connection) => {
-  if (connection !== 'ws' && connection !== 'http') return;
+// eslint-disable-next-line import/no-namespace
+import * as oada from '../lib/index';
+import {
+  deleteLinkAxios,
+  getTreeWithTestName,
+  putResourceAxios,
+} from './utils';
+import { domain, token } from './config';
 
-  describe(connection + ' GET test', function () {
+use(chaiAsPromised);
+
+for (const connection of ['ws', 'http']) {
+  if (connection !== 'ws' && connection !== 'http') continue;
+
+  // eslint-disable-next-line @typescript-eslint/no-loop-func
+  describe(`${connection} GET test`, () => {
     // Client instance
     let client: oada.OADAClient;
 
     // Tree
     let testName: string;
-    let testTree: object;
+    let testTree: Record<string, unknown>;
 
     // Initialization
-    before('Initialize connection', async function () {
-      testName = 'test-' + ksuid.randomSync().string;
-      testTree = utils.getTreeWithTestName(testName);
-      await utils.putResourceAxios({}, '/bookmarks/' + testName);
+    before('Initialize connection', async () => {
+      testName = `test-${ksuid.randomSync().string}`;
+      testTree = getTreeWithTestName(testName);
+      await putResourceAxios({}, `/bookmarks/${testName}`);
       // Connect
       client = await oada.connect({
-        domain: config.domain,
-        token: config.token,
+        domain,
+        token,
         connection,
       });
     });
 
     // Cleanup
-    after('Destroy connection', async function () {
+    after('Destroy connection', async () => {
       // Disconnect
       await client?.disconnect();
-      // this does not delete resources... oh well.
-      await utils.deleteLinkAxios('/bookmarks/' + testName);
+      // This does not delete resources... oh well.
+      await deleteLinkAxios(`/bookmarks/${testName}`);
     });
 
     it('Get Top-Level Bookmark', async () => {
@@ -49,11 +75,11 @@ use(require('chai-as-promised'));
       });
     });
 
-    it('Should allow you to get a single resource by its resource ID', async function () {
+    it('Should allow you to get a single resource by its resource ID', async () => {
       // Prepare a resource
-      const testObj = { abc: 'def' };
-      const r = await utils.putResourceAxios(
-        testObj,
+      const testObject = { abc: 'def' };
+      const r = await putResourceAxios(
+        testObject,
         `/bookmarks/${testName}/testResource1`
       );
 
@@ -65,14 +91,14 @@ use(require('chai-as-promised'));
       // Check
       expect(response.status).to.equal(200);
       expect(response.data).to.include.keys(['_id', '_rev', '_meta']);
-      expect(response.data).to.include(testObj);
+      expect(response.data).to.include(testObject);
     });
 
-    it('Should allow you to get a single resource by its path', async function () {
+    it('Should allow you to get a single resource by its path', async () => {
       // Prepare a resource
-      const testObj = { abc: 'def' };
+      const testObject = { abc: 'def' };
       const path = `/bookmarks/${testName}/testResource2`;
-      await utils.putResourceAxios(testObj, path);
+      await putResourceAxios(testObject, path);
 
       // Run
       const response = await client.get({
@@ -82,14 +108,14 @@ use(require('chai-as-promised'));
       // Check
       expect(response.status).to.equal(200);
       expect(response.data).to.include.keys(['_id', '_rev', '_meta']);
-      expect(response.data).to.include(testObj);
+      expect(response.data).to.include(testObject);
     });
 
-    it('Should error when timeout occurs during a GET request', async function () {
+    it('Should error when timeout occurs during a GET request', async () => {
       // Prepare a resource
-      const testObj = { abc: 'def' };
+      const testObject = { abc: 'def' };
       const path = `/bookmarks/${testName}/testResource3`;
-      await utils.putResourceAxios(testObj, path);
+      await putResourceAxios(testObject, path);
 
       // Run
       return expect(
@@ -100,37 +126,27 @@ use(require('chai-as-promised'));
       ).to.be.rejected;
     });
 
-    it("Should error when the root path of a 'tree' GET doesn't exist", async function () {
-      return expect(
+    it("Should error when the root path of a 'tree' GET doesn't exist", async () =>
+      expect(
         client.get({
           path: '/bookmarks/test/testTwo',
           tree: testTree,
         })
-      ).to.eventually.be.rejected;
-    });
+      ).to.eventually.be.rejected);
 
-    it('Should allow you to get resources based on a tree', async function () {
+    it('Should allow you to get resources based on a tree', async () => {
       // Prepare resources
       const basePath = `/bookmarks/${testName}`;
-      await utils.putResourceAxios(
-        { somethingelse: 'okay' },
-        basePath + '/aaa'
-      );
-      await utils.putResourceAxios(
-        { b: 'b' },
-        `/bookmarks/${testName}/aaa/bbb`
-      );
-      await utils.putResourceAxios(
-        { c: 'c' },
-        basePath + '/aaa/bbb/index-one/ccc'
-      );
-      await utils.putResourceAxios(
+      await putResourceAxios({ somethingelse: 'okay' }, `${basePath}/aaa`);
+      await putResourceAxios({ b: 'b' }, `/bookmarks/${testName}/aaa/bbb`);
+      await putResourceAxios({ c: 'c' }, `${basePath}/aaa/bbb/index-one/ccc`);
+      await putResourceAxios(
         { d: 'd' },
-        basePath + '/aaa/bbb/index-one/ccc/index-two/bob'
+        `${basePath}/aaa/bbb/index-one/ccc/index-two/bob`
       );
-      await utils.putResourceAxios(
+      await putResourceAxios(
         { e: 'e' },
-        basePath + '/aaa/bbb/index-one/ccc/index-two/bob/index-three/2018'
+        `${basePath}/aaa/bbb/index-one/ccc/index-two/bob/index-three/2018`
       );
 
       // Run
@@ -153,4 +169,4 @@ use(require('chai-as-promised'));
       );
     });
   });
-});
+}
