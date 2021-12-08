@@ -34,6 +34,7 @@ import { WebSocketClient } from './websocket';
 import { handleErrors } from './errors';
 // Const error = debug("@oada/client:http:error");
 
+import type { Method } from 'fetch-h2';
 import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request';
 
 const trace = debug('@oada/client:http:trace');
@@ -186,10 +187,10 @@ export class HttpClient extends EventEmitter implements Connection {
     const body = Buffer.isBuffer(request.data)
       ? request.data
       : JSON.stringify(request.data);
-    const result = await this.#context
-      .fetch(new URL(request.path, this.#domain).toString(), {
-        // @ts-expect-error
-        method: request.method.toUpperCase(),
+    const result = await this.#context.fetch(
+      new URL(request.path, this.#domain).toString(),
+      {
+        method: request.method.toUpperCase() as Method,
         // @ts-expect-error
         signal,
         timeout,
@@ -197,14 +198,12 @@ export class HttpClient extends EventEmitter implements Connection {
         // We are not explicitly sending token in each request
         // because parent library sends it
         headers: request.headers,
-      })
-      .then((res) => {
-        if (timedout) {
-          throw new Error('Request timeout');
-        }
+      }
+    );
+    if (timedout) {
+      throw new Error('Request timeout');
+    }
 
-        return res;
-      });
     trace('Fetch did not throw, checking status of %s', result.status);
 
     // This is the same test as in ./websocket.ts

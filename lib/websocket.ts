@@ -19,8 +19,8 @@ import { EventEmitter, on, once } from 'node:events';
 import { setTimeout } from 'node:timers/promises';
 
 import PQueue from 'p-queue';
-import WebSocket = require('isomorphic-ws');
 import ReconnectingWebSocket from 'reconnecting-websocket';
+import WebSocket from 'isomorphic-ws';
 import debug from 'debug';
 import ksuid from 'ksuid';
 
@@ -234,6 +234,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
         assertOADAChangeV2(message.change);
 
         const change = message.change.map(
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
           ({ body, ...rest }) => ({ ...rest, body } as Change)
         );
         for (const requestId of requestIds) {
