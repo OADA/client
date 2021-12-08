@@ -34,6 +34,7 @@ import type {
   ConnectionChange,
   ConnectionRequest,
   ConnectionResponse,
+  IConnectionResponse,
 } from './client';
 import type { Change } from './';
 import { handleErrors } from './errors';
@@ -62,7 +63,7 @@ declare module 'events' {
       emitter: ResponseEmitter,
       event: `change:${string}`,
       options?: { signal?: AbortSignal }
-    ): AsyncIterableIterator<ConnectionChange>;
+    ): AsyncIterableIterator<[ConnectionChange]>;
   }
 }
 
@@ -178,12 +179,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
   async #doRequest(
     request: ConnectionRequest,
     { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {}
-  ): Promise<
-    [
-      response: ConnectionResponse,
-      updates?: AsyncIterableIterator<ConnectionChange>
-    ]
-  > {
+  ): Promise<IConnectionResponse> {
     // Send object to the server.
     // eslint-disable-next-line unicorn/no-await-expression-member
     const requestId = request.requestId ?? (await ksuid.random()).string;

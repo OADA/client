@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-// eslint-disable-next-line import/no-namespace
-import * as chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import ksuid from 'ksuid';
 
 // eslint-disable-next-line import/no-namespace

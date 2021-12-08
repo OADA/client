@@ -17,9 +17,10 @@
 
 /* eslint-disable no-console */
 
-// eslint-disable-next-line import/no-namespace
-import * as chaiAsPromised from 'chai-as-promised';
+import { setTimeout } from 'node:timers/promises';
+
 import { expect, use } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 
 import { domain, token } from './config';
 import type { OADATree } from '../lib/client';
@@ -60,14 +61,12 @@ describe('HTTP Client test', () => {
     });
     try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const watch = client.watch({
+      const watch = await client.watch({
         path: '/bookmarks',
       });
-      // eslint-disable-next-line no-unreachable-loop
-      for await (const change of watch) {
-        console.dir(change);
-        break;
-      }
+      const changeP = watch.next();
+      const delay = setTimeout(1000);
+      await Promise.race([changeP, delay]);
     } finally {
       await client.disconnect();
     }

@@ -63,7 +63,7 @@ for (const connection of ['ws', 'http']) {
       const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
       // 2) Set up watch
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const watch = client.watch({
+      const watch = await client.watch({
         path: `/bookmarks/${testName}/test1`,
       });
       // 3) Make changes
@@ -71,7 +71,6 @@ for (const connection of ['ws', 'http']) {
 
       // eslint-disable-next-line no-unreachable-loop
       for await (const change of watch) {
-        // We need a try-catch to properly capture an exception from expect() within a callback function
         // Check
         expect(axiosResp.data).to.include.keys('_rev');
         const nextRev = Number(axiosResp.data._rev) + 1;
@@ -89,11 +88,11 @@ for (const connection of ['ws', 'http']) {
       await getAxios(`/bookmarks/${testName}/test2`);
       // 2) Set up watch
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const watch = client.watch({
+      const watch = await client.watch({
         path: `/bookmarks/${testName}/test2`,
       });
       // 3) Unwatch
-      await watch.return();
+      await watch.return?.();
       // 4) Make changes
       await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test2/testData`);
       // eslint-disable-next-line no-unreachable-loop
@@ -111,7 +110,7 @@ for (const connection of ['ws', 'http']) {
       const axiosResp = await getAxios(`/bookmarks/${testName}/test3`);
       // 2) Set up watch
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const watch = client.watch({
+      const watch = await client.watch({
         path: `/bookmarks/${testName}/test3`,
       });
       // 3) Make changes

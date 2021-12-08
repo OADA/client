@@ -52,7 +52,7 @@ describe('Client test', () => {
       token,
     });
     // eslint-disable-next-line security/detect-non-literal-fs-filename
-    const watch = client.watch({
+    const watch = await client.watch({
       path: '/bookmarks',
     });
     for await (const change of watch) {

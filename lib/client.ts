@@ -25,7 +25,7 @@ import { setTimeout } from 'node:timers/promises';
 
 import debug from 'debug';
 import deepClone from 'deep-clone';
-import { fileTypeFromBuffer } from 'file-type';
+import { fromBuffer } from 'file-type';
 import ksuid from 'ksuid';
 
 import {
@@ -73,7 +73,7 @@ export interface ConnectionChange {
 
 export type IConnectionResponse = [
   response: ConnectionResponse,
-  updates?: AsyncIterableIterator<Readonly<ConnectionChange>>
+  updates?: AsyncIterableIterator<[Readonly<ConnectionChange>]>
 ];
 export interface Connection extends EventEmitter {
   disconnect(): Promise<void>;
@@ -299,17 +299,19 @@ export class OADAClient {
    */
   public watch(
     request: WatchRequestTree
-  ): AsyncIterableIterator<Array<Readonly<Change>>>;
+  ): Promise<AsyncIterableIterator<Array<Readonly<Change>>>>;
   public watch(
     request: WatchRequestSingle
-  ): AsyncIterableIterator<Readonly<Change>>;
+  ): Promise<AsyncIterableIterator<Readonly<Change>>>;
   /** @internal */
   public watch(
     request: WatchRequest
-  ): AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>>;
-  public async *watch(
+  ): Promise<AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>>>;
+  public async watch(
     request: WatchRequest
-  ): AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>> {
+  ): Promise<
+    AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>>
+  > {
     const restart = new AbortController();
     const headers: Record<string, string> = {};
 
@@ -367,17 +369,15 @@ export class OADAClient {
           _id = postHeaders['content-location']?.replace(/^\//, '');
         }
 
-        if (_id === undefined) {
-          return '';
+        if (_id) {
+          await this.put({
+            path: persistPath,
+            data: { _id },
+          });
+          info(
+            `Watch persist did not find _meta entry for [${name}]. Current resource _rev is ${lastRev}. Not setting x-oada-rev header. _meta entry created.`
+          );
         }
-
-        await this.put({
-          path: persistPath,
-          data: { _id },
-        });
-        info(
-          `Watch persist did not find _meta entry for [${name}]. Current resource _rev is ${lastRev}. Not setting x-oada-rev header. _meta entry created.`
-        );
       }
 
       // Retrieve list of previously lapsed revs
@@ -440,63 +440,70 @@ export class OADAClient {
       ? r.requestId[0]!
       : r.requestId; // Server should always return an array requestId
 
-    try {
-      for await (const resp of w!) {
-        let parentRev;
+    return async function* (this: OADAClient) {
+      try {
+        for await (const [resp] of w!) {
+          let parentRev;
 
-        if (request.persist) {
-          const bod = resp?.change.find((c) => c.path === '')?.body;
-          if (typeof bod === 'object' && bod !== null && !Array.isArray(bod)) {
-            parentRev = bod._rev;
-            if (persistPath && this.#persistList.has(persistPath)) {
-              this.#persistList.get(persistPath)!.items[Number(parentRev)] =
-                Date.now();
-            }
-          }
-        }
-
-        if (request.type === 'tree') {
-          yield deepClone(resp.change);
-        } else if (!request.type || request.type === 'single') {
-          for (const change of resp.change) {
-            yield deepClone(change);
-
-            if (change.path === '') {
-              const newRev = change.body?._rev;
-              if (newRev) {
-                // WatchRev = newRev;
-                trace(
-                  'Updated the rev of request %s to %s',
-                  resp.requestId[0],
-                  newRev
-                );
-              } else {
-                throw new Error('The _rev field is missing.');
+          if (request.persist) {
+            const bod = resp?.change.find((c) => c.path === '')?.body;
+            if (
+              typeof bod === 'object' &&
+              bod !== null &&
+              !Array.isArray(bod)
+            ) {
+              parentRev = bod._rev;
+              if (persistPath && this.#persistList.has(persistPath)) {
+                this.#persistList.get(persistPath)!.items[Number(parentRev)] =
+                  Date.now();
               }
             }
           }
-        }
 
-        // Persist the new parent rev
-        if (
-          request.persist &&
-          typeof parentRev === 'number' &&
-          this.#persistList.has(persistPath)
-        ) {
-          await this.#persistWatch(persistPath, parentRev);
+          if (request.type === 'tree') {
+            yield deepClone(resp.change);
+          } else if (!request.type || request.type === 'single') {
+            for (const change of resp.change) {
+              yield deepClone(change);
+
+              if (change.path === '') {
+                const newRev = change.body?._rev;
+                if (newRev) {
+                  // WatchRev = newRev;
+                  trace(
+                    'Updated the rev of request %s to %s',
+                    resp.requestId[0],
+                    newRev
+                  );
+                } else {
+                  throw new Error('The _rev field is missing.');
+                }
+              }
+            }
+          }
+
+          // Persist the new parent rev
+          if (
+            request.persist &&
+            typeof parentRev === 'number' &&
+            this.#persistList.has(persistPath)
+          ) {
+            await this.#persistWatch(persistPath, parentRev);
+          }
         }
+      } finally {
+        // End the watch once we're done with it
+        await this.unwatch(requestId);
       }
-    } finally {
-      // End the watch once we're done with it
-      await this.unwatch(requestId);
-    }
 
-    // If the connection died, restart the watch
-    if (restart.signal.aborted) {
-      // FIXME: Possible stack overflow here?
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      yield* this.watch(request);
-    }
+      // If the connection died, restart the watch
+      if (restart.signal.aborted) {
+        // FIXME: Possible stack overflow here?
+        // eslint-disable-next-line security/detect-non-literal-fs-filename
+        const watch = await this.watch(request);
+        yield* watch;
+      }
+    }.call(this);
   }
 
   public async unwatch(requestId: string): Promise<Response> {
@@ -678,7 +685,7 @@ export class OADAClient {
       request.contentType || // 1) get content-type from the argument
       (Buffer.isBuffer(request.data) &&
         // eslint-disable-next-line unicorn/no-await-expression-member
-        (await fileTypeFromBuffer(request.data))?.mime) ||
+        (await fromBuffer(request.data))?.mime) ||
       (request.data as JsonObject)?._type || // 2) get content-type from the resource body
       (request.tree
         ? getObjectAtPath(request.tree as OADATree, pathArray)._type // 3) get content-type from the tree
@@ -725,7 +732,7 @@ export class OADAClient {
     const contentType =
       request.contentType ?? // 1) get content-type from the argument
       // eslint-disable-next-line unicorn/no-await-expression-member
-      (Buffer.isBuffer(data) && (await fileTypeFromBuffer(data))?.mime) ??
+      (Buffer.isBuffer(data) && (await fromBuffer(data))?.mime) ??
       (data as JsonObject)?._type ?? // 2) get content-type from the resource body
       (tree
         ? getObjectAtPath(tree, pathArray)._type // 3) get content-type from the tree
