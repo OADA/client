@@ -38,7 +38,7 @@ import type { Change, Json, JsonObject } from '.';
 
 const trace = debug('@oada/client:client:trace');
 const info = debug('@oada/client:client:info');
-// Const error = debug("@oada/client:client:error");
+const error = debug('@oada/client:client:error');
 
 /**
  * @todo Support more than just Buffer?
@@ -123,6 +123,17 @@ export interface WatchRequestSingle {
   persist?: PersistConfig;
   timeout?: number;
 }
+/**
+ * @deprecated
+ */
+export interface WatchRequestSingleOld {
+  type: 'single';
+  path: string;
+  rev?: number | string;
+  persist?: PersistConfig;
+  timeout?: number;
+  watchCallback(response: Readonly<Change>): Promise<void>;
+}
 
 /**
  * Watch whose callback gets change trees
@@ -134,11 +145,26 @@ export interface WatchRequestTree {
   persist?: PersistConfig;
   timeout?: number;
 }
+/**
+ * @deprecated
+ */
+export interface WatchRequestTreeOld {
+  type: 'tree';
+  path: string;
+  rev?: string;
+  persist?: PersistConfig;
+  timeout?: number;
+  watchCallback(response: ReadonlyArray<Readonly<Change>>): Promise<void>;
+}
 
 /**
  * Discriminated union of watch for single changes or watch for change trees
  */
-export type WatchRequest = WatchRequestSingle | WatchRequestTree;
+export type WatchRequest =
+  | WatchRequestSingle
+  | WatchRequestTree
+  | WatchRequestSingleOld
+  | WatchRequestTreeOld;
 
 export interface PUTRequest {
   path: string;
@@ -183,7 +209,32 @@ export interface OADATree {
   _type?: string;
 }
 
-/** Main  OADAClient class */
+/**
+ * Handle v2 watch API
+ */
+async function doWatchCallback<
+  C extends Readonly<Change> | ReadonlyArray<Readonly<Change>>
+>(
+  watch: AsyncIterableIterator<C>,
+  watchCallback: (response: C) => Promise<void>,
+  requestId: string
+) {
+  try {
+    for await (const change of watch) {
+      try {
+        await watchCallback(change);
+      } catch (cError: unknown) {
+        error(cError, `Error in watch callback for watch ${requestId}`);
+      }
+    }
+  } finally {
+    await watch.return?.();
+  }
+}
+
+/**
+ * Main  OADAClient class
+ */
 export class OADAClient {
   #token;
   #domain;
@@ -292,6 +343,7 @@ export class OADAClient {
 
   /**
    * Set up watch
+   *
    * @param request watch request
    */
   public watch(
@@ -302,18 +354,26 @@ export class OADAClient {
   ): Promise<AsyncIterableIterator<Readonly<Change>>>;
   /** @internal */
   public watch(
-    request: WatchRequest
+    request: WatchRequestTree | WatchRequestSingle
   ): Promise<AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>>>;
+  /**
+   * Watch API for v2
+   *
+   * @deprecated
+   */
+  public watch(
+    request: WatchRequestTreeOld | WatchRequestSingleOld
+  ): Promise<string>;
   public async watch(
     request: WatchRequest
   ): Promise<
-    AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>>
+    AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>> | string
   > {
     const restart = new AbortController();
     const headers: Record<string, string> = {};
 
     // TODO: Decide whether this should go after persist to allow it to override the persist rev
-    if (typeof request.rev !== 'undefined') {
+    if ('rev' in request) {
       headers['x-oada-rev'] = `${request.rev}`;
     }
 
@@ -387,12 +447,12 @@ export class OADAClient {
           revData && !Buffer.isBuffer(revData)
             ? (revData as Record<number, boolean | number>)
             : {};
-      } catch (error: unknown) {
+      } catch (cError: unknown) {
         // @ts-expect-error stupid error handling
-        if (error.status === 404) {
+        if (cError.status === 404) {
           recorded = {};
         } else {
-          throw error;
+          throw cError;
         }
       }
 
@@ -437,7 +497,7 @@ export class OADAClient {
       ? r.requestId[0]!
       : r.requestId; // Server should always return an array requestId
 
-    return async function* (this: OADAClient) {
+    async function* handleWatch(this: OADAClient) {
       try {
         for await (const [resp] of w!) {
           let parentRev;
@@ -500,7 +560,20 @@ export class OADAClient {
         const watch = await this.watch(request);
         yield* watch;
       }
-    }.call(this);
+    }
+
+    // Handle old v2 watch API
+    if ('watchCallback' in request) {
+      const watch = handleWatch.call(this);
+      const { watchCallback } = request;
+
+      // Don't await
+      // @ts-expect-error type nonsense
+      void doWatchCallback(watch, watchCallback, requestId);
+      return requestId;
+    }
+
+    return handleWatch.call(this);
   }
 
   public async unwatch(requestId: string): Promise<Response> {
@@ -523,24 +596,26 @@ export class OADAClient {
   async #recursiveGet(
     path: string,
     subTree: OADATree | undefined,
-    data: Body | undefined
+    body: Body | undefined
   ): Promise<Body> {
     // If either subTree or data does not exist, there's mismatch between
     // the provided tree and the actual data stored on the server
-    if (!subTree || !data) {
+    if (!subTree || !body) {
       throw new Error('Path mismatch.');
     }
 
     // If the object is a link to another resource (i.e., contains "_type"),
     // then perform GET
     if (subTree._type) {
-      ({ data = {} } = await this.get({ path }));
+      ({ data: body = {} } = await this.get({ path }));
     }
 
     // TODO: should this error?
-    if (Buffer.isBuffer(data)) {
-      return data;
+    if (Buffer.isBuffer(body)) {
+      return body;
     }
+
+    const data = body;
 
     // Select children to traverse
     const children: Array<{ treeKey: string; dataKey: string }> = [];
@@ -575,7 +650,10 @@ export class OADAClient {
         subTree[item.treeKey],
         (data as JsonObject)[item.dataKey]
       );
-      // @ts-expect-error
+      if (Buffer.isBuffer(response)) {
+        throw new TypeError('Non JSON is not supported.');
+      }
+
       (data as JsonObject)[item.dataKey] = response;
     });
 
@@ -625,12 +703,14 @@ export class OADAClient {
                 data: linkObject,
                 // Ensure the resource has not been modified (opportunistic lock)
                 revIfMatch: resourceCheckResult.rev,
-              }).catch((error) => {
-                if (error.status === 412) {
-                  return error;
+              }).catch((cError: unknown) => {
+                // @ts-expect-error stupid error checking
+                if (cError.status === 412) {
+                  return cError as Response;
                 }
 
-                throw new Error(error.statusText);
+                // @ts-expect-error stupid error checking
+                throw new Error(cError.statusText);
               });
 
               // Handle return code 412 (If-Match failed)
@@ -807,10 +887,10 @@ export class OADAClient {
         { timeout: request.timeout }
       );
       return response;
-    } catch (error: unknown) {
+    } catch (cError: unknown) {
       // @ts-expect-error stupid errors
-      if (error.status !== 404) {
-        throw error;
+      if (cError.status !== 404) {
+        throw cError;
       }
 
       trace('Path to ensure did not exist. Creating');
@@ -932,21 +1012,21 @@ export class OADAClient {
       if (headResponse.status === 404) {
         return { exist: false };
       }
-    } catch (error: unknown) {
+    } catch (cError: unknown) {
       // @ts-expect-error stupid stupid error handling
-      if (error.status === 404) {
+      if (cError.status === 404) {
         return { exist: false };
       }
 
       // @ts-expect-error stupid stupid error handling
-      if (error.status === 403 && path.startsWith('/resources')) {
+      if (cError.status === 403 && path.startsWith('/resources')) {
         // 403 is what you get on resources that don't exist (i.e. Forbidden)
         return { exist: false };
       }
 
       throw new Error(
         // @ts-expect-error stupid stupid error handling
-        `Error: head for resource returned ${error.statusText ?? error}`
+        `Error: head for resource returned ${cError.statusText ?? cError}`
       );
     }
 

@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
+import { EventEmitter, once } from 'node:events';
+
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import ksuid from 'ksuid';
 
-// eslint-disable-next-line import/no-namespace
-import * as oada from '../lib/index';
+import { Change, OADAClient, connect } from '../lib/index';
 import { deleteLinkAxios, getAxios, putAxios, putResourceAxios } from './utils';
 import { domain, token } from './config';
 
@@ -32,7 +33,7 @@ for (const connection of ['ws', 'http']) {
   // eslint-disable-next-line @typescript-eslint/no-loop-func
   describe(`${connection}: WATCH test`, () => {
     // Client instance
-    let client: oada.OADAClient;
+    let client: OADAClient;
 
     // Tree
     let testName: string;
@@ -42,7 +43,7 @@ for (const connection of ['ws', 'http']) {
       testName = `test-${ksuid.randomSync().string}`;
       await putResourceAxios({}, `/bookmarks/${testName}`);
       // Connect
-      client = await oada.connect({
+      client = await connect({
         domain,
         token,
         connection,
@@ -55,6 +56,36 @@ for (const connection of ['ws', 'http']) {
       await client?.disconnect();
       // This does not delete resources... oh well.
       await deleteLinkAxios(`/bookmarks/${testName}`);
+    });
+
+    it('Should deprecate v2 API', async () => {
+      const emitter = new EventEmitter();
+      await putResourceAxios({}, `/bookmarks/${testName}/test1`);
+      // 1) Get current rev
+      const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
+      // 2) Set up watch
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      const watch = await client.watch({
+        type: 'single',
+        path: `/bookmarks/${testName}/test1`,
+        async watchCallback(change: Readonly<Change>) {
+          try {
+            // Check
+            expect(axiosResp.data).to.include.keys('_rev');
+            const nextRev = Number(axiosResp.data._rev) + 1;
+            expect(change.body).to.include({ _rev: nextRev });
+            expect(change.body).to.have.nested.property('testData1.abc');
+
+            await client.unwatch(watch);
+            emitter.emit('done');
+          } catch (error: unknown) {
+            emitter.emit('error', error);
+          }
+        },
+      });
+      // 3) Make changes
+      await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
+      await once(emitter, 'done');
     });
 
     it('Should receive the watch change from a single PUT request', async () => {
@@ -80,7 +111,6 @@ for (const connection of ['ws', 'http']) {
         break;
       }
     });
-    // This unit test will wait until done() is called
 
     it('Should not receive the watch change after unwatch request', async () => {
       await putResourceAxios({}, `/bookmarks/${testName}/test2`);
@@ -100,7 +130,6 @@ for (const connection of ['ws', 'http']) {
         throw new Error(`Received change: ${JSON.stringify(change)}`);
       }
     });
-    // This unit test will wait until done() is called
 
     xit('Should receive the watch change from a single deep PUT request', async () => {
       await putResourceAxios({}, `/bookmarks/${testName}/test3`);
@@ -118,6 +147,7 @@ for (const connection of ['ws', 'http']) {
         { abc: 'def' },
         `/bookmarks/${testName}/test3/level1/level2/testData`
       );
+      // eslint-disable-next-line no-unreachable-loop
       for await (const watchResp of watch) {
         // eslint-disable-next-line no-console
         console.log(watchResp);
@@ -126,8 +156,9 @@ for (const connection of ['ws', 'http']) {
         const nextRev = Number(axiosResp.data._rev) + 1;
         expect(watchResp.body).to.include({ _rev: nextRev });
         expect(watchResp.body).to.have.nested.property('testData1.abc');
+
+        break;
       }
     });
-    // This unit test will wait until done() is called
   });
 }

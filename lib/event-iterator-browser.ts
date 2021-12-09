@@ -29,4 +29,6 @@ export async function once(...[target, event]: Parameters<typeof onceT>) {
   for await (const value of it) {
     return value;
   }
+
+  throw new Error(`Failed to await event ${event}`);
 }

@@ -25,20 +25,21 @@ import debug from 'debug';
 import ksuid from 'ksuid';
 import typeIs from 'type-is';
 
+import type { Method } from 'fetch-h2';
+import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request';
+
 import type {
   Body,
   Connection,
   ConnectionRequest,
   IConnectionResponse,
 } from './client';
+import type { Json } from '.';
 import { WebSocketClient } from './websocket';
 import { handleErrors } from './errors';
-// Const error = debug("@oada/client:http:error");
-
-import type { Method } from 'fetch-h2';
-import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request';
 
 const trace = debug('@oada/client:http:trace');
+// Const error = debug("@oada/client:http:error");
 
 const enum ConnectionStatus {
   Disconnected,
@@ -192,7 +193,7 @@ export class HttpClient extends EventEmitter implements Connection {
       new URL(request.path, this.#domain).toString(),
       {
         method: request.method.toUpperCase() as Method,
-        // @ts-expect-error
+        // @ts-expect-error fetch has a crazy type for this
         signal,
         timeout,
         body,
@@ -225,7 +226,7 @@ export class HttpClient extends EventEmitter implements Connection {
     let data: Body | undefined;
     if (request.method.toUpperCase() !== 'HEAD') {
       data = typeIs.is(result.headers.get('content-type')!, ['json', '+json'])
-        ? await result.json()
+        ? ((await result.json()) as Json)
         : Buffer.from(await result.arrayBuffer());
     }
 
