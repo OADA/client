@@ -5,12 +5,14 @@
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
   "engines": {
-    "node": ">=10.0.0"
+    "node": ">=12.16.0"
   },
   "browser": {
+    "./dist/event-iterator": "./dist/event-iterator-browsers",
     "./dist/fetch": "cross-fetch"
   },
   "react-native": {
+    "./dist/event-iterator": "./dist/event-iterator-browsers",
     "./dist/fetch": "cross-fetch"
   },
   "types": "dist/index.d.ts",
@@ -42,8 +44,11 @@
     "cross-fetch": "^3.1.4",
     "debug": "^4.3.3",
     "deep-clone": "^3.0.3",
+    "event-iterator": "^2.0.0",
+    "eventemitter3": "^4.0.7",
     "fetch-h2": "^3.0.1",
     "file-type": "16.5.3",
+    "isomorphic-timers-promises": "^1.0.1",
     "isomorphic-ws": "^4.0.1",
     "ksuid": "^3.0.0",
     "p-queue": "^6.6.2",

@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-/* eslint-disable no-console */
-
-import { setTimeout } from 'node:timers/promises';
+import { setTimeout } from 'isomorphic-timers-promises';
 
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';

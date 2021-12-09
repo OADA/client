@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-import { EventEmitter, on, once } from 'node:events';
-import { setTimeout } from 'node:timers/promises';
+import { on, once } from './event-iterator';
+import { setTimeout } from 'isomorphic-timers-promises';
 
+import EventEmitter from 'eventemitter3';
 import PQueue from 'p-queue';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import WebSocket from 'isomorphic-ws';
@@ -52,6 +53,7 @@ interface ResponseEmitter extends EventEmitter {
     listener: (response: Readonly<ConnectionChange>) => void
   ): this;
 }
+
 declare module 'events' {
   // eslint-disable-next-line unicorn/no-static-only-class, @typescript-eslint/no-extraneous-class, @typescript-eslint/no-shadow
   class EventEmitter {

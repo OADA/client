@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference path="types.d.ts" />
+
 import { Config, OADAClient } from './client';
 
 /** Create a new instance of OADAClient */

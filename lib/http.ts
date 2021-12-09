@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-import { Buffer } from 'node:buffer';
-import { EventEmitter } from 'node:events';
+import { Buffer } from 'buffer';
 
 import fetch, { Disconnect, context } from './fetch';
+import EventEmitter from 'eventemitter3';
 import PQueue from 'p-queue';
 import debug from 'debug';
 import ksuid from 'ksuid';

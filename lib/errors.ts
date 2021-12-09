@@ -22,7 +22,7 @@
  * @packageDocumentation
  */
 
-import { setTimeout } from 'node:timers/promises';
+import { setTimeout } from 'isomorphic-timers-promises';
 
 import { Headers } from './fetch';
 import debug from 'debug';
