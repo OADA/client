@@ -63,29 +63,20 @@ const response = await connection.get({
 
 #### Watch
 
-A watch request can be issued by passing a callback function to `watchCallback` argument of a GET request.
+A watch request can be issued by sending a `watch` request as follows.
 
 ```javascript
-const response = await connection.get({
-  path: '/bookmarks/test',
-  watchCallback: (d) => {
-    console.log(d);
-  },
-  timeout: 1000, // timeout in milliseconds (optional)
-});
-```
-
-Alternatively, one could explicitly send a `watch` request as follows.
-
-```javascript
-const requestId = await connection.watch({
+// Resolves once the watch is established
+const { changes } = await connection.watch({
   path: '/bookmarks/test',
   rev: 1, // optional
-  watchCallback: (d) => {
-    console.log(d);
-  },
   timeout: 1000, // timeout in milliseconds (optional)
 });
+
+// Async iterator for all changes since the watch was started (or since `rev`)
+for await (const change of changes) {
+  console.log(change);
+}
 ```
 
 To unwatch a resource, use the `unwatch` request.

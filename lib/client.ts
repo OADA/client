@@ -353,16 +353,33 @@ export class OADAClient {
    *
    * @param request watch request
    */
-  public watch(
-    request: WatchRequestTree
-  ): Promise<AsyncIterableIterator<Array<Readonly<Change>>>>;
-  public watch(
-    request: WatchRequestSingle
-  ): Promise<AsyncIterableIterator<Readonly<Change>>>;
+  public watch(request: WatchRequestTree): Promise<{
+    /**
+     * The response to the initial watch request
+     */
+    response: Response;
+    /**
+     * Iterator of change feed
+     */
+    changes: AsyncIterableIterator<ReadonlyArray<Readonly<Change>>>;
+  }>;
+  public watch(request: WatchRequestSingle): Promise<{
+    /**
+     * The response to the initial watch request
+     */
+    response: Response;
+    /**
+     * Iterator of change feed
+     */
+    changes: AsyncIterableIterator<Readonly<Change>>;
+  }>;
   /** @internal */
-  public watch(
-    request: WatchRequestTree | WatchRequestSingle
-  ): Promise<AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>>>;
+  public watch(request: WatchRequestTree | WatchRequestSingle): Promise<{
+    response: Response;
+    changes: AsyncIterableIterator<
+      Readonly<Change> | ReadonlyArray<Readonly<Change>>
+    >;
+  }>;
   /**
    * Watch API for v2
    *
@@ -371,10 +388,14 @@ export class OADAClient {
   public watch(
     request: WatchRequestTreeOld | WatchRequestSingleOld
   ): Promise<string>;
-  public async watch(
-    request: WatchRequest
-  ): Promise<
-    AsyncIterableIterator<Readonly<Change> | Array<Readonly<Change>>> | string
+  public async watch(request: WatchRequest): Promise<
+    | {
+        response: Response;
+        changes: AsyncIterableIterator<
+          Readonly<Change> | ReadonlyArray<Readonly<Change>>
+        >;
+      }
+    | string
   > {
     const restart = new AbortController();
     const headers: Record<string, string> = {};
@@ -483,7 +504,7 @@ export class OADAClient {
       restart.abort();
     });
 
-    const [r, w] = await this.#connection.request(
+    const [response, w] = await this.#connection.request(
       {
         method: 'watch',
         headers: {
@@ -495,14 +516,14 @@ export class OADAClient {
       { timeout: request.timeout, signal: restart.signal }
     );
 
-    if (r.status !== 200) {
+    if (response.status !== 200) {
       throw new Error('Watch request failed!');
     }
 
     // Get requestId from the response
-    const requestId: string = Array.isArray(r.requestId)
-      ? r.requestId[0]!
-      : r.requestId; // Server should always return an array requestId
+    const requestId: string = Array.isArray(response.requestId)
+      ? response.requestId[0]!
+      : response.requestId; // Server should always return an array requestId
 
     async function* handleWatch(this: OADAClient) {
       try {
@@ -564,8 +585,8 @@ export class OADAClient {
       if (restart.signal.aborted) {
         // FIXME: Possible stack overflow here?
         // eslint-disable-next-line security/detect-non-literal-fs-filename
-        const watch = await this.watch(request);
-        yield* watch;
+        const { changes } = await this.watch(request);
+        yield* changes;
       }
     }
 
@@ -580,7 +601,8 @@ export class OADAClient {
       return requestId;
     }
 
-    return handleWatch.call(this);
+    const changes = handleWatch.call(this);
+    return { response, changes };
   }
 
   public async unwatch(requestId: string): Promise<Response> {

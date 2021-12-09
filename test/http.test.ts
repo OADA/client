@@ -59,10 +59,10 @@ describe('HTTP Client test', () => {
     });
     try {
       // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const watch = await client.watch({
+      const { changes } = await client.watch({
         path: '/bookmarks',
       });
-      const changeP = watch.next();
+      const changeP = changes.next();
       const delay = setTimeout(1000);
       await Promise.race([changeP, delay]);
     } finally {
