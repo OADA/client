@@ -15,6 +15,12 @@
  * limitations under the License.
  */
 
+/**
+ * Browser shims for event to iterator stuff
+ *
+ * @packageDocumentation
+ */
+
 import type { on as onT, once as onceT } from 'node:events';
 
 import { subscribe } from 'event-iterator/lib/dom';

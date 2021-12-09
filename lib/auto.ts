@@ -16,9 +16,12 @@
  */
 
 import resolveALPN from 'resolve-alpn';
+import debug from 'debug';
 
 import { HttpClient } from './http';
 import { WebSocketClient } from './websocket';
+
+const error = debug('@oada/client:auto:error');
 
 function tryDomain(domain: string): {
   port: number;
@@ -74,25 +77,31 @@ export async function autoConnection({
   token: string;
   concurrency?: number;
 }) {
-  const { host, port, protocols } = parseDomain(domain);
+  try {
+    const { host, port, protocols } = parseDomain(domain);
 
-  const { alpnProtocol } = await resolveALPN({
-    host,
-    servername: host,
-    port,
-    rejectUnauthorized: false,
-    ALPNProtocols: protocols,
-  });
-  switch (alpnProtocol) {
-    // Prefer HTTP/2
-    case 'h2':
-      return new HttpClient(domain, token, concurrency);
+    const { alpnProtocol } = await resolveALPN({
+      host,
+      servername: host,
+      port,
+      rejectUnauthorized: false,
+      ALPNProtocols: protocols,
+    });
+    switch (alpnProtocol) {
+      // Prefer HTTP/2
+      case 'h2':
+        return new HttpClient(domain, token, concurrency);
 
-    // If no HTTP/2, use a WebSocket
-    case 'http/1.1':
-    case 'http/1.0':
-      return new WebSocketClient(domain, concurrency);
-    default:
-      throw new Error(`Unsupported ALPN protocol: ${alpnProtocol}`);
+      // If no HTTP/2, use a WebSocket
+      case 'http/1.1':
+      case 'http/1.0':
+        return new WebSocketClient(domain, concurrency);
+      default:
+        throw new Error(`Unsupported ALPN protocol: ${alpnProtocol}`);
+    }
+  } catch (cError: unknown) {
+    // Fallback to HTTP on error
+    error(cError, 'Failed to auto pick connection type, falling back to HTTP');
+    return new HttpClient(domain, token, concurrency);
   }
 }

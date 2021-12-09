@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 
-import { on, once } from './event-iterator';
-import { setTimeout } from 'isomorphic-timers-promises';
+import type { URL } from 'node:url';
 
 import EventEmitter from 'eventemitter3';
 import PQueue from 'p-queue';
@@ -24,11 +23,14 @@ import ReconnectingWebSocket from 'reconnecting-websocket';
 import WebSocket from 'isomorphic-ws';
 import debug from 'debug';
 import ksuid from 'ksuid';
+import { setTimeout } from 'isomorphic-timers-promises';
 
 import { assert as assertOADAChangeV2 } from '@oada/types/oada/change/v2';
 import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request';
 import { is as isOADASocketChange } from '@oada/types/oada/websockets/change';
 import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response';
+
+import { on, once } from './event-iterator';
 
 import type {
   Connection,

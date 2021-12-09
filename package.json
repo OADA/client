@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "2.6.5",
+  "version": "3.0.0",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
@@ -8,11 +8,11 @@
     "node": ">=12.16.0"
   },
   "browser": {
-    "./dist/event-iterator": "./dist/event-iterator-browsers",
+    "./dist/event-iterator": "./dist/event-iterator-browser",
     "./dist/fetch": "cross-fetch"
   },
   "react-native": {
-    "./dist/event-iterator": "./dist/event-iterator-browsers",
+    "./dist/event-iterator": "./dist/event-iterator-browser",
     "./dist/fetch": "cross-fetch"
   },
   "types": "dist/index.d.ts",
@@ -54,10 +54,12 @@
     "p-queue": "^6.6.2",
     "reconnecting-websocket": "^4.4.0",
     "resolve-alpn": "^1.2.1",
+    "tslib": "^2.3.1",
     "type-is": "^1.6.18",
     "ws": "^8.3.0"
   },
   "devDependencies": {
+    "@tsconfig/node12": "^1.0.9",
     "@types/chai": "^4.3.0",
     "@types/chai-as-promised": "^7.1.4",
     "@types/debug": "^4.1.7",

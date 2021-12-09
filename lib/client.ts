@@ -95,6 +95,15 @@ export interface Config {
 
 export type Response = ConnectionResponse;
 
+export interface WatchResponse<
+  C extends Readonly<Change> | ReadonlyArray<Readonly<Change>>
+> extends Response {
+  /**
+   * AsyncIterableIterator of the change feed for the watch
+   */
+  changes: AsyncIterableIterator<C>;
+}
+
 export interface GETRequest {
   path: string;
   tree?: Record<string, unknown>;
@@ -353,33 +362,16 @@ export class OADAClient {
    *
    * @param request watch request
    */
-  public watch(request: WatchRequestTree): Promise<{
-    /**
-     * The response to the initial watch request
-     */
-    response: Response;
-    /**
-     * Iterator of change feed
-     */
-    changes: AsyncIterableIterator<ReadonlyArray<Readonly<Change>>>;
-  }>;
-  public watch(request: WatchRequestSingle): Promise<{
-    /**
-     * The response to the initial watch request
-     */
-    response: Response;
-    /**
-     * Iterator of change feed
-     */
-    changes: AsyncIterableIterator<Readonly<Change>>;
-  }>;
+  public watch(
+    request: WatchRequestTree
+  ): Promise<WatchResponse<ReadonlyArray<Readonly<Change>>>>;
+  public watch(
+    request: WatchRequestSingle
+  ): Promise<WatchResponse<Readonly<Change>>>;
   /** @internal */
-  public watch(request: WatchRequestTree | WatchRequestSingle): Promise<{
-    response: Response;
-    changes: AsyncIterableIterator<
-      Readonly<Change> | ReadonlyArray<Readonly<Change>>
-    >;
-  }>;
+  public watch(
+    request: WatchRequestTree | WatchRequestSingle
+  ): Promise<WatchResponse<Readonly<Change> | ReadonlyArray<Readonly<Change>>>>;
   /**
    * Watch API for v2
    *
@@ -388,14 +380,10 @@ export class OADAClient {
   public watch(
     request: WatchRequestTreeOld | WatchRequestSingleOld
   ): Promise<string>;
-  public async watch(request: WatchRequest): Promise<
-    | {
-        response: Response;
-        changes: AsyncIterableIterator<
-          Readonly<Change> | ReadonlyArray<Readonly<Change>>
-        >;
-      }
-    | string
+  public async watch(
+    request: WatchRequest
+  ): Promise<
+    WatchResponse<Readonly<Change> | ReadonlyArray<Readonly<Change>>> | string
   > {
     const restart = new AbortController();
     const headers: Record<string, string> = {};
@@ -602,7 +590,7 @@ export class OADAClient {
     }
 
     const changes = handleWatch.call(this);
-    return { response, changes };
+    return { ...response, changes };
   }
 
   public async unwatch(requestId: string): Promise<Response> {
@@ -648,7 +636,7 @@ export class OADAClient {
 
     // Select children to traverse
     const children: Array<{ treeKey: string; dataKey: string }> = [];
-    if (subTree['*']) {
+    if ('*' in subTree) {
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
       for (const [key, value] of Object.entries(

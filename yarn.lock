@@ -393,6 +393,7 @@ __metadata:
   resolution: "@oada/client@workspace:."
   dependencies:
     "@oada/types": ^1.7.0
+    "@tsconfig/node12": ^1.0.9
     "@types/chai": ^4.3.0
     "@types/chai-as-promised": ^7.1.4
     "@types/debug": ^4.1.7
@@ -449,6 +450,7 @@ __metadata:
     reconnecting-websocket: ^4.4.0
     resolve-alpn: ^1.2.1
     ts-node: ^10.4.0
+    tslib: ^2.3.1
     type-is: ^1.6.18
     typescript: 4.4.4
     ws: ^8.3.0
@@ -503,7 +505,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tsconfig/node12@npm:^1.0.7":
+"@tsconfig/node12@npm:^1.0.7, @tsconfig/node12@npm:^1.0.9":
   version: 1.0.9
   resolution: "@tsconfig/node12@npm:1.0.9"
   checksum: a01b2400ab3582b86b589c6d31dcd0c0656f333adecde85d6d7d4086adb059808b82692380bb169546d189bf771ae21d02544a75b57bd6da4a5dd95f8567bec9
@@ -4706,14 +4708,7 @@ fsevents@~2.3.2:
   languageName: node
   linkType: hard
 
-"resolve-alpn@npm:^1.0.0":
-  version: 1.2.0
-  resolution: "resolve-alpn@npm:1.2.0"
-  checksum: a38b5bf2084d384586fe15b31735396cff4640cbe137c87ffd1dcc94dcdc0c743e6875ec4baa7a9eed460355a46e3f9ebafa4cdbb8122264ed5f4e3260f69d0c
-  languageName: node
-  linkType: hard
-
-"resolve-alpn@npm:^1.2.1":
+"resolve-alpn@npm:^1.0.0, resolve-alpn@npm:^1.2.1":
   version: 1.2.1
   resolution: "resolve-alpn@npm:1.2.1"
   checksum: f558071fcb2c60b04054c99aebd572a2af97ef64128d59bef7ab73bd50d896a222a056de40ffc545b633d99b304c259ea9d0c06830d5c867c34f0bfa60b8eae0
@@ -5410,6 +5405,13 @@ fsevents@~2.3.2:
   version: 1.14.1
   resolution: "tslib@npm:1.14.1"
   checksum: dbe628ef87f66691d5d2959b3e41b9ca0045c3ee3c7c7b906cc1e328b39f199bb1ad9e671c39025bd56122ac57dfbf7385a94843b1cc07c60a4db74795829acd
+  languageName: node
+  linkType: hard
+
+"tslib@npm:^2.3.1":
+  version: 2.3.1
+  resolution: "tslib@npm:2.3.1"
+  checksum: de17a98d4614481f7fcb5cd53ffc1aaf8654313be0291e1bfaee4b4bb31a20494b7d218ff2e15017883e8ea9626599b3b0e0229c18383ba9dce89da2adf15cb9
   languageName: node
   linkType: hard
 
