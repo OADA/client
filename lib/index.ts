@@ -19,22 +19,21 @@
 /// <reference path="types.d.ts" />
 
 import { Config, OADAClient } from './client';
+import { autoConnection } from './auto';
 
 /** Create a new instance of OADAClient */
 export function createInstance(config: Config): OADAClient {
   return new OADAClient(config);
 }
 
-/** @deprecated ws is deprecated, use http */
-export async function connect(
-  config: Config & { connection: 'ws' }
-): Promise<OADAClient>;
 /** Create a new instance and wrap it with Promise */
-// eslint-disable-next-line @typescript-eslint/unified-signatures
-export async function connect(config: Config): Promise<OADAClient>;
-export async function connect(config: Config): Promise<OADAClient> {
+export async function connect({
+  connection: proto = 'auto',
+  ...config
+}: Config & { token: string }): Promise<OADAClient> {
+  const connection = proto === 'auto' ? await autoConnection(config) : proto;
   // Create an instance of client and start connection
-  const client = new OADAClient(config);
+  const client = new OADAClient({ ...config, connection });
   // Wait for the connection to open
   await client.awaitConnection();
   // Return the instance

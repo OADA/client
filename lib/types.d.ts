@@ -17,3 +17,17 @@
 declare module 'isomorphic-timers-promises' {
   export * from 'node:timers/promises';
 }
+
+declare module 'resolve-alpn' {
+  function resolve(options: {
+    host: string;
+    port?: number;
+    readonly ALPNProtocols: string[];
+    servername?: string;
+    /** @default false */
+    rejectUnauthorized?: boolean;
+    /** @default false */
+    resolveSocket?: boolean;
+  }): Promise<{ alpnProtocol: string; timeout: boolean }>;
+  export = resolve;
+}

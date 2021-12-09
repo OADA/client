@@ -447,6 +447,7 @@ __metadata:
     p-queue: ^6.6.2
     prettier: ^2.5.1
     reconnecting-websocket: ^4.4.0
+    resolve-alpn: ^1.2.1
     ts-node: ^10.4.0
     type-is: ^1.6.18
     typescript: 4.4.4
@@ -4709,6 +4710,13 @@ fsevents@~2.3.2:
   version: 1.2.0
   resolution: "resolve-alpn@npm:1.2.0"
   checksum: a38b5bf2084d384586fe15b31735396cff4640cbe137c87ffd1dcc94dcdc0c743e6875ec4baa7a9eed460355a46e3f9ebafa4cdbb8122264ed5f4e3260f69d0c
+  languageName: node
+  linkType: hard
+
+"resolve-alpn@npm:^1.2.1":
+  version: 1.2.1
+  resolution: "resolve-alpn@npm:1.2.1"
+  checksum: f558071fcb2c60b04054c99aebd572a2af97ef64128d59bef7ab73bd50d896a222a056de40ffc545b633d99b304c259ea9d0c06830d5c867c34f0bfa60b8eae0
   languageName: node
   linkType: hard
 

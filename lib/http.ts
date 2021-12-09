@@ -102,7 +102,7 @@ export class HttpClient extends EventEmitter implements Connection {
     this.#concurrency = concurrency;
     this.#q = new PQueue({ concurrency });
     this.#q.on('active', () => {
-      trace(`HTTP Queue. Size: ${this.#q.size} pending: ${this.#q.pending}`);
+      trace('HTTP Queue. Size: %d pending: %d', this.#q.size, this.#q.pending);
     });
   }
 

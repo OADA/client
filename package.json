@@ -53,6 +53,7 @@
     "ksuid": "^3.0.0",
     "p-queue": "^6.6.2",
     "reconnecting-websocket": "^4.4.0",
+    "resolve-alpn": "^1.2.1",
     "type-is": "^1.6.18",
     "ws": "^8.3.0"
   },

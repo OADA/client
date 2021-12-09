@@ -41,6 +41,8 @@ const info = debug('@oada/client:client:info');
 const error = debug('@oada/client:client:error');
 
 /**
+ * Supported types for in/out request bodies
+ *
  * @todo Support more than just Buffer?
  */
 export type Body = Json | Buffer;
@@ -87,8 +89,8 @@ export interface Config {
   token?: string;
   /** @default 1 */
   concurrency?: number;
-  /** @default "http" */
-  connection?: 'ws' | 'http' | Connection;
+  /** @default 'auto' */
+  connection?: 'auto' | 'ws' | 'http' | Connection;
 }
 
 export type Response = ConnectionResponse;
@@ -253,17 +255,22 @@ export class OADAClient {
     this.#token = token;
     this.#concurrency = concurrency;
     this.#persistList = new Map();
-    if (connection === 'ws') {
-      this.#connection = new WebSocketClient(this.#domain, this.#concurrency);
-    } else if (connection === 'http') {
-      this.#connection = new HttpClient(
-        this.#domain,
-        this.#token,
-        this.#concurrency
-      );
-    } else {
-      // Otherwise, they gave us a WebSocketClient to use
-      this.#connection = connection;
+    switch (connection) {
+      case 'auto':
+        throw new Error('Connection type "auto" is not supported');
+      case 'ws':
+        this.#connection = new WebSocketClient(this.#domain, this.#concurrency);
+        break;
+      case 'http':
+        this.#connection = new HttpClient(
+          this.#domain,
+          this.#token,
+          this.#concurrency
+        );
+        break;
+      default:
+        // Otherwise, they gave us a WebSocketClient to use
+        this.#connection = connection;
     }
   }
 
