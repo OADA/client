@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// eslint-disable-next-line unicorn/prefer-node-protocol
 import { Buffer } from 'buffer';
 
 import fetch, { Disconnect, context } from './fetch';

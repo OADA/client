@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 
-/* eslint-disable max-depth */
-/* eslint-disable complexity */
-/* eslint-disable sonarjs/cognitive-complexity */
-
+// eslint-disable-next-line unicorn/prefer-node-protocol
 import { Buffer } from 'buffer';
 import { setTimeout } from 'isomorphic-timers-promises';
 

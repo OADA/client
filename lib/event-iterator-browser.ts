@@ -22,12 +22,11 @@ export async function* on(...[target, event, options]: Parameters<typeof onT>) {
   yield* subscribe.call(target as unknown as EventTarget, event, options);
 }
 
-export async function* once(...[target, event]: Parameters<typeof onceT>) {
+export async function once(...[target, event]: Parameters<typeof onceT>) {
   // TODO: Do I need to make `it` return?
   const it = subscribe.call(target as unknown as EventTarget, event);
   // eslint-disable-next-line no-unreachable-loop
   for await (const value of it) {
-    yield value;
-    return;
+    return value;
   }
 }
