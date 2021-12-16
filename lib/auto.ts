@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-import resolveALPN from 'resolve-alpn';
 import debug from 'debug';
+import resolveALPN from 'resolve-alpn';
 
 import { HttpClient } from './http';
 import { WebSocketClient } from './websocket';

@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-// eslint-disable-next-line unicorn/prefer-node-protocol
-import { Buffer } from 'buffer';
+import { Buffer } from 'buffer/';
 import { setTimeout } from 'isomorphic-timers-promises';
 
 import type EventEmitter from 'eventemitter3';
 import debug from 'debug';
 import deepClone from 'deep-clone';
-import { fromBuffer } from 'file-type';
+import { fromBuffer } from 'file-type/core';
 import ksuid from 'ksuid';
 
 import {
@@ -990,7 +989,8 @@ export class OADAClient {
   /** Create a new resource. Returns resource ID */
   async #createResource(contentType: string, data: Json): Promise<string> {
     // Create unique resource ID
-    const resourceId = `resources/${ksuid.randomSync().string}`;
+    // eslint-disable-next-line unicorn/no-await-expression-member
+    const resourceId = `resources/${(await ksuid.random()).string}`;
     // Append resource ID and content type to object
     // const fullData = { _id: resourceId, _type: contentType, ...data };
     // send PUT request

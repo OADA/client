@@ -9,13 +9,20 @@
   },
   "browser": {
     "./dist/event-iterator": "./dist/event-iterator-browser",
-    "./dist/fetch": "cross-fetch"
+    "./dist/fetch": "cross-fetch",
+    "fetch-h2": false,
+    "path": false,
+    "resolve-alpn": false,
+    "ws": false
   },
   "react-native": {
     "./dist/event-iterator": "./dist/event-iterator-browser",
-    "./dist/fetch": "cross-fetch"
+    "./dist/fetch": "cross-fetch",
+    "fetch-h2": false,
+    "path": false,
+    "resolve-alpn": false,
+    "ws": false
   },
-  "types": "dist/index.d.ts",
   "files": [
     "dist/**/*"
   ],
@@ -41,21 +48,25 @@
   "dependencies": {
     "@oada/types": "^1.7.0",
     "buffer": "^6.0.3",
+    "bufferutil": "^4.0.5",
     "cross-fetch": "^3.1.4",
     "debug": "^4.3.3",
     "deep-clone": "^3.0.3",
+    "encoding": "^0.1.13",
     "event-iterator": "^2.0.0",
     "eventemitter3": "^4.0.7",
     "fetch-h2": "^3.0.1",
-    "file-type": "16.5.3",
+    "file-type": "^16.5.3",
     "isomorphic-timers-promises": "^1.0.1",
     "isomorphic-ws": "^4.0.1",
     "ksuid": "^3.0.0",
     "p-queue": "^6.6.2",
     "reconnecting-websocket": "^4.4.0",
     "resolve-alpn": "^1.2.1",
+    "supports-color": "^9.2.1",
     "tslib": "^2.3.1",
     "type-is": "^1.6.18",
+    "utf-8-validate": "^5.0.7",
     "ws": "^8.3.0"
   },
   "devDependencies": {
@@ -65,13 +76,13 @@
     "@types/debug": "^4.1.7",
     "@types/events": "^3.0.0",
     "@types/mocha": "^9.0.0",
-    "@types/node": "^16.11.12",
+    "@types/node": "^16.11.14",
     "@types/type-is": "^1.6.3",
     "@types/uuid": "^8.3.3",
     "@types/ws": "^8.2.2",
-    "@typescript-eslint/eslint-plugin": "^5.6.0",
-    "@typescript-eslint/parser": "^5.6.0",
-    "@yarnpkg/sdks": "2.5.1-rc.5",
+    "@typescript-eslint/eslint-plugin": "^5.7.0",
+    "@typescript-eslint/parser": "^5.7.0",
+    "@yarnpkg/sdks": "2.5.1-rc.6",
     "axios": "^0.24.0",
     "chai": "^4.3.4",
     "chai-as-promised": "^7.1.1",

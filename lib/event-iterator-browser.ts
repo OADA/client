@@ -21,7 +21,7 @@
  * @packageDocumentation
  */
 
-import type { on as onT, once as onceT } from 'node:events';
+import type { on as onT, once as onceT } from 'events';
 
 import { subscribe } from 'event-iterator/lib/dom';
 

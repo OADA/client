@@ -15,4 +15,4 @@
  * limitations under the License.
  */
 
-export { on, once } from 'node:events';
+export { on, once } from 'events';
