@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { Buffer } from 'buffer/';
+import { Buffer } from 'buffer';
 
 import fetch, { Disconnect, context } from './fetch';
 import EventEmitter from 'eventemitter3';
@@ -195,7 +195,6 @@ export class HttpClient extends EventEmitter implements Connection {
         // @ts-expect-error fetch has a crazy type for this
         signal,
         timeout,
-        // @ts-expect-error fetch has a crazy type for this
         body,
         // We are not explicitly sending token in each request
         // because parent library sends it

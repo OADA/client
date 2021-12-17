@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
@@ -10,6 +10,7 @@
   "browser": {
     "./dist/event-iterator": "./dist/event-iterator-browser",
     "./dist/fetch": "cross-fetch",
+    "buffer": "buffer/",
     "fetch-h2": false,
     "path": false,
     "resolve-alpn": false,
@@ -18,6 +19,7 @@
   "react-native": {
     "./dist/event-iterator": "./dist/event-iterator-browser",
     "./dist/fetch": "cross-fetch",
+    "buffer": "buffer/",
     "fetch-h2": false,
     "path": false,
     "resolve-alpn": false,
