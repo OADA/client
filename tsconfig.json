@@ -14,6 +14,7 @@
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "sourceMap": true,
+    "declaration": true,
     "forceConsistentCasingInFileNames": true,
     "rootDir": "lib",
     "outDir": "dist"
