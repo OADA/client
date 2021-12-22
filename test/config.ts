@@ -17,5 +17,9 @@
 
 /* Config parameters for unit tests */
 
-export const domain = 'localhost';
-export const token = 'abc';
+import { config } from 'dotenv';
+
+config();
+
+export const domain = process.env.DOMAIN ?? 'localhost';
+export const token = process.env.token ?? 'abc';
