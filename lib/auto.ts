@@ -25,16 +25,14 @@ const error = debug('@oada/client:auto:error');
 
 function tryDomain(domain: string): {
   port: number;
-  host: string;
   hostname: string;
   protocols: string[];
 } {
-  const { port, host, hostname, protocol } = new URL(domain);
+  const { port, hostname, protocol } = new URL(domain);
   switch (protocol) {
     case 'http2:':
       return {
         port: Number(port) || 443,
-        host,
         hostname,
         protocols: ['h2'],
       };
@@ -42,7 +40,6 @@ function tryDomain(domain: string): {
     case 'https:':
       return {
         port: Number(port) || 443,
-        host,
         hostname,
         protocols: ['h2', 'http/1.1', 'http/1.0'],
       };
@@ -50,7 +47,6 @@ function tryDomain(domain: string): {
     case 'http:':
       return {
         port: Number(port) || 80,
-        host,
         hostname,
         protocols: ['http/1.1', 'http/1.0'],
       };
@@ -82,10 +78,10 @@ export async function autoConnection({
   concurrency?: number;
 }) {
   try {
-    const { host, hostname, port, protocols } = parseDomain(domain);
+    const { hostname, port, protocols } = parseDomain(domain);
 
     const { alpnProtocol } = await resolveALPN({
-      host,
+      host: hostname,
       servername: hostname,
       port,
       rejectUnauthorized: false,
