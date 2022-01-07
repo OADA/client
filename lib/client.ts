@@ -415,13 +415,13 @@ export class OADAClient {
         if (typeof r === 'object' && !Buffer.isBuffer(r) && !Array.isArray(r)) {
           lastRev = Number(r?.rev);
           headers['x-oada-rev'] = lastRev.toString();
-          info(
+          trace(
             `Watch persist found _meta entry for [${name}]. Setting x-oada-rev header to ${lastRev}`
           );
         }
 
         if (!lastRev) {
-          info(
+          trace(
             `Watch persist found _meta entry for [${name}], but 'rev' is undefined. Writing 'rev' as ${rev}`
           );
           await this.put({
@@ -446,7 +446,7 @@ export class OADAClient {
             path: persistPath,
             data: { _id },
           });
-          info(
+          trace(
             `Watch persist did not find _meta entry for [${name}]. Current resource _rev is ${lastRev}. Not setting x-oada-rev header. _meta entry created.`
           );
         }
@@ -916,7 +916,7 @@ export class OADAClient {
 
   /** Attempt to save the latest rev processed, accommodating concurrency */
   async #persistWatch(persistPath: string, rev: number): Promise<void> {
-    info(`Persisting watch for path ${persistPath} to rev ${rev}`);
+    trace(`Persisting watch for path ${persistPath} to rev ${rev}`);
     if (this.#persistList.has(persistPath)) {
       let { lastRev, recorded, items, recordLapsedTimeout, lastCheck } =
         this.#persistList.get(persistPath)!;
@@ -952,7 +952,7 @@ export class OADAClient {
         path: `${persistPath}/rev`,
         data: lastRev,
       });
-      info('Persisted watch: path: [%s], rev: [%d]', persistPath, lastRev);
+      trace('Persisted watch: path: [%s], rev: [%d]', persistPath, lastRev);
     }
   }
 
@@ -960,7 +960,7 @@ export class OADAClient {
    * Record unfinished revs and bring persisted rev up to date
    */
   async #recordLapsedRevs(persistPath: string, now: number): Promise<void> {
-    info(`Checking for lapsed revs for path [${persistPath}] time: [${now}]`);
+    trace(`Checking for lapsed revs for path [${persistPath}] time: [${now}]`);
     const { items, recorded, recordLapsedTimeout } =
       this.#persistList.get(persistPath)!;
     // Iterate over items;
