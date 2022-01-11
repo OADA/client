@@ -112,6 +112,20 @@ for (const connection of ['ws', 'http']) {
       }
     });
 
+    it('Should receive the response to an initial GET request', async () => {
+      await putResourceAxios({ a: 1, b: 2 }, `/bookmarks/${testName}/test1`);
+
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      const { changes, data, status } = await client.watch({
+        initialMethod: 'get',
+        path: `/bookmarks/${testName}/test1`,
+      });
+
+      expect(status).to.be.a('number');
+      expect(changes).to.be.a('asyncgenerator');
+      expect(data).to.be.an('object');
+    });
+
     it('Should not receive the watch change after unwatch request', async () => {
       await putResourceAxios({}, `/bookmarks/${testName}/test2`);
       // 1) Get current rev

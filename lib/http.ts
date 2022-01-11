@@ -133,7 +133,7 @@ export class HttpClient extends EventEmitter implements Connection {
   ): Promise<IConnectionResponse> {
     trace(request, 'Starting http request');
     // Check for WATCH/UNWATCH
-    if (request.method === 'watch' || request.method === 'unwatch') {
+    if (request.watch || request.method === 'unwatch') {
       trace(
         'WATCH/UNWATCH not currently supported for http(2), falling-back to ws'
       );

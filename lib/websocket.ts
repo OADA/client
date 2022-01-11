@@ -25,8 +25,10 @@ import debug from 'debug';
 import ksuid from 'ksuid';
 import { setTimeout } from 'isomorphic-timers-promises';
 
+import WebSocketRequest, {
+  assert as assertOADASocketRequest,
+} from '@oada/types/oada/websockets/request';
 import { assert as assertOADAChangeV2 } from '@oada/types/oada/change/v2';
-import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request';
 import { is as isOADASocketChange } from '@oada/types/oada/websockets/change';
 import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response';
 
@@ -184,6 +186,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     request: ConnectionRequest,
     { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {}
   ): Promise<IConnectionResponse> {
+    const ws = await this.#ws;
     // Send object to the server.
     // eslint-disable-next-line unicorn/no-await-expression-member
     const requestId = request.requestId ?? (await ksuid.random()).string;
@@ -192,8 +195,15 @@ export class WebSocketClient extends EventEmitter implements Connection {
 
     // Start listening for response before sending the request so we don't miss it
     const responsePs = [once(this.#requests, `response:${requestId}`)];
-    // eslint-disable-next-line unicorn/no-await-expression-member
-    (await this.#ws).send(JSON.stringify(request));
+    const socketRequest: WebSocketRequest = {
+      ...request,
+      method: request.watch
+        ? request.method === 'head'
+          ? 'watch'
+          : `${request.method}-watch`
+        : request.method,
+    };
+    ws.send(JSON.stringify(socketRequest));
     if (timeout) {
       responsePs.push(
         // eslint-disable-next-line github/no-then
@@ -206,9 +216,9 @@ export class WebSocketClient extends EventEmitter implements Connection {
     const [response] = await Promise.race(responsePs);
 
     if (response.status >= 200 && response.status < 300) {
-      if (request.method === 'watch') {
-        const watch = on(this.#requests, `change:${requestId}`, { signal });
-        return [response, watch];
+      if (request.watch) {
+        const changes = on(this.#requests, `change:${requestId}`, { signal });
+        return [response, changes];
       }
 
       return [response];

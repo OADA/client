@@ -46,13 +46,20 @@ const error = debug('@oada/client:client:error');
  */
 export type Body = Json | Buffer;
 
-export interface ConnectionRequest {
+export type ConnectionRequest = {
   requestId?: string;
   path: string;
-  method: 'head' | 'get' | 'put' | 'post' | 'delete' | 'watch' | 'unwatch';
+  /**
+   * @default false
+   */
+  watch?: boolean;
+  method: 'head' | 'get' | 'put' | 'post' | 'delete' | 'unwatch';
   headers: Record<string, string>;
   data?: Body;
-}
+} & (
+  | { watch?: false }
+  | { watch: true; method: 'head' | 'get' | 'put' | 'post' | 'delete' }
+);
 
 export interface ConnectionResponse {
   requestId: string | string[];
@@ -123,47 +130,46 @@ export interface WatchPersist {
   recorded: Record<number, boolean | number>;
 }
 
-/**
- * Watch whose callback gets single changes
- */
-export interface WatchRequestSingle {
-  type?: 'single';
+export interface WatchRequestBase {
+  /**
+   * @default 'single'
+   */
+  type?: 'tree' | 'single';
+  /**
+   * @default 'head'
+   */
+  initialMethod?: 'get' | 'head' | 'put' | 'post' | 'delete';
   path: string;
   rev?: number | string;
   persist?: PersistConfig;
   timeout?: number;
 }
+
+/**
+ * Watch whose callback gets single changes
+ */
+export interface WatchRequestSingle extends WatchRequestBase {
+  type?: 'single';
+}
 /**
  * @deprecated
  */
-export interface WatchRequestSingleOld {
-  type: 'single';
-  path: string;
-  rev?: number | string;
-  persist?: PersistConfig;
-  timeout?: number;
+export interface WatchRequestSingleOld extends WatchRequestBase {
+  type?: 'single';
   watchCallback(response: Readonly<Change>): Promise<void>;
 }
 
 /**
  * Watch whose callback gets change trees
  */
-export interface WatchRequestTree {
+export interface WatchRequestTree extends WatchRequestBase {
   type: 'tree';
-  path: string;
-  rev?: string;
-  persist?: PersistConfig;
-  timeout?: number;
 }
 /**
  * @deprecated
  */
-export interface WatchRequestTreeOld {
+export interface WatchRequestTreeOld extends WatchRequestBase {
   type: 'tree';
-  path: string;
-  rev?: string;
-  persist?: PersistConfig;
-  timeout?: number;
   watchCallback(response: ReadonlyArray<Readonly<Change>>): Promise<void>;
 }
 
@@ -491,16 +497,18 @@ export class OADAClient {
       restart.abort();
     });
 
+    const { persist, path, timeout, initialMethod: method = 'head' } = request;
     const [response, w] = await this.#connection.request(
       {
-        method: 'watch',
+        watch: true,
+        method,
         headers: {
           authorization: `Bearer ${this.#token}`,
           ...headers,
         },
-        path: request.path,
+        path,
       },
-      { timeout: request.timeout, signal: restart.signal }
+      { timeout, signal: restart.signal }
     );
 
     if (response.status !== 200) {
@@ -517,7 +525,7 @@ export class OADAClient {
         for await (const [resp] of w!) {
           let parentRev;
 
-          if (request.persist) {
+          if (persist) {
             const bod = resp?.change.find((c) => c.path === '')?.body;
             if (
               typeof bod === 'object' &&
@@ -556,7 +564,7 @@ export class OADAClient {
 
           // Persist the new parent rev
           if (
-            request.persist &&
+            persist &&
             typeof parentRev === 'number' &&
             this.#persistList.has(persistPath)
           ) {
