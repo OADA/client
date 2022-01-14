@@ -319,7 +319,7 @@ export class OADAClient {
   /**
    * Get the connection concurrency
    */
-  public getConcurrency(): string {
+  public getConcurrency(): number {
     return this.#concurrency;
   }
 
