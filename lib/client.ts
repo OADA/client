@@ -316,6 +316,14 @@ export class OADAClient {
     return this.#domain;
   }
 
+  /**
+   * Get the connection concurrency
+   */
+  public getConcurrency(): string {
+    return this.#concurrency;
+  }
+
+
   /** Disconnect from server */
   public async disconnect(): Promise<void> {
     // Close
