@@ -17,14 +17,13 @@
 
 import { Buffer } from 'buffer';
 
-import fetch, { Disconnect, context } from './fetch';
 import EventEmitter from 'eventemitter3';
+import type { Method } from 'fetch-h2';
 import PQueue from 'p-queue';
 import debug from 'debug';
 import ksuid from 'ksuid';
 import typeIs from 'type-is';
 
-import type { Method } from 'fetch-h2';
 import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request';
 
 import type {
@@ -33,17 +32,22 @@ import type {
   ConnectionRequest,
   IConnectionResponse,
 } from './client';
+import fetch, { context } from './fetch';
 import type { Json } from '.';
 import { WebSocketClient } from './websocket';
 import { handleErrors } from './errors';
 
 const trace = debug('@oada/client:http:trace');
-// Const error = debug("@oada/client:http:error");
+const error = debug('@oada/client:http:error');
 
 const enum ConnectionStatus {
   Disconnected,
   Connecting,
   Connected,
+}
+
+function getIsomorphicContext() {
+  return context ? context() : { fetch };
 }
 
 export class HttpClient extends EventEmitter implements Connection {
@@ -53,7 +57,7 @@ export class HttpClient extends EventEmitter implements Connection {
   #q: PQueue;
   #initialConnection: Promise<void>; // Await on the initial HEAD
   #concurrency;
-  #context: { fetch: typeof fetch; disconnectAll?: Disconnect };
+  #context;
   #ws?: WebSocketClient; // Fall-back socket for watches
 
   /**
@@ -64,7 +68,7 @@ export class HttpClient extends EventEmitter implements Connection {
   constructor(domain: string, token: string, concurrency = 10) {
     super();
 
-    this.#context = context ? context() : { fetch };
+    this.#context = getIsomorphicContext();
 
     // Ensure leading https://
     this.#domain = domain.startsWith('http') ? domain : `https://${domain}`;
@@ -109,9 +113,13 @@ export class HttpClient extends EventEmitter implements Connection {
   public async disconnect(): Promise<void> {
     this.#status = ConnectionStatus.Disconnected;
     // Close our connections
-    await this.#context.disconnectAll?.();
+    if ('disconnectAll' in this.#context) {
+      await this.#context.disconnectAll();
+    }
+
     // Close our ws connection
     await this.#ws?.disconnect();
+
     this.emit('close');
   }
 
@@ -188,56 +196,71 @@ export class HttpClient extends EventEmitter implements Connection {
     const body = Buffer.isBuffer(request.data)
       ? request.data
       : JSON.stringify(request.data);
-    const result = await this.#context.fetch(
-      new URL(request.path, this.#domain).toString(),
-      {
-        method: request.method.toUpperCase() as Method,
-        // @ts-expect-error fetch has a crazy type for this
-        signal,
-        timeout,
-        body,
-        // We are not explicitly sending token in each request
-        // because parent library sends it
-        headers: request.headers,
+    try {
+      const result = await this.#context.fetch(
+        new URL(request.path, this.#domain).toString(),
+        {
+          method: request.method.toUpperCase() as Method,
+          // @ts-expect-error fetch has a crazy type for this
+          signal,
+          timeout,
+          body,
+          // We are not explicitly sending token in each request
+          // because parent library sends it
+          headers: request.headers,
+        }
+      );
+      if (timedout) {
+        throw new Error('Request timeout');
       }
-    );
-    if (timedout) {
-      throw new Error('Request timeout');
+
+      trace('Fetch did not throw, checking status of %s', result.status);
+
+      // This is the same test as in ./websocket.ts
+      if (!result.ok) {
+        trace('result.status %s is not 2xx, throwing', result.status);
+        // eslint-disable-next-line @typescript-eslint/no-throw-literal
+        throw result;
+      }
+
+      trace('result.status ok, pulling headers');
+      // Have to construct the headers as a regular object
+      const headers = Object.fromEntries(result.headers.entries());
+
+      // Const length = +(result.headers.get("content-length") || 0);
+      let data: Body | undefined;
+      if (request.method.toUpperCase() !== 'HEAD') {
+        data = typeIs.is(result.headers.get('content-type')!, ['json', '+json'])
+          ? ((await result.json()) as Json)
+          : Buffer.from(await result.arrayBuffer());
+      }
+
+      // Trace("length = %d, result.headers = %O", length, headers);
+      return [
+        {
+          requestId: request.requestId,
+          status: result.status,
+          statusText: result.statusText,
+          headers,
+          data,
+        },
+      ];
+    } catch (cError: unknown) {
+      // @ts-expect-error stupid error handling
+      // eslint-disable-next-line sonarjs/no-small-switch
+      switch (cError?.code) {
+        // Happens when the HTTP/2 session is killed
+        case 'ERR_HTTP2_INVALID_SESSION':
+          error('HTTP/2 session was killed, reconnecting');
+          if ('disconnect' in this.#context) {
+            await this.#context.disconnect(this.#domain);
+          }
+
+          return this.#doRequest(request, timeout);
+
+        default:
+          throw cError as Error;
+      }
     }
-
-    trace('Fetch did not throw, checking status of %s', result.status);
-
-    // This is the same test as in ./websocket.ts
-    if (!result.ok) {
-      trace('result.status %s is not 2xx, throwing', result.status);
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
-      throw result;
-    }
-
-    trace('result.status ok, pulling headers');
-    // Have to construct the headers ourselves:
-    const headers: Record<string, string> = {};
-    for (const [key, value] of result.headers.entries()) {
-      headers[key] = value;
-    }
-
-    // Const length = +(result.headers.get("content-length") || 0);
-    let data: Body | undefined;
-    if (request.method.toUpperCase() !== 'HEAD') {
-      data = typeIs.is(result.headers.get('content-type')!, ['json', '+json'])
-        ? ((await result.json()) as Json)
-        : Buffer.from(await result.arrayBuffer());
-    }
-
-    // Trace("length = %d, result.headers = %O", length, headers);
-    return [
-      {
-        requestId: request.requestId,
-        status: result.status,
-        statusText: result.statusText,
-        headers,
-        data,
-      },
-    ];
   }
 }

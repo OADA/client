@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-import { context as _context, disconnectAll } from 'fetch-h2';
-
-export type Disconnect = typeof disconnectAll;
+import { context as _context } from 'fetch-h2';
 
 // Create our own context to honor NODE_TLS_REJECT_UNAUTHORIZED like https
 export const context = () =>

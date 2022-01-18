@@ -46,10 +46,11 @@ const DEFAULT_RETRY_TIMEOUT = 5 * 60 * 10_000;
  * or `DEFAULT_RETRY_TIMEOUT` if the header is not present.
  */
 async function handleRatelimit<R extends unknown[]>(
-  error: any,
+  error: unknown,
   request: (...arguments_: R) => Promise<IConnectionResponse>,
   ...rest: R
 ) {
+  // @ts-expect-error stupid errors
   const headers = new Headers(error.headers);
 
   // Figure out how many ms to wait
@@ -59,8 +60,25 @@ async function handleRatelimit<R extends unknown[]>(
     ? Number(retry) * 1000 || Number(new Date(retry)) - Date.now()
     : DEFAULT_RETRY_TIMEOUT;
 
+  // @ts-expect-error stupid errors
   warn('Received %s, retrying in %d ms', error.status, timeout);
   await setTimeout(timeout);
+
+  return handleErrors(request, ...rest);
+}
+
+/**
+ * Handle connection reset
+ *
+ * Wait a while then try to connect again.
+ */
+async function handleReset<R extends unknown[]>(
+  error: unknown,
+  request: (...arguments_: R) => Promise<IConnectionResponse>,
+  ...rest: R
+) {
+  warn(error, 'Connection reset, retrying in 10000 ms');
+  await setTimeout(10_000);
 
   return handleErrors(request, ...rest);
 }
@@ -81,7 +99,8 @@ export async function handleErrors<R extends unknown[]>(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const error = cError?.[0]?.error ?? cError?.[0] ?? cError?.error ?? cError;
     trace(error, 'Attempting to handle error');
-    switch (error.status) {
+    // @ts-expect-error stupid error handling
+    switch (error.status ?? cError?.code) {
       case 429:
         return await handleRatelimit(error, request, ...rest);
       // Some servers use 503 for rate limit...
@@ -95,11 +114,14 @@ export async function handleErrors<R extends unknown[]>(
         break;
       }
 
+      case 'ECONNRESET':
+        return await handleReset(error, request, ...rest);
+
       default:
       // Do nothing
     }
 
     // Pass error up
-    throw cError;
+    throw cError as Error;
   }
 }

@@ -323,7 +323,6 @@ export class OADAClient {
     return this.#concurrency;
   }
 
-
   /** Disconnect from server */
   public async disconnect(): Promise<void> {
     // Close
@@ -481,7 +480,7 @@ export class OADAClient {
         if (cError.status === 404) {
           recorded = {};
         } else {
-          throw cError;
+          throw cError as Error;
         }
       }
 
@@ -922,7 +921,7 @@ export class OADAClient {
     } catch (cError: unknown) {
       // @ts-expect-error stupid errors
       if (cError.status !== 404) {
-        throw cError;
+        throw cError as Error;
       }
 
       trace('Path to ensure did not exist. Creating');

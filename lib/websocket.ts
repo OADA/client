@@ -120,7 +120,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     const openP = once(ws, 'open').then(() => ws);
     // eslint-disable-next-line github/no-then
     const errorP = once(ws, 'error').then(([wsError]) => {
-      throw wsError;
+      throw wsError as Error;
     });
     this.#ws = Promise.race([openP, errorP]);
 

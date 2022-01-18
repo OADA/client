@@ -77,7 +77,6 @@ export async function deleteLinkAxios(path: string) {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    // eslint-disable-next-line unicorn/no-null
     data: null,
   });
 

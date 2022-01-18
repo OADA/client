@@ -54,6 +54,7 @@ export {
   Connection,
 } from './client';
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonArray = Json[];
 export type JsonObject = { [property in string]?: Json };
