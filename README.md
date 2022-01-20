@@ -79,10 +79,22 @@ for await (const change of changes) {
 }
 ```
 
-To unwatch a resource, use the `unwatch` request.
+You can also GET the current state of the resource when establishing a watch as follows.
 
 ```javascript
-const response = await connection.unwatch(requestId);
+// Resolves once the watch is established
+const { data, changes } = await connection.watch({
+  initialMethod: 'get',
+  path: '/bookmarks/test',
+});
+
+// Current body of the resource
+console.dir(data);
+
+// Async iterator for all changes since the watch was started
+for await (const change of changes) {
+  console.log(change);
+}
 ```
 
 ### PUT
