@@ -30,9 +30,7 @@ import { domain, token } from './config';
 
 use(chaiAsPromised);
 
-for (const connection of ['ws', 'http']) {
-  if (connection !== 'ws' && connection !== 'http') continue;
-
+for (const connection of <const>['ws', 'http']) {
   // eslint-disable-next-line @typescript-eslint/no-loop-func
   describe(`${connection} GET test`, () => {
     // Client instance

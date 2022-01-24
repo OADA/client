@@ -108,10 +108,10 @@ export class WebSocketClient extends EventEmitter implements Connection {
    */
   constructor(domain: string, concurrency = 10) {
     super();
-    this.#domain = domain;
+    this.#domain = domain.replace(/^http/, 'ws');
     this.#status = ConnectionStatus.Connecting;
     // Create websocket connection
-    const ws = new ReconnectingWebSocket(`wss://${this.#domain}`, [], {
+    const ws = new ReconnectingWebSocket(this.#domain, [], {
       // Not sure why it needs so long, but 30s is the ws timeout
       connectionTimeout: 30 * 1000,
       WebSocket: BetterWebSocket,

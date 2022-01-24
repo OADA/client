@@ -24,30 +24,34 @@ import { WebSocketClient } from './websocket';
 const error = debug('@oada/client:auto:error');
 
 function tryDomain(domain: string): {
-  port: number;
+  port?: number;
   hostname: string;
+  protocol: string;
   protocols: string[];
 } {
   const { port, hostname, protocol } = new URL(domain);
   switch (protocol) {
     case 'http2:':
       return {
-        port: Number(port) || 443,
+        port: Number(port) || undefined,
         hostname,
+        protocol,
         protocols: ['h2'],
       };
 
     case 'https:':
       return {
-        port: Number(port) || 443,
+        port: Number(port) || undefined,
         hostname,
+        protocol,
         protocols: ['h2', 'http/1.1', 'http/1.0'],
       };
 
     case 'http:':
       return {
-        port: Number(port) || 80,
+        port: Number(port) || undefined,
         hostname,
+        protocol,
         protocols: ['http/1.1', 'http/1.0'],
       };
 
@@ -56,7 +60,7 @@ function tryDomain(domain: string): {
   }
 }
 
-function parseDomain(domain: string) {
+export function parseDomain(domain: string) {
   try {
     return tryDomain(domain);
   } catch {

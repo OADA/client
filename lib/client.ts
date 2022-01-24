@@ -265,7 +265,7 @@ export class OADAClient {
     connection = 'http',
   }: Config) {
     // Help for those who can't remember if https should be there
-    this.#domain = domain.replace(/^https:\/\//, '');
+    this.#domain = domain;
     this.#token = token;
     this.#concurrency = concurrency;
     this.#persistList = new Map();

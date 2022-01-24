@@ -22,7 +22,7 @@ import ksuid from 'ksuid';
 export async function getAxios(path: string) {
   return axios({
     method: 'get',
-    url: `https://${domain}${path}`,
+    url: `${domain}${path}`,
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -32,7 +32,7 @@ export async function getAxios(path: string) {
 export async function putAxios(data: Record<string, unknown>, path: string) {
   return axios({
     method: 'put',
-    url: `https://${domain}${path}`,
+    url: `${domain}${path}`,
     headers: {
       'Authorization': `Bearer ${token}`,
       // eslint-disable-next-line sonarjs/no-duplicate-string
@@ -49,7 +49,7 @@ export async function putResourceAxios(
   const _id = `resources/${ksuid.randomSync().string}`;
   const resource = await axios({
     method: 'put',
-    url: `https://${domain}/${_id}`,
+    url: `${domain}/${_id}`,
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -58,7 +58,7 @@ export async function putResourceAxios(
   });
   const link = await axios({
     method: 'put',
-    url: `https://${domain}${path}`,
+    url: `${domain}${path}`,
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ export async function putResourceAxios(
 export async function deleteLinkAxios(path: string) {
   const link = await axios({
     method: 'delete',
-    url: `https://${domain}${path}`,
+    url: `${domain}${path}`,
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',

@@ -147,8 +147,7 @@ export class HttpClient extends EventEmitter implements Connection {
       );
       if (!this.#ws) {
         // Open a WebSocket connection
-        const domain = this.#domain.replace(/^https?:\/\//, '');
-        this.#ws = new WebSocketClient(domain, this.#concurrency);
+        this.#ws = new WebSocketClient(this.#domain, this.#concurrency);
         await this.#ws.awaitConnection();
       }
 

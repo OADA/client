@@ -19,7 +19,11 @@
 
 import { config } from 'dotenv';
 
+import { normalizeDomain } from '../lib/';
+
 config();
 
-export const domain = process.env.DOMAIN ?? 'localhost';
+export const domain = normalizeDomain(
+  process.env.DOMAIN ?? 'https://localhost'
+);
 export const token = process.env.token ?? 'abc';
