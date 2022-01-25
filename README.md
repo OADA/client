@@ -1,8 +1,11 @@
 # @oada/client
 
-A lightweight client tool for interacting with an OADA-compliant server
-
 [![npm](https://img.shields.io/npm/v/@oada/client)](https://www.npmjs.com/package/@oada/client)
+[![Downloads/week](https://img.shields.io/npm/dw/@oada/client.svg)](https://npmjs.org/package/@oada/client)
+[![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
+[![License](https://img.shields.io/github/license/OADA/client)](LICENSE)
+
+A lightweight client tool for interacting with an OADA-compliant server
 
 ## Installation
 

@@ -20,6 +20,7 @@ on:
 
 jobs:
   call-build-and-publish:
+    name: CI
     uses: qlever-llc/workflows/.github/workflows/build-and-publish-package.yml@master
     with:
       oada: true
