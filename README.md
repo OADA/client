@@ -11,8 +11,8 @@ A lightweight client tool for interacting with an OADA-compliant server
 
 This module is available through npm. To install the module, simply run:
 
-```bash
-$ npm install @oada/client
+```shell
+npm install @oada/client
 ```
 
 ## Usage
