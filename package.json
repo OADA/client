@@ -43,7 +43,7 @@
     ],
     "extension": "test.ts",
     "exit": true,
-    "timeout": 10000
+    "timeout": 30000
   },
   "author": "",
   "license": "Apache-2.0",
