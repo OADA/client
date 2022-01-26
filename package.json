@@ -5,7 +5,7 @@
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
   "engines": {
-    "node": ">=12.16.0"
+    "node": ">=14.18.0"
   },
   "browser": {
     "./dist/event-iterator": "./dist/event-iterator-browser",
@@ -62,6 +62,7 @@
     "isomorphic-timers-promises": "^1.0.1",
     "isomorphic-ws": "^4.0.1",
     "ksuid": "^3.0.0",
+    "node-abort-controller": "^3.0.1",
     "p-queue": "^6.6.2",
     "reconnecting-websocket": "^4.4.0",
     "resolve-alpn": "^1.2.1",

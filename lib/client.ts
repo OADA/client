@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+import { AbortController } from 'node-abort-controller';
 import { Buffer } from 'buffer';
 import { setTimeout } from 'isomorphic-timers-promises';
 
