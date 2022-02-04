@@ -24,7 +24,7 @@ import { WebSocketClient } from './websocket';
 const error = debug('@oada/client:auto:error');
 
 function tryDomain(domain: string): {
-  port?: number;
+  port: number;
   hostname: string;
   protocol: string;
   protocols: string[];
@@ -33,7 +33,7 @@ function tryDomain(domain: string): {
   switch (protocol) {
     case 'http2:':
       return {
-        port: Number(port) || undefined,
+        port: Number(port) || 80,
         hostname,
         protocol,
         protocols: ['h2'],
@@ -41,7 +41,7 @@ function tryDomain(domain: string): {
 
     case 'https:':
       return {
-        port: Number(port) || undefined,
+        port: Number(port) || 443,
         hostname,
         protocol,
         protocols: ['h2', 'http/1.1', 'http/1.0'],
@@ -49,7 +49,7 @@ function tryDomain(domain: string): {
 
     case 'http:':
       return {
-        port: Number(port) || undefined,
+        port: Number(port) || 80,
         hostname,
         protocol,
         protocols: ['http/1.1', 'http/1.0'],
