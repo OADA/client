@@ -6,6 +6,7 @@
     ".vim": true,
     ".nvimlog": true,
     "dist": true,
+    ".test": true,
     ".history": true,
     ".dccache": true,
     ".yarn": true,
@@ -18,6 +19,7 @@
     ".vim": true,
     ".nvimlog": true,
     "dist": true,
+    ".test": true,
     ".history": true,
     ".dccache": true,
     ".yarn": true,
@@ -26,7 +28,12 @@
     "**/.pnp.*": true
   },
   "typescript.enablePromptUseWorkspaceTsdk": true,
-  "cSpell.words": ["esbuild", "ksuid", "sonarjs", "unwatch"],
+  "cSpell.words": [
+    "esbuild",
+    "ksuid",
+    "sonarjs",
+    "unwatch"
+  ],
   "eslint.nodePath": ".yarn/sdks",
   "prettier.prettierPath": ".yarn/sdks/prettier/index.js",
   "typescript.tsdk": ".yarn/sdks/typescript/lib"

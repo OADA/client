@@ -15,88 +15,87 @@
  * limitations under the License.
  */
 
-import { expect } from 'chai';
-
 import { domain, token } from './config';
-import type { OADATree } from '../lib/client';
-import { connect } from '../lib/index';
+
+import test from 'ava';
+
+import type { OADATree } from '../dist/client.js';
+import { connect } from '../dist/index.js';
 
 const generateRandomString = () => Math.random().toString(36).slice(7);
 
-describe('Client test', () => {
-  it('Connect/Disconnect', async () => {
-    const client = await connect({
-      domain,
-      token,
-    });
-    await client.disconnect();
+test('Connect/Disconnect', async () => {
+  const client = await connect({
+    domain,
+    token,
+  });
+  await client.disconnect();
+});
+
+test('Single GET', async () => {
+  const client = await connect({
+    domain,
+    token,
+  });
+  const response = await client.get({ path: '/bookmarks' });
+  expect(response.status).to.equal(200);
+  expect(response.data).to.have.nested.property(`_type`);
+  // Expect(response.data["_type"]).to.equal(
+  //   "application/vnd.oada.bookmarks.1+json"
+  // );
+  await client.disconnect();
+});
+
+test.skip('watch', async () => {
+  const client = await connect({
+    domain,
+    token,
+  });
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  const { changes } = await client.watch({
+    path: '/bookmarks',
+  });
+  for await (const change of changes) {
+    // eslint-disable-next-line no-console
+    console.log(change);
+  }
+});
+
+test.skip('Single PUT', async () => {
+  const client = await connect({
+    domain,
+    token,
+  });
+  await client.put({
+    path: '/bookmarks',
+    data: { test10: 'aaa' },
   });
 
-  it('Single GET', async () => {
-    const client = await connect({
-      domain,
-      token,
-    });
-    const response = await client.get({ path: '/bookmarks' });
-    expect(response.status).to.equal(200);
-    expect(response.data).to.have.nested.property(`_type`);
-    // Expect(response.data["_type"]).to.equal(
-    //   "application/vnd.oada.bookmarks.1+json"
-    // );
-    await client.disconnect();
-  });
+  await client.disconnect();
+});
 
-  xit('watch', async () => {
-    const client = await connect({
-      domain,
-      token,
-    });
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    const { changes } = await client.watch({
-      path: '/bookmarks',
-    });
-    for await (const change of changes) {
-      // eslint-disable-next-line no-console
-      console.log(change);
-    }
-  });
-
-  xit('Single PUT', async () => {
-    const client = await connect({
-      domain,
-      token,
-    });
-    await client.put({
-      path: '/bookmarks',
-      data: { test10: 'aaa' },
-    });
-
-    await client.disconnect();
-  });
-
-  xit('Recursive PUT/GET', async () => {
-    const randomString = generateRandomString();
-    const tree = {
-      bookmarks: {
-        // eslint-disable-next-line sonarjs/no-duplicate-string
+test.skip('Recursive PUT/GET', async () => {
+  const randomString = generateRandomString();
+  const tree = {
+    bookmarks: {
+      // eslint-disable-next-line sonarjs/no-duplicate-string
+      _type: 'application/json',
+      // _rev: 0,
+      [randomString]: {
         _type: 'application/json',
         // _rev: 0,
-        [randomString]: {
-          _type: 'application/json',
-          // _rev: 0,
-          level1: {
-            '*': {
-              _type: 'application/json',
-              // _rev: 0,
-              level2: {
-                '*': {
-                  _type: 'application/json',
-                  // _rev: 0,
-                  level3: {
-                    '*': {
-                      _type: 'application/json',
-                      // _rev: 0,
-                    },
+        level1: {
+          '*': {
+            _type: 'application/json',
+            // _rev: 0,
+            level2: {
+              '*': {
+                _type: 'application/json',
+                // _rev: 0,
+                level3: {
+                  '*': {
+                    _type: 'application/json',
+                    // _rev: 0,
                   },
                 },
               },
@@ -104,30 +103,30 @@ describe('Client test', () => {
           },
         },
       },
-    } as unknown as OADATree;
-    const client = await connect({
-      domain,
-      token,
-    });
-    // Tree PUT
-    await client.put({
-      path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
-      data: { thingy: 'abc' },
-      tree,
-    });
-    // Recursive GET
-    const response = await client.get({
-      path: `/bookmarks/${randomString}`,
-      tree,
-    });
-    const responseData = response.data;
-    // Check
-    expect(responseData).to.have.nested.property(`_type`);
-    expect(responseData).to.have.nested.property(`level1.abc._type`);
-    expect(responseData).to.have.nested.property(`level1.abc.level2.def._type`);
-    expect(responseData).to.have.nested.property(
-      `level1.abc.level2.def.level3.ghi._type`
-    );
-    await client.disconnect();
+    },
+  } as unknown as OADATree;
+  const client = await connect({
+    domain,
+    token,
   });
+  // Tree PUT
+  await client.put({
+    path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
+    data: { thingy: 'abc' },
+    tree,
+  });
+  // Recursive GET
+  const response = await client.get({
+    path: `/bookmarks/${randomString}`,
+    tree,
+  });
+  const responseData = response.data;
+  // Check
+  expect(responseData).to.have.nested.property(`_type`);
+  expect(responseData).to.have.nested.property(`level1.abc._type`);
+  expect(responseData).to.have.nested.property(`level1.abc.level2.def._type`);
+  expect(responseData).to.have.nested.property(
+    `level1.abc.level2.def.level3.ghi._type`
+  );
+  await client.disconnect();
 });

@@ -1,4 +1,5 @@
 dist
+.test
 node_modules
 yarn-cache
 services-available

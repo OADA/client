@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-import type { URL } from 'node:url';
-
 import EventEmitter from 'eventemitter3';
 import PQueue from 'p-queue';
 import ReconnectingWebSocket from 'reconnecting-websocket';
