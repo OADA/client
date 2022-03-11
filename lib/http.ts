@@ -101,7 +101,7 @@ export class HttpClient extends EventEmitter implements Connection {
           this.#status = ConnectionStatus.Disconnected;
           this.emit('close');
         }
-      });
+      })
 
     this.#concurrency = concurrency;
     this.#q = new PQueue({ concurrency });
