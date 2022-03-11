@@ -40,6 +40,7 @@ import type {
   IConnectionResponse,
 } from './client';
 import type { Change } from './';
+import { fixError } from './utils';
 import { handleErrors } from './errors';
 
 const trace = debug('@oada/client:ws:trace');
@@ -222,8 +223,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
       return [response];
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-throw-literal
-    throw response.status ? response : new Error('Request failed');
+    throw fixError(response);
   }
 
   #receive(m: MessageEvent<unknown>) {

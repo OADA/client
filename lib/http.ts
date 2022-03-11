@@ -36,6 +36,7 @@ import type {
 import fetch, { context } from './fetch';
 import type { Json } from '.';
 import { WebSocketClient } from './websocket';
+import { fixError } from './utils';
 import { handleErrors } from './errors';
 
 const trace = debug('@oada/client:http:trace');
@@ -219,8 +220,7 @@ export class HttpClient extends EventEmitter implements Connection {
       // This is the same test as in ./websocket.ts
       if (!result.ok) {
         trace('result.status %s is not 2xx, throwing', result.status);
-        // eslint-disable-next-line @typescript-eslint/no-throw-literal
-        throw result;
+        throw fixError(result);
       }
 
       trace('result.status ok, pulling headers');

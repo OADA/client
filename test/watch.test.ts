@@ -15,164 +15,171 @@
  * limitations under the License.
  */
 
+import { domain, token } from './config.js';
+
+import test from 'ava';
+
 import { EventEmitter, once } from 'node:events';
 
-import { expect, use } from 'chai';
-import chaiAsPromised from 'chai-as-promised';
 import ksuid from 'ksuid';
 
-import { Change, OADAClient, connect } from '../lib/index';
-import { deleteLinkAxios, getAxios, putAxios, putResourceAxios } from './utils';
-import { domain, token } from './config';
+import { Change, OADAClient, connect } from '../dist/index.js';
+import {
+  Nested,
+  deleteLinkAxios,
+  getAxios,
+  putAxios,
+  putResourceAxios,
+} from './utils';
 
-use(chaiAsPromised);
+for (const connection of <const>['ws', 'http']) {
+  // Client instance
+  let client: OADAClient;
 
-for (const connection of ['ws', 'http']) {
-  if (connection !== 'ws' && connection !== 'http') continue;
+  // Tree
+  const testName = `test-${ksuid.randomSync().string}`;
 
-  // eslint-disable-next-line @typescript-eslint/no-loop-func
-  describe(`${connection}: WATCH test`, () => {
-    // Client instance
-    let client: OADAClient;
+  // Initialization
+  test.before(`${connection}: Initialize connection`, async () => {
+    await putResourceAxios({}, `/bookmarks/${testName}`);
+    // Connect
+    client = await connect({
+      domain,
+      token,
+      connection,
+    });
+  });
 
-    // Tree
-    let testName: string;
+  // Cleanup
+  test.after(`${connection}: Destroy connection`, async () => {
+    // Disconnect
+    await client?.disconnect();
+    // This does not delete resources... oh well.
+    await deleteLinkAxios(`/bookmarks/${testName}`);
+  });
 
-    // Initialization
-    before('Initialize connection', async () => {
-      testName = `test-${ksuid.randomSync().string}`;
-      await putResourceAxios({}, `/bookmarks/${testName}`);
-      // Connect
-      client = await connect({
-        domain,
-        token,
-        connection,
-      });
+  test(`${connection}: Should deprecate v2 API`, async (t) => {
+    const emitter = new EventEmitter();
+    await putResourceAxios({}, `/bookmarks/${testName}/test1`);
+    // 1) Get current rev
+    const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
+    // 2) Set up watch
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const watch = await client.watch({
+      type: 'single',
+      path: `/bookmarks/${testName}/test1`,
+      async watchCallback(change: Readonly<Change>) {
+        try {
+          const { data } = axiosResp as { data: Nested };
+          // Check
+          t.assert(data?._rev);
+          const nextRev = Number(axiosResp.data._rev) + 1;
+          t.like(change.body, { _rev: nextRev });
+          // @ts-expect-error stuff
+          t.assert(change.body?.testData1?.abc);
+
+          await client.unwatch(watch);
+          emitter.emit('done');
+        } catch (error: unknown) {
+          emitter.emit('error', error);
+        }
+      },
+    });
+    // 3) Make changes
+    await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
+    await once(emitter, 'done');
+  });
+
+  test(`${connection}: Should receive the watch change from a single PUT request`, async (t) => {
+    await putResourceAxios({}, `/bookmarks/${testName}/test1`);
+    // 1) Get current rev
+    const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
+    // 2) Set up watch
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const { changes } = await client.watch({
+      path: `/bookmarks/${testName}/test1`,
+    });
+    // 3) Make changes
+    await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
+
+    // Check
+    const { data } = axiosResp as { data: Nested };
+    t.assert(data?._rev);
+    // eslint-disable-next-line no-unreachable-loop
+    for await (const change of changes) {
+      t.log(change);
+      const nextRev = Number(axiosResp.data._rev) + 1;
+      t.like(change.body, { _rev: nextRev });
+      // @ts-expect-error stuff
+      t.assert(change.body?.testData1?.abc);
+
+      break;
+    }
+  });
+
+  test(`${connection}: Should receive the response to an initial GET request`, async (t) => {
+    await putResourceAxios({ a: 1, b: 2 }, `/bookmarks/${testName}/test1`);
+
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const { changes, data, status } = await client.watch({
+      initialMethod: 'get',
+      path: `/bookmarks/${testName}/test1`,
     });
 
-    // Cleanup
-    after('Destroy connection', async () => {
-      // Disconnect
-      await client?.disconnect();
-      // This does not delete resources... oh well.
-      await deleteLinkAxios(`/bookmarks/${testName}`);
+    t.is(typeof status, 'number');
+    t.assert(changes[Symbol.asyncIterator]);
+    t.is(typeof data, 'object');
+  });
+
+  test(`${connection}: Should not receive the watch change after unwatch request`, async (t) => {
+    await putResourceAxios({}, `/bookmarks/${testName}/test2`);
+    // 1) Get current rev
+    await getAxios(`/bookmarks/${testName}/test2`);
+    // 2) Set up watch
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const { changes } = await client.watch({
+      path: `/bookmarks/${testName}/test2`,
     });
+    // 3) Unwatch
+    await changes.return?.();
+    // 4) Make changes
+    await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test2/testData`);
+    // eslint-disable-next-line no-unreachable-loop
+    for await (const change of changes) {
+      throw new Error(`Received change: ${JSON.stringify(change)}`);
+    }
 
-    it('Should deprecate v2 API', async () => {
-      const emitter = new EventEmitter();
-      await putResourceAxios({}, `/bookmarks/${testName}/test1`);
-      // 1) Get current rev
-      const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
-      // 2) Set up watch
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const watch = await client.watch({
-        type: 'single',
-        path: `/bookmarks/${testName}/test1`,
-        async watchCallback(change: Readonly<Change>) {
-          try {
-            // Check
-            expect(axiosResp.data).to.include.keys('_rev');
-            const nextRev = Number(axiosResp.data._rev) + 1;
-            expect(change.body).to.include({ _rev: nextRev });
-            expect(change.body).to.have.nested.property('testData1.abc');
+    t.pass();
+  });
 
-            await client.unwatch(watch);
-            emitter.emit('done');
-          } catch (error: unknown) {
-            emitter.emit('error', error);
-          }
-        },
-      });
-      // 3) Make changes
-      await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
-      await once(emitter, 'done');
+  test.skip(`${connection}: Should receive the watch change from a single deep PUT request`, async (t) => {
+    await putResourceAxios({}, `/bookmarks/${testName}/test3`);
+    await putResourceAxios({}, `/bookmarks/${testName}/test3/level1`);
+    await putResourceAxios({}, `/bookmarks/${testName}/test3/level1/level2`);
+    // 1) Get current rev
+    const axiosResp = await getAxios(`/bookmarks/${testName}/test3`);
+    // 2) Set up watch
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    const { changes } = await client.watch({
+      path: `/bookmarks/${testName}/test3`,
     });
+    // 3) Make changes
+    await putAxios(
+      { abc: 'def' },
+      `/bookmarks/${testName}/test3/level1/level2/testData`
+    );
 
-    it('Should receive the watch change from a single PUT request', async () => {
-      await putResourceAxios({}, `/bookmarks/${testName}/test1`);
-      // 1) Get current rev
-      const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
-      // 2) Set up watch
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const { changes } = await client.watch({
-        path: `/bookmarks/${testName}/test1`,
-      });
-      // 3) Make changes
-      await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
+    // Check
+    t.assert(axiosResp.data?._rev);
+    // eslint-disable-next-line no-unreachable-loop
+    for await (const change of changes) {
+      t.log(change);
+      const nextRev = Number(axiosResp.data._rev) + 1;
+      t.like(change.body, { _rev: nextRev });
+      // @ts-expect-error stuff
+      t.assert(change.body?.testData1?.abc);
 
-      // eslint-disable-next-line no-unreachable-loop
-      for await (const change of changes) {
-        // Check
-        expect(axiosResp.data).to.include.keys('_rev');
-        const nextRev = Number(axiosResp.data._rev) + 1;
-        expect(change.body).to.include({ _rev: nextRev });
-        expect(change.body).to.have.nested.property('testData1.abc');
-
-        break;
-      }
-    });
-
-    it('Should receive the response to an initial GET request', async () => {
-      await putResourceAxios({ a: 1, b: 2 }, `/bookmarks/${testName}/test1`);
-
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const { changes, data, status } = await client.watch({
-        initialMethod: 'get',
-        path: `/bookmarks/${testName}/test1`,
-      });
-
-      expect(status).to.be.a('number');
-      expect(changes).to.be.a('asyncgenerator');
-      expect(data).to.be.an('object');
-    });
-
-    it('Should not receive the watch change after unwatch request', async () => {
-      await putResourceAxios({}, `/bookmarks/${testName}/test2`);
-      // 1) Get current rev
-      await getAxios(`/bookmarks/${testName}/test2`);
-      // 2) Set up watch
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const { changes } = await client.watch({
-        path: `/bookmarks/${testName}/test2`,
-      });
-      // 3) Unwatch
-      await changes.return?.();
-      // 4) Make changes
-      await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test2/testData`);
-      // eslint-disable-next-line no-unreachable-loop
-      for await (const change of changes) {
-        throw new Error(`Received change: ${JSON.stringify(change)}`);
-      }
-    });
-
-    xit('Should receive the watch change from a single deep PUT request', async () => {
-      await putResourceAxios({}, `/bookmarks/${testName}/test3`);
-      await putResourceAxios({}, `/bookmarks/${testName}/test3/level1`);
-      await putResourceAxios({}, `/bookmarks/${testName}/test3/level1/level2`);
-      // 1) Get current rev
-      const axiosResp = await getAxios(`/bookmarks/${testName}/test3`);
-      // 2) Set up watch
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const { changes } = await client.watch({
-        path: `/bookmarks/${testName}/test3`,
-      });
-      // 3) Make changes
-      await putAxios(
-        { abc: 'def' },
-        `/bookmarks/${testName}/test3/level1/level2/testData`
-      );
-      // eslint-disable-next-line no-unreachable-loop
-      for await (const watchResp of changes) {
-        // eslint-disable-next-line no-console
-        console.log(watchResp);
-        // Check
-        expect(axiosResp.data).to.include.keys('_rev');
-        const nextRev = Number(axiosResp.data._rev) + 1;
-        expect(watchResp.body).to.include({ _rev: nextRev });
-        expect(watchResp.body).to.have.nested.property('testData1.abc');
-
-        break;
-      }
-    });
+      break;
+    }
   });
 }

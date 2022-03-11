@@ -17,266 +17,259 @@
 
 /* eslint-disable sonarjs/no-duplicate-string */
 
-import { expect, use } from 'chai';
-import chaiAsPromised from 'chai-as-promised';
+import { domain, token } from './config.js';
+
+import test from 'ava';
+
 import ksuid from 'ksuid';
 
 // eslint-disable-next-line import/no-namespace
-import * as oada from '../lib/index';
+import * as oada from '../dist/index.js';
 import {
+  Nested,
   deleteLinkAxios,
   getAxios,
   getTreeWithTestName,
   putResourceAxios,
 } from './utils';
-import { domain, token } from './config';
 
-use(chaiAsPromised);
+for (const connection of <const>['ws', 'http']) {
+  // Client instance
+  let client: oada.OADAClient;
 
-for (const connection of ['ws', 'http']) {
-  if (connection !== 'ws' && connection !== 'http') continue;
+  // Tree
+  let testName: string;
+  let testTree: Record<string, unknown>;
 
-  // eslint-disable-next-line @typescript-eslint/no-loop-func
-  describe(`${connection}: PUT test`, () => {
-    // Client instance
-    let client: oada.OADAClient;
-
-    // Tree
-    let testName: string;
-    let testTree: Record<string, unknown>;
-
-    // Initialization
-    before('Initialize connection', async () => {
-      testName = `test-${ksuid.randomSync().string}`;
-      testTree = getTreeWithTestName(testName);
-      await putResourceAxios({}, `/bookmarks/${testName}`);
-      // Connect
-      client = await oada.connect({
-        domain,
-        token,
-        connection,
-      });
+  // Initialization
+  test.before(`${connection}: Initialize connection`, async () => {
+    testName = `test-${ksuid.randomSync().string}`;
+    testTree = getTreeWithTestName(testName);
+    await putResourceAxios({}, `/bookmarks/${testName}`);
+    // Connect
+    client = await oada.connect({
+      domain,
+      token,
+      connection,
     });
+  });
 
-    // Cleanup
-    after('Destroy connection', async () => {
-      // Disconnect
-      await client?.disconnect();
-      // This does not delete resources... oh well.
-      await deleteLinkAxios(`/bookmarks/${testName}`);
+  // Cleanup
+  test.after(`${connection}: Destroy connection`, async () => {
+    // Disconnect
+    await client?.disconnect();
+    // This does not delete resources... oh well.
+    await deleteLinkAxios(`/bookmarks/${testName}`);
+  });
+
+  test(`${connection}: Shouldn't error when the Content-Type header can be derived from the _type key in the PUT body`, async (t) => {
+    const response = await client.put({
+      path: `/bookmarks/${testName}/sometest`,
+      data: { _type: 'application/json' },
     });
+    t.is(response.status, 201);
+    t.assert(response.headers['content-location']);
+    t.assert(response.headers['x-oada-rev']);
+  });
 
-    it("Shouldn't error when the Content-Type header can be derived from the _type key in the PUT body", async () => {
-      const response = await client.put({
+  test(`${connection}: Shouldn't error when the Content-Type header can be derived from the contentType key`, async (t) => {
+    const response = await client.put({
+      path: `/bookmarks/${testName}/somethingnew`,
+      data: `"abc123"`,
+      contentType: 'application/json',
+    });
+    t.is(response.status, 201);
+    t.assert(response.headers['content-location']);
+    t.assert(response.headers['x-oada-rev']);
+  });
+
+  test(`${connection}: Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'`, async (t) => {
+    const response = await client.put({
+      path: `/bookmarks/${testName}/aaa/bbb/index-one/sometest`,
+      tree: testTree,
+      data: `"abc123"`,
+    });
+    t.is(response.status, 201);
+    t.assert(response.headers['content-location']);
+    t.assert(response.headers['x-oada-rev']);
+  });
+
+  test.skip(`${connection}: Should error when _type cannot be derived from the above tested sources`, async (t) => {
+    await t.throwsAsync(
+      client.put({
         path: `/bookmarks/${testName}/sometest`,
-        data: { _type: 'application/json' },
-      });
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-    });
-
-    it("Shouldn't error when the Content-Type header can be derived from the contentType key", async () => {
-      const response = await client.put({
-        path: `/bookmarks/${testName}/somethingnew`,
         data: `"abc123"`,
+      })
+    );
+  });
+  // TODO: Check the rejection reason
+
+  test(`${connection}: Should error when using a contentType parameter for which your token does not have access to read/write`, async (t) => {
+    await t.throwsAsync(
+      client.put({
+        path: `/bookmarks/${testName}/sometest2`,
+        data: { anothertest: 123 },
+        contentType: 'application/vnd.oada.foobar.1+json',
+      })
+    );
+  });
+  // TODO: Check the rejection reason
+
+  test(`${connection}: Should error when timeout occurs during a PUT request`, async (t) => {
+    await t.throwsAsync(
+      client.put({
+        path: `/bookmarks/${testName}/sometest3`,
+        data: { anothertest: 123 },
         contentType: 'application/json',
-      });
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-    });
+        timeout: 1,
+      })
+    );
+  });
+  // TODO: Check the rejection reason
 
-    it("Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'", async () => {
-      const response = await client.put({
-        path: `/bookmarks/${testName}/aaa/bbb/index-one/sometest`,
+  test(`${connection}: Should create the proper resource breaks on the server when a tree parameter is supplied to a deep endpoint`, async (t) => {
+    const putResp = await client.put({
+      path: `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`,
+      tree: testTree,
+      data: { test: 'some test' },
+    });
+    t.is(putResp.status, 201);
+    t.assert(putResp.headers['content-location']);
+    t.assert(putResp.headers['x-oada-rev']);
+
+    // Path: aaa
+    const response1 = await getAxios(`/bookmarks/${testName}/aaa`);
+    t.is(response1.status, 200);
+    t.assert(response1.headers['content-location']);
+    t.assert(response1.headers['x-oada-rev']);
+    const { data: data1 } = response1 as { data: Nested };
+    t.assert(data1?._id);
+    t.assert(data1?._rev);
+    t.assert(data1?.bbb?._id);
+    t.assert(data1?.bbb?._rev);
+    t.falsy(data1?.bbb?.['index-one']);
+
+    // Path: aaa/bbb
+    const response2 = await getAxios(`/bookmarks/${testName}/aaa/bbb`);
+    t.is(response2.status, 200);
+    t.assert(response2.headers['content-location']);
+    t.assert(response2.headers['x-oada-rev']);
+    const { data: data2 } = response2 as { data: Nested };
+    t.assert(data2?._id);
+    t.assert(data2?._rev);
+    t.falsy(data2?.['index-one']?._id);
+    t.falsy(data2?.['index-one']?._rev);
+    t.assert(data2?.['index-one']?.ccc);
+
+    // Path: aaa/bbb/index-one
+    const response3 = await getAxios(
+      `/bookmarks/${testName}/aaa/bbb/index-one`
+    );
+    t.is(response3.status, 200);
+    t.assert(response3.headers['content-location']);
+    t.assert(response3.headers['x-oada-rev']);
+    const { data: data3 } = response3 as { data: Nested };
+    t.falsy(data3?._id);
+    t.falsy(data3?._rev);
+    t.assert(data3?.ccc?._id);
+    t.assert(data3?.ccc?._rev);
+
+    // Path: aaa/bbb/index-one/ccc
+    const response4 = await getAxios(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc`
+    );
+    t.is(response4.status, 200);
+    t.assert(response4.headers['content-location']);
+    t.assert(response4.headers['x-oada-rev']);
+    const { data: data4 } = response4 as { data: Nested };
+    t.assert(data4?._id);
+    t.assert(data4?._rev);
+    t.assert(data4?._type);
+    t.falsy(data4?.['index-two']?._id);
+    t.falsy(data4?.['index-two']?._rev);
+
+    // Path: aaa/bbb/index-one/ccc/index-two
+    const response5 = await getAxios(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two`
+    );
+    t.is(response5.status, 200);
+    t.assert(response5.headers['content-location']);
+    t.assert(response5.headers['x-oada-rev']);
+    const { data: data5 } = response5 as { data: Nested };
+    t.falsy(data5?._id);
+    t.falsy(data5?._rev);
+    t.assert(data5?.ddd?._id);
+    t.assert(data5?.ddd?._rev);
+
+    // Path: aaa/bbb/index-one/ccc/index-two/ddd
+    const response6 = await getAxios(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd`
+    );
+    t.is(response6.status, 200);
+    t.assert(response6.headers['content-location']);
+    t.assert(response6.headers['x-oada-rev']);
+    const { data: data6 } = response6 as { data: Nested };
+    t.assert(data6?._id);
+    t.assert(data6?._type);
+    t.assert(data6?._rev);
+    t.falsy(data6?.['index-three']?._id);
+    t.falsy(data6?.['index-three']?._rev);
+    t.assert(data6?.['index-three']?.eee);
+
+    // Path: aaa/bbb/index-one/ccc/index-two/ddd/index-three
+    const response7 = await getAxios(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three`
+    );
+    t.is(response7.status, 200);
+    t.assert(response7.headers['content-location']);
+    t.assert(response7.headers['x-oada-rev']);
+    const { data: data7 } = response7 as { data: Nested };
+    t.falsy(data7?._id);
+    t.falsy(data7?._rev);
+    t.assert(data7?.eee?._id);
+    t.falsy(data7?.eee?._rev);
+
+    // Path: aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee
+    const response8 = await getAxios(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`
+    );
+    t.is(response8.status, 200);
+    t.assert(response8.headers['content-location']);
+    t.assert(response8.headers['x-oada-rev']);
+    const { data: data8 } = response8 as { data: Nested };
+    t.assert(data8?._id);
+    t.assert(data8?._rev);
+    t.assert(data8?.test);
+    t.falsy(data8?.test?._id);
+    t.falsy(data8?.test?._rev);
+  });
+
+  test(`${connection}: Should create the proper trees from simultaneous PUT requests`, async (t) => {
+    // Adjust timeout because concurrent PUTs usually result in if-match errors and
+    // the client tries to resolve the conflicts using the exponential backoff algorithm
+    // t.timeout(10_000);
+    // Do concurrent PUTs
+    const paths = ['a', 'b', 'c'];
+    const promises = paths.map(async (v) =>
+      client.put({
+        path: `/bookmarks/${testName}/concurrent-put/${v}`,
         tree: testTree,
-        data: `"abc123"`,
-      });
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-    });
+        data: { foo: 'bar' },
+      })
+    );
+    await Promise.all(promises);
 
-    xit('Should error when _type cannot be derived from the above tested sources', async () =>
-      expect(
-        client.put({
-          path: `/bookmarks/${testName}/sometest`,
-          data: `"abc123"`,
-        })
-      ).to.be.rejected);
-    // TODO: Check the rejection reason
-
-    it('Should error when using a contentType parameter for which your token does not have access to read/write', async () =>
-      expect(
-        client.put({
-          path: `/bookmarks/${testName}/sometest2`,
-          data: { anothertest: 123 },
-          contentType: 'application/vnd.oada.foobar.1+json',
-        })
-      ).to.be.rejected);
-    // TODO: Check the rejection reason
-
-    it('Should error when timeout occurs during a PUT request', async () =>
-      expect(
-        client.put({
-          path: `/bookmarks/${testName}/sometest3`,
-          data: { anothertest: 123 },
-          contentType: 'application/json',
-          timeout: 1,
-        })
-      ).to.be.rejected);
-    // TODO: Check the rejection reason
-
-    it('Should create the proper resource breaks on the server when a tree parameter is supplied to a deep endpoint', async () => {
-      const putResp = await client.put({
-        path: `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`,
-        tree: testTree,
-        data: { test: 'some test' },
-      });
-      expect(putResp.status).to.equal(200);
-      expect(putResp.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-
-      // Path: aaa
-      let response = await getAxios(`/bookmarks/${testName}/aaa`);
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-      expect(response.data).to.include.keys(['_id', '_rev', 'bbb']);
-      expect(response.data).to.have.nested.property('bbb._id');
-      expect(response.data).to.have.nested.property('bbb._rev');
-      expect(response.data).to.not.have.nested.property('bbb.index-one');
-
-      // Path: aaa/bbb
-      response = await getAxios(`/bookmarks/${testName}/aaa/bbb`);
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-      expect(response.data).to.include.keys(['_id', '_rev', 'index-one']);
-      expect(response.data).to.not.have.nested.property('index-one._id');
-      expect(response.data).to.not.have.nested.property('index-one._rev');
-      expect(response.data).to.have.nested.property('index-one.ccc');
-
-      // Path: aaa/bbb/index-one
-      response = await getAxios(`/bookmarks/${testName}/aaa/bbb/index-one`);
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-      expect(response.data).to.not.include.keys(['_id', '_rev']);
-      expect(response.data).to.include.keys(['ccc']);
-      expect(response.data).to.have.nested.property('ccc._id');
-      expect(response.data).to.have.nested.property('ccc._rev');
-
-      // Path: aaa/bbb/index-one/ccc
-      response = await getAxios(`/bookmarks/${testName}/aaa/bbb/index-one/ccc`);
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-      expect(response.data).to.include.keys(['_id', '_type', '_rev']);
-      expect(response.data).to.not.have.nested.property('index-two._id');
-      expect(response.data).to.not.have.nested.property('index-two._rev');
-
-      // Path: aaa/bbb/index-one/ccc/index-two
-      response = await getAxios(
-        `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two`
+    // Check
+    for await (const v of paths) {
+      const response = await getAxios(
+        `/bookmarks/${testName}/concurrent-put/${v}`
       );
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-      expect(response.data).to.not.include.keys(['_id', '_rev']);
-      expect(response.data).to.have.nested.property('ddd._id');
-      expect(response.data).to.have.nested.property('ddd._rev');
-
-      // Path: aaa/bbb/index-one/ccc/index-two/ddd
-      response = await getAxios(
-        `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd`
-      );
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-      expect(response.data).to.include.keys(['_id', '_type', '_rev']);
-      expect(response.data).to.not.have.nested.property('index-three._id');
-      expect(response.data).to.not.have.nested.property('index-three._rev');
-      expect(response.data).to.have.nested.property('index-three.eee');
-
-      // Path: aaa/bbb/index-one/ccc/index-two/ddd/index-three
-      response = await getAxios(
-        `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three`
-      );
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-      expect(response.data).to.not.include.keys(['_id', '_rev']);
-      expect(response.data).to.include.keys(['eee']);
-      expect(response.data).to.have.nested.property('eee._id');
-      expect(response.data).to.not.have.nested.property('eee._rev');
-
-      // Path: aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee
-      response = await getAxios(
-        `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`
-      );
-      expect(response.status).to.equal(200);
-      expect(response.headers).to.include.keys([
-        'content-location',
-        'x-oada-rev',
-      ]);
-      expect(response.data).to.include.keys(['_id', '_rev', 'test']);
-      expect(response.data).to.not.have.nested.property('test._id');
-      expect(response.data).to.not.have.nested.property('test._rev');
-    });
-
-    it('Should create the proper trees from simultaneous PUT requests', async function () {
-      // Adjust timeout because concurrent PUTs usually result in if-match errors and
-      // the client tries to resolve the conflicts using the exponential backoff algorithm
-      // eslint-disable-next-line @typescript-eslint/no-invalid-this
-      this.timeout(10_000);
-      // Do concurrent PUTs
-      const paths = ['a', 'b', 'c'];
-      const promises = paths.map(async (v) =>
-        client.put({
-          path: `/bookmarks/${testName}/concurrent-put/${v}`,
-          tree: testTree,
-          data: { foo: 'bar' },
-        })
-      );
-      await Promise.all(promises);
-
-      // Check
-      for (const v of paths) {
-        // eslint-disable-next-line no-await-in-loop
-        const response = await getAxios(
-          `/bookmarks/${testName}/concurrent-put/${v}`
-        );
-        expect(response.status).to.equal(200);
-        expect(response.headers).to.include.keys([
-          'content-location',
-          'x-oada-rev',
-        ]);
-        expect(response.data).to.include.keys(['_id', '_rev', 'foo']);
-      }
-    });
+      t.is(response.status, 200);
+      t.assert(response.headers['content-location']);
+      t.assert(response.headers['x-oada-rev']);
+      t.assert(response.data?._id);
+      t.assert(response.data?._rev);
+      t.assert(response.data?.foo);
+    }
   });
 }

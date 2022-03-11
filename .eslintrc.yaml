@@ -11,6 +11,7 @@ extends:
   - plugin:unicorn/recommended
   - plugin:security/recommended
   - plugin:sonarjs/recommended
+  - plugin:ava/recommended
   - xo
   - prettier
 
@@ -27,6 +28,7 @@ plugins:
   - security
   - no-secrets
   - sonarjs
+  - ava
   - notice
 
 parser: '@typescript-eslint/parser'
@@ -120,3 +122,7 @@ rules:
   no-constructor-bind/no-constructor-bind: error
   no-constructor-bind/no-constructor-state: error
   sort-imports: [warn, { allowSeparatedGroups: true }]
+  ava/no-ignored-test-files: off
+  ava/no-import-test-files: off
+  ava/no-skip-test: warn
+  ava/no-skip-assert: warn

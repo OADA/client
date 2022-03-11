@@ -15,155 +15,159 @@
  * limitations under the License.
  */
 
-import { expect, use } from 'chai';
-import chaiAsPromised from 'chai-as-promised';
+import { domain, token } from './config.js';
+
+import test from 'ava';
+
 import ksuid from 'ksuid';
 
 // eslint-disable-next-line import/no-namespace
-import * as oada from '../lib/index';
+import * as oada from '../dist/index.js';
 import {
+  Nested,
   deleteLinkAxios,
   getTreeWithTestName,
   putResourceAxios,
 } from './utils';
-import { domain, token } from './config';
-
-use(chaiAsPromised);
 
 for (const connection of <const>['ws', 'http']) {
-  // eslint-disable-next-line @typescript-eslint/no-loop-func
-  describe(`${connection} GET test`, () => {
-    // Client instance
-    let client: oada.OADAClient;
+  // Client instance
+  let client: oada.OADAClient;
 
-    // Tree
-    let testName: string;
-    let testTree: Record<string, unknown>;
+  // Tree
+  let testName: string;
+  let testTree: Record<string, unknown>;
 
-    // Initialization
-    before('Initialize connection', async () => {
-      testName = `test-${ksuid.randomSync().string}`;
-      testTree = getTreeWithTestName(testName);
-      await putResourceAxios({}, `/bookmarks/${testName}`);
-      // Connect
-      client = await oada.connect({
-        domain,
-        token,
-        connection,
-      });
+  // Initialization
+  test.before(`${connection}: Initialize connection`, async () => {
+    testName = `test-${ksuid.randomSync().string}`;
+    testTree = getTreeWithTestName(testName);
+    await putResourceAxios({}, `/bookmarks/${testName}`);
+    // Connect
+    client = await oada.connect({
+      domain,
+      token,
+      connection,
+    });
+  });
+
+  // Cleanup
+  test.after(`${connection}: Destroy connection`, async () => {
+    // Disconnect
+    await client?.disconnect();
+    // This does not delete resources... oh well.
+    await deleteLinkAxios(`/bookmarks/${testName}`);
+  });
+
+  test(`${connection}: Get Top-Level Bookmark`, async (t) => {
+    // Run
+    const response = await client.get({ path: '/bookmarks' });
+
+    // Check
+    t.is(response.status, 200);
+    t.like(response.data, {
+      _type: 'application/vnd.oada.bookmarks.1+json',
+    });
+  });
+
+  test(`${connection}: Should allow you to get a single resource by its resource ID`, async (t) => {
+    // Prepare a resource
+    const testObject = { abc: 'def' };
+    const r = await putResourceAxios(
+      testObject,
+      `/bookmarks/${testName}/testResource1`
+    );
+
+    // Run
+    const response = await client.get({
+      path: `/${r.resource_id}`,
     });
 
-    // Cleanup
-    after('Destroy connection', async () => {
-      // Disconnect
-      await client?.disconnect();
-      // This does not delete resources... oh well.
-      await deleteLinkAxios(`/bookmarks/${testName}`);
+    // Check
+    t.is(response.status, 200);
+    const { data } = response as { data: Record<string, unknown> };
+    t.assert(data._id);
+    t.assert(data._rev);
+    t.assert(data._meta);
+    t.like(data, testObject);
+  });
+
+  test(`${connection}: Should allow you to get a single resource by its path`, async (t) => {
+    // Prepare a resource
+    const testObject = { abc: 'def' };
+    const path = `/bookmarks/${testName}/testResource2`;
+    await putResourceAxios(testObject, path);
+
+    // Run
+    const response = await client.get({
+      path,
     });
 
-    it('Get Top-Level Bookmark', async () => {
-      // Run
-      const response = await client.get({ path: '/bookmarks' });
+    // Check
+    t.is(response.status, 200);
+    const { data } = response as { data: Record<string, unknown> };
+    t.assert(data._id);
+    t.assert(data._rev);
+    t.assert(data._meta);
+    t.like(data, testObject);
+  });
 
-      // Check
-      expect(response.status).to.equal(200);
-      expect(response.data).to.include({
-        _type: 'application/vnd.oada.bookmarks.1+json',
-      });
-    });
+  test(`${connection}: Should error when timeout occurs during a GET request`, async (t) => {
+    // Prepare a resource
+    const testObject = { abc: 'def' };
+    const path = `/bookmarks/${testName}/testResource3`;
+    await putResourceAxios(testObject, path);
 
-    it('Should allow you to get a single resource by its resource ID', async () => {
-      // Prepare a resource
-      const testObject = { abc: 'def' };
-      const r = await putResourceAxios(
-        testObject,
-        `/bookmarks/${testName}/testResource1`
-      );
-
-      // Run
-      const response = await client.get({
-        path: `/${r.resource_id}`,
-      });
-
-      // Check
-      expect(response.status).to.equal(200);
-      expect(response.data).to.include.keys(['_id', '_rev', '_meta']);
-      expect(response.data).to.include(testObject);
-    });
-
-    it('Should allow you to get a single resource by its path', async () => {
-      // Prepare a resource
-      const testObject = { abc: 'def' };
-      const path = `/bookmarks/${testName}/testResource2`;
-      await putResourceAxios(testObject, path);
-
-      // Run
-      const response = await client.get({
+    // Run
+    await t.throwsAsync(
+      client.get({
         path,
-      });
+        timeout: 1, // 1 ms timeout
+      })
+    );
+  });
 
-      // Check
-      expect(response.status).to.equal(200);
-      expect(response.data).to.include.keys(['_id', '_rev', '_meta']);
-      expect(response.data).to.include(testObject);
-    });
-
-    it('Should error when timeout occurs during a GET request', async () => {
-      // Prepare a resource
-      const testObject = { abc: 'def' };
-      const path = `/bookmarks/${testName}/testResource3`;
-      await putResourceAxios(testObject, path);
-
-      // Run
-      return expect(
-        client.get({
-          path,
-          timeout: 1, // 1 ms timeout
-        })
-      ).to.be.rejected;
-    });
-
-    it("Should error when the root path of a 'tree' GET doesn't exist", async () =>
-      expect(
-        client.get({
-          path: '/bookmarks/test/testTwo',
-          tree: testTree,
-        })
-      ).to.eventually.be.rejected);
-
-    it('Should allow you to get resources based on a tree', async () => {
-      // Prepare resources
-      const basePath = `/bookmarks/${testName}`;
-      await putResourceAxios({ somethingelse: 'okay' }, `${basePath}/aaa`);
-      await putResourceAxios({ b: 'b' }, `/bookmarks/${testName}/aaa/bbb`);
-      await putResourceAxios({ c: 'c' }, `${basePath}/aaa/bbb/index-one/ccc`);
-      await putResourceAxios(
-        { d: 'd' },
-        `${basePath}/aaa/bbb/index-one/ccc/index-two/bob`
-      );
-      await putResourceAxios(
-        { e: 'e' },
-        `${basePath}/aaa/bbb/index-one/ccc/index-two/bob/index-three/2018`
-      );
-
-      // Run
-      const response = await client.get({
-        path: basePath,
+  test(`${connection}: Should error when the root path of a 'tree' GET doesn't exist`, async (t) => {
+    await t.throwsAsync(
+      client.get({
+        path: '/bookmarks/test/testTwo',
         tree: testTree,
-      });
-      // Check
-      expect(response.status).to.equal(200);
-      expect(response.data).to.include.keys(['_id', '_rev', '_type', '_meta']);
-      expect(response.data).to.have.nested.property('aaa');
-      expect(response.data).to.have.nested.property('aaa.bbb');
-      expect(response.data).to.have.nested.property('aaa.bbb.b');
-      expect(response.data).to.have.nested.property('aaa.bbb.index-one.ccc');
-      expect(response.data).to.have.nested.property(
-        'aaa.bbb.index-one.ccc.index-two.bob'
-      );
-      expect(response.data).to.have.nested.property(
-        'aaa.bbb.index-one.ccc.index-two.bob.index-three.2018'
-      );
+      })
+    );
+  });
+
+  test(`${connection}: Should allow you to get resources based on a tree`, async (t) => {
+    // Prepare resources
+    const basePath = `/bookmarks/${testName}`;
+    await putResourceAxios({ somethingelse: 'okay' }, `${basePath}/aaa`);
+    await putResourceAxios({ b: 'b' }, `/bookmarks/${testName}/aaa/bbb`);
+    await putResourceAxios({ c: 'c' }, `${basePath}/aaa/bbb/index-one/ccc`);
+    await putResourceAxios(
+      { d: 'd' },
+      `${basePath}/aaa/bbb/index-one/ccc/index-two/bob`
+    );
+    await putResourceAxios(
+      { e: 'e' },
+      `${basePath}/aaa/bbb/index-one/ccc/index-two/bob/index-three/2018`
+    );
+
+    // Run
+    const response = await client.get({
+      path: basePath,
+      tree: testTree,
     });
+    // Check
+    t.is(response.status, 200);
+    const { data } = response as { data: Nested };
+    t.assert(data?._id);
+    t.assert(data?._rev);
+    t.assert(data?._type);
+    t.assert(data?._meta);
+    t.assert(data?.aaa?.bbb?.b);
+    t.assert(
+      data?.aaa?.bbb?.['index-one']?.ccc?.['index-two']?.bob?.['index-three']?.[
+        '2018'
+      ]
+    );
   });
 }

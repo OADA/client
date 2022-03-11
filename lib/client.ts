@@ -706,7 +706,6 @@ export class OADAClient {
       // Retry counter
       let retryCount = 0;
       // Link object (eventually substituted by an actual link object)
-      // eslint-disable-next-line unicorn/no-null
       let linkObject: Json = null;
       let newResourcePathArray: string[] = [];
       for (let index = pathArray.length - 1; index >= 0; index--) {

@@ -15,34 +15,32 @@
  * limitations under the License.
  */
 
-import { domain, token } from './config';
+import { domain, token } from './config.js';
 
 import test from 'ava';
 
-import type { OADATree } from '../dist/client.js';
+import type { Nested } from './utils.js';
 import { connect } from '../dist/index.js';
 
 const generateRandomString = () => Math.random().toString(36).slice(7);
 
-test('Connect/Disconnect', async () => {
+test('Connect/Disconnect', async (t) => {
   const client = await connect({
     domain,
     token,
   });
   await client.disconnect();
+  t.pass();
 });
 
-test('Single GET', async () => {
+test('Single GET', async (t) => {
   const client = await connect({
     domain,
     token,
   });
   const response = await client.get({ path: '/bookmarks' });
-  expect(response.status).to.equal(200);
-  expect(response.data).to.have.nested.property(`_type`);
-  // Expect(response.data["_type"]).to.equal(
-  //   "application/vnd.oada.bookmarks.1+json"
-  // );
+  t.is(response.status, 200);
+  t.like(response.data, { _type: 'application/vnd.oada.bookmarks.1+json' });
   await client.disconnect();
 });
 
@@ -74,7 +72,7 @@ test.skip('Single PUT', async () => {
   await client.disconnect();
 });
 
-test.skip('Recursive PUT/GET', async () => {
+test.skip('Recursive PUT/GET', async (t) => {
   const randomString = generateRandomString();
   const tree = {
     bookmarks: {
@@ -104,7 +102,7 @@ test.skip('Recursive PUT/GET', async () => {
         },
       },
     },
-  } as unknown as OADATree;
+  };
   const client = await connect({
     domain,
     token,
@@ -120,13 +118,11 @@ test.skip('Recursive PUT/GET', async () => {
     path: `/bookmarks/${randomString}`,
     tree,
   });
-  const responseData = response.data;
+  const responseData = response.data as Nested;
   // Check
-  expect(responseData).to.have.nested.property(`_type`);
-  expect(responseData).to.have.nested.property(`level1.abc._type`);
-  expect(responseData).to.have.nested.property(`level1.abc.level2.def._type`);
-  expect(responseData).to.have.nested.property(
-    `level1.abc.level2.def.level3.ghi._type`
-  );
+  t.assert(responseData?._type);
+  t.assert(responseData?.level1?.abc?._type);
+  t.assert(responseData?.level1?.abc?.level2?.def?._type);
+  t.assert(responseData?.level1?.abc?.level2?.def?.level3?.ghi?._type);
   await client.disconnect();
 });

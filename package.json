@@ -29,7 +29,7 @@
     "dist/**/*"
   ],
   "scripts": {
-    "test": "yarn build test && ava",
+    "test": "yarn build test && c8 ava",
     "build": "tsc -b",
     "dev": "tsc -w",
     "prettier": "prettier --write .",
@@ -37,18 +37,34 @@
     "prestart": "npm run build"
   },
   "ava": {
+    "failFast": false,
+    "files": [
+      "**/*.test.ts"
+    ],
     "typescript": {
       "extensions": [
         "ts"
       ],
       "rewritePaths": {
-        "src/": "dist/",
+        "lib/": "dist/",
         "test/": ".test/"
       },
       "compile": false
     }
   },
-  "author": "",
+  "c8": {
+    "reporter": [
+      "text",
+      "lcov"
+    ],
+    "all": true,
+    "src": "lib",
+    "exclude": [
+      "*.d.ts",
+      ".pnp.*",
+      ".test"
+    ]
+  },
   "license": "Apache-2.0",
   "dependencies": {
     "@oada/types": "^1.8.1",
@@ -72,7 +88,7 @@
     "supports-color": "^9.2.1",
     "tslib": "^2.3.1",
     "type-is": "^1.6.18",
-    "utf-8-validate": "^5.0.8",
+    "utf-8-validate": "^5.0.9",
     "ws": "^8.5.0"
   },
   "devDependencies": {
@@ -87,9 +103,10 @@
     "@typescript-eslint/eslint-plugin": "^5.14.0",
     "@typescript-eslint/parser": "^5.14.0",
     "@yarnpkg/sdks": "2.6.0",
-    "ava": "^4.1.0",
-    "axios": "^0.26.0",
-    "dotenv": "^10.0.0",
+    "ava": "4.0.0-rc.1",
+    "axios": "^0.26.1",
+    "c8": "^7.11.0",
+    "dotenv": "^16.0.0",
     "eslint": "^8.10.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-config-xo": "^0.40.0",
@@ -97,6 +114,7 @@
     "eslint-formatter-pretty": "^4.1.0",
     "eslint-import-resolver-node": "^0.3.6",
     "eslint-plugin-array-func": "^3.1.7",
+    "eslint-plugin-ava": "^13.2.0",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-filenames": "^1.3.2",
     "eslint-plugin-github": "^4.3.5",

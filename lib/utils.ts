@@ -79,11 +79,7 @@ export function toTreePath(tree: OADATree, path: string[]): string[] {
 
 export function isResource(tree: OADATree, path: string[]): boolean {
   const object = getObjectAtPath(tree, path);
-  if ('_id' in object) {
-    return true;
-  }
-
-  return false;
+  return '_id' in object;
 }
 
 export function createNestedObject(
@@ -98,4 +94,19 @@ export function createNestedObject(
   }
 
   return result;
+}
+
+/**
+ * Ensure we throw real `Error`s
+ */
+export function fixError<
+  E extends { status?: string | number; statusText?: string }
+>(error: E): E & Error {
+  if (error instanceof Error) {
+    return error;
+  }
+
+  const message =
+    typeof error.status === 'string' ? error.status : error.statusText;
+  return Object.assign(new Error(message), error);
 }

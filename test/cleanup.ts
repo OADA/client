@@ -19,7 +19,7 @@
 
 import readline from 'node:readline';
 
-import { deleteLinkAxios, getAxios } from './utils';
+import { deleteLinkAxios, getAxios } from './utils.js';
 
 async function run() {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

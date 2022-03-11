@@ -19,7 +19,7 @@
 
 import { config } from 'dotenv';
 
-import { normalizeDomain } from '../lib/';
+import { normalizeDomain } from '../dist/index.js';
 
 config();
 

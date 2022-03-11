@@ -28,9 +28,6 @@ export function createInstance(config: Config): OADAClient {
   return new OADAClient(config);
 }
 
-/**
- * @internal
- */
 export function normalizeDomain(domain: string) {
   const { hostname, protocol, port } = parseDomain(domain);
   return format({ hostname, protocol, port });

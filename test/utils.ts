@@ -15,9 +15,15 @@
  * limitations under the License.
  */
 
-import { domain, token } from './config';
+import { domain, token } from './config.js';
 import axios from 'axios';
 import ksuid from 'ksuid';
+
+export type Nested =
+  | {
+      [k: string]: Nested;
+    }
+  | undefined;
 
 export async function getAxios(path: string) {
   return axios({
