@@ -37,6 +37,7 @@
     "prestart": "npm run build"
   },
   "ava": {
+    "concurrency": 2,
     "failFast": false,
     "files": [
       "**/*.test.ts"

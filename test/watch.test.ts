@@ -32,16 +32,16 @@ import {
   putResourceAxios,
 } from './utils';
 
+interface Context {
+  testName: string;
+}
+
 for (const connection of <const>['ws', 'http']) {
   // Client instance
   let client: OADAClient;
 
-  // Tree
-  const testName = `test-${ksuid.randomSync().string}`;
-
   // Initialization
   test.before(`${connection}: Initialize connection`, async () => {
-    await putResourceAxios({}, `/bookmarks/${testName}`);
     // Connect
     client = await connect({
       domain,
@@ -54,11 +54,23 @@ for (const connection of <const>['ws', 'http']) {
   test.after(`${connection}: Destroy connection`, async () => {
     // Disconnect
     await client?.disconnect();
+  });
+
+  test.beforeEach(`${connection}: Initialize test name`, async (t) => {
+    const { string: uid } = await ksuid.random();
+    const testName = `test-${uid}`;
+    // @ts-expect-error ava context typing is lame
+    t.context.testName = testName;
+    await putResourceAxios({}, `/bookmarks/${testName}`);
+  });
+  test.afterEach(`${connection}: Clean up test`, async (t) => {
+    const { testName } = t.context as Context;
     // This does not delete resources... oh well.
     await deleteLinkAxios(`/bookmarks/${testName}`);
   });
 
   test(`${connection}: Should deprecate v2 API`, async (t) => {
+    const { testName } = t.context as Context;
     const emitter = new EventEmitter();
     await putResourceAxios({}, `/bookmarks/${testName}/test1`);
     // 1) Get current rev
@@ -91,6 +103,7 @@ for (const connection of <const>['ws', 'http']) {
   });
 
   test(`${connection}: Should receive the watch change from a single PUT request`, async (t) => {
+    const { testName } = t.context as Context;
     await putResourceAxios({}, `/bookmarks/${testName}/test1`);
     // 1) Get current rev
     const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
@@ -118,6 +131,7 @@ for (const connection of <const>['ws', 'http']) {
   });
 
   test(`${connection}: Should receive the response to an initial GET request`, async (t) => {
+    const { testName } = t.context as Context;
     await putResourceAxios({ a: 1, b: 2 }, `/bookmarks/${testName}/test1`);
 
     // eslint-disable-next-line security/detect-non-literal-fs-filename
@@ -132,6 +146,7 @@ for (const connection of <const>['ws', 'http']) {
   });
 
   test(`${connection}: Should not receive the watch change after unwatch request`, async (t) => {
+    const { testName } = t.context as Context;
     await putResourceAxios({}, `/bookmarks/${testName}/test2`);
     // 1) Get current rev
     await getAxios(`/bookmarks/${testName}/test2`);
@@ -153,6 +168,7 @@ for (const connection of <const>['ws', 'http']) {
   });
 
   test.skip(`${connection}: Should receive the watch change from a single deep PUT request`, async (t) => {
+    const { testName } = t.context as Context;
     await putResourceAxios({}, `/bookmarks/${testName}/test3`);
     await putResourceAxios({}, `/bookmarks/${testName}/test3/level1`);
     await putResourceAxios({}, `/bookmarks/${testName}/test3/level1/level2`);
@@ -173,7 +189,6 @@ for (const connection of <const>['ws', 'http']) {
     t.assert(axiosResp.data?._rev);
     // eslint-disable-next-line no-unreachable-loop
     for await (const change of changes) {
-      t.log(change);
       const nextRev = Number(axiosResp.data._rev) + 1;
       t.like(change.body, { _rev: nextRev });
       // @ts-expect-error stuff

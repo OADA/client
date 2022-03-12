@@ -33,19 +33,17 @@ import {
   putResourceAxios,
 } from './utils';
 
+interface Context {
+  testName: string;
+  testTree: Record<string, unknown>;
+}
+
 for (const connection of <const>['ws', 'http']) {
   // Client instance
   let client: oada.OADAClient;
 
-  // Tree
-  let testName: string;
-  let testTree: Record<string, unknown>;
-
   // Initialization
   test.before(`${connection}: Initialize connection`, async () => {
-    testName = `test-${ksuid.randomSync().string}`;
-    testTree = getTreeWithTestName(testName);
-    await putResourceAxios({}, `/bookmarks/${testName}`);
     // Connect
     client = await oada.connect({
       domain,
@@ -58,11 +56,26 @@ for (const connection of <const>['ws', 'http']) {
   test.after(`${connection}: Destroy connection`, async () => {
     // Disconnect
     await client?.disconnect();
+  });
+
+  test.beforeEach(`${connection}: Initialize test name`, async (t) => {
+    const { string: uid } = await ksuid.random();
+    const testName = `test-${uid}`;
+    // @ts-expect-error ava context typing is lame
+    t.context.testName = testName;
+    const testTree = getTreeWithTestName(testName);
+    // @ts-expect-error ava context typing is lame
+    t.context.testTree = testTree;
+    await putResourceAxios({}, `/bookmarks/${testName}`);
+  });
+  test.afterEach(`${connection}: Clean up test`, async (t) => {
+    const { testName } = t.context as Context;
     // This does not delete resources... oh well.
     await deleteLinkAxios(`/bookmarks/${testName}`);
   });
 
   test(`${connection}: Shouldn't error when the Content-Type header can be derived from the _type key in the PUT body`, async (t) => {
+    const { testName } = t.context as Context;
     const response = await client.put({
       path: `/bookmarks/${testName}/sometest`,
       data: { _type: 'application/json' },
@@ -73,6 +86,8 @@ for (const connection of <const>['ws', 'http']) {
   });
 
   test(`${connection}: Shouldn't error when the Content-Type header can be derived from the contentType key`, async (t) => {
+    // @ts-expect-error ava context typing is lame
+    const { testName } = t.context;
     const response = await client.put({
       path: `/bookmarks/${testName}/somethingnew`,
       data: `"abc123"`,
@@ -84,6 +99,7 @@ for (const connection of <const>['ws', 'http']) {
   });
 
   test(`${connection}: Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'`, async (t) => {
+    const { testName, testTree } = t.context as Context;
     const response = await client.put({
       path: `/bookmarks/${testName}/aaa/bbb/index-one/sometest`,
       tree: testTree,
@@ -95,6 +111,7 @@ for (const connection of <const>['ws', 'http']) {
   });
 
   test.skip(`${connection}: Should error when _type cannot be derived from the above tested sources`, async (t) => {
+    const { testName } = t.context as Context;
     await t.throwsAsync(
       client.put({
         path: `/bookmarks/${testName}/sometest`,
@@ -105,6 +122,7 @@ for (const connection of <const>['ws', 'http']) {
   // TODO: Check the rejection reason
 
   test(`${connection}: Should error when using a contentType parameter for which your token does not have access to read/write`, async (t) => {
+    const { testName } = t.context as Context;
     await t.throwsAsync(
       client.put({
         path: `/bookmarks/${testName}/sometest2`,
@@ -116,6 +134,7 @@ for (const connection of <const>['ws', 'http']) {
   // TODO: Check the rejection reason
 
   test(`${connection}: Should error when timeout occurs during a PUT request`, async (t) => {
+    const { testName } = t.context as Context;
     await t.throwsAsync(
       client.put({
         path: `/bookmarks/${testName}/sometest3`,
@@ -128,6 +147,7 @@ for (const connection of <const>['ws', 'http']) {
   // TODO: Check the rejection reason
 
   test(`${connection}: Should create the proper resource breaks on the server when a tree parameter is supplied to a deep endpoint`, async (t) => {
+    const { testName, testTree } = t.context as Context;
     const putResp = await client.put({
       path: `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`,
       tree: testTree,
@@ -245,6 +265,7 @@ for (const connection of <const>['ws', 'http']) {
   });
 
   test(`${connection}: Should create the proper trees from simultaneous PUT requests`, async (t) => {
+    const { testName, testTree } = t.context as Context;
     // Adjust timeout because concurrent PUTs usually result in if-match errors and
     // the client tries to resolve the conflicts using the exponential backoff algorithm
     // t.timeout(10_000);
@@ -264,6 +285,7 @@ for (const connection of <const>['ws', 'http']) {
       const response = await getAxios(
         `/bookmarks/${testName}/concurrent-put/${v}`
       );
+      t.log(response.data);
       t.is(response.status, 200);
       t.assert(response.headers['content-location']);
       t.assert(response.headers['x-oada-rev']);
