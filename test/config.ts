@@ -26,4 +26,4 @@ config();
 export const domain = normalizeDomain(
   process.env.DOMAIN ?? 'https://localhost'
 );
-export const token = process.env.token ?? 'abc';
+export const token = process.env.TOKEN ?? 'abc';

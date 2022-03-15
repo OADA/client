@@ -223,7 +223,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
       return [response];
     }
 
-    throw fixError(response);
+    throw await fixError(response);
   }
 
   #receive(m: MessageEvent<unknown>) {

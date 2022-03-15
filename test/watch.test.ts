@@ -36,6 +36,19 @@ interface Context {
   testName: string;
 }
 
+test.beforeEach('Initialize test name', async (t) => {
+  const { string: uid } = await ksuid.random();
+  const testName = `test-${uid}`;
+  // @ts-expect-error ava context typing is lame
+  t.context.testName = testName;
+  await putResourceAxios({}, `/bookmarks/${testName}`);
+});
+test.afterEach('Clean up test', async (t) => {
+  const { testName } = t.context as Context;
+  // This does not delete resources... oh well.
+  await deleteLinkAxios(`/bookmarks/${testName}`);
+});
+
 for (const connection of <const>['ws', 'http']) {
   // Client instance
   let client: OADAClient;
@@ -54,19 +67,6 @@ for (const connection of <const>['ws', 'http']) {
   test.after(`${connection}: Destroy connection`, async () => {
     // Disconnect
     await client?.disconnect();
-  });
-
-  test.beforeEach(`${connection}: Initialize test name`, async (t) => {
-    const { string: uid } = await ksuid.random();
-    const testName = `test-${uid}`;
-    // @ts-expect-error ava context typing is lame
-    t.context.testName = testName;
-    await putResourceAxios({}, `/bookmarks/${testName}`);
-  });
-  test.afterEach(`${connection}: Clean up test`, async (t) => {
-    const { testName } = t.context as Context;
-    // This does not delete resources... oh well.
-    await deleteLinkAxios(`/bookmarks/${testName}`);
   });
 
   test(`${connection}: Should deprecate v2 API`, async (t) => {

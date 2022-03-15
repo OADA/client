@@ -38,6 +38,23 @@ interface Context {
   testTree: Record<string, unknown>;
 }
 
+test.beforeEach('Initialize test name', async (t) => {
+  const { string: uid } = await ksuid.random();
+  const testName = `test-${uid}`;
+  // @ts-expect-error ava context typing is lame
+  t.context.testName = testName;
+  const testTree = getTreeWithTestName(testName);
+  // @ts-expect-error ava context typing is lame
+  t.context.testTree = testTree;
+  const { resource_id } = await putResourceAxios({}, `/bookmarks/${testName}`);
+  t.log(resource_id);
+});
+test.afterEach('Clean up test', async (t) => {
+  const { testName } = t.context as Context;
+  // This does not delete resources... oh well.
+  await deleteLinkAxios(`/bookmarks/${testName}`);
+});
+
 for (const connection of <const>['ws', 'http']) {
   // Client instance
   let client: oada.OADAClient;
@@ -56,22 +73,6 @@ for (const connection of <const>['ws', 'http']) {
   test.after(`${connection}: Destroy connection`, async () => {
     // Disconnect
     await client?.disconnect();
-  });
-
-  test.beforeEach(`${connection}: Initialize test name`, async (t) => {
-    const { string: uid } = await ksuid.random();
-    const testName = `test-${uid}`;
-    // @ts-expect-error ava context typing is lame
-    t.context.testName = testName;
-    const testTree = getTreeWithTestName(testName);
-    // @ts-expect-error ava context typing is lame
-    t.context.testTree = testTree;
-    await putResourceAxios({}, `/bookmarks/${testName}`);
-  });
-  test.afterEach(`${connection}: Clean up test`, async (t) => {
-    const { testName } = t.context as Context;
-    // This does not delete resources... oh well.
-    await deleteLinkAxios(`/bookmarks/${testName}`);
   });
 
   test(`${connection}: Shouldn't error when the Content-Type header can be derived from the _type key in the PUT body`, async (t) => {
@@ -128,10 +129,13 @@ for (const connection of <const>['ws', 'http']) {
         path: `/bookmarks/${testName}/sometest2`,
         data: { anothertest: 123 },
         contentType: 'application/vnd.oada.foobar.1+json',
-      })
+      }),
+      {
+        code: '403',
+        message: 'Token does not have required scope',
+      }
     );
   });
-  // TODO: Check the rejection reason
 
   test(`${connection}: Should error when timeout occurs during a PUT request`, async (t) => {
     const { testName } = t.context as Context;

@@ -27,6 +27,7 @@ import ksuid from 'ksuid';
 
 import {
   createNestedObject,
+  fixError,
   getObjectAtPath,
   toArrayPath,
   toStringPath,
@@ -1056,10 +1057,13 @@ export class OADAClient {
         return { exist: false };
       }
 
+      throw await fixError(cError as Error);
+      /*
       throw new Error(
         // @ts-expect-error stupid stupid error handling
         `Error: head for resource returned ${cError.statusText ?? cError}`
       );
+      */
     }
 
     throw new Error('Status code is neither 200 nor 404.');

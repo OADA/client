@@ -220,7 +220,7 @@ export class HttpClient extends EventEmitter implements Connection {
       // This is the same test as in ./websocket.ts
       if (!result.ok) {
         trace('result.status %s is not 2xx, throwing', result.status);
-        throw fixError(result);
+        throw await fixError(result);
       }
 
       trace('result.status ok, pulling headers');

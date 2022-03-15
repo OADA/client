@@ -99,14 +99,30 @@ export function createNestedObject(
 /**
  * Ensure we throw real `Error`s
  */
-export function fixError<
-  E extends { status?: string | number; statusText?: string }
->(error: E): E & Error {
+export async function fixError<
+  E extends {
+    message?: string;
+    status?: string | number;
+    statusText?: string;
+  }
+>(error: E): Promise<E & Error> {
   if (error instanceof Error) {
     return error;
   }
 
+  const code = `${error.status}`;
+
+  // TODO: Clean up this mess
+  let body: { message?: string } = {};
+  try {
+    // @ts-expect-error try to get error body?
+    body = (await error.json?.()) ?? error.data;
+  } catch {}
   const message =
-    typeof error.status === 'string' ? error.status : error.statusText;
-  return Object.assign(new Error(message), error);
+    error.message ??
+    body?.message ??
+    (error.statusText
+      ? `${error.status} ${error.statusText}`
+      : `${error.status}`);
+  return Object.assign(new Error(message), { code, ...error });
 }
