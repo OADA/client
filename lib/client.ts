@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { AbortController } from 'node-abort-controller';
+import { AbortController } from 'abort-controller';
 import { Buffer } from 'buffer';
 import { setTimeout } from 'isomorphic-timers-promises';
 
@@ -36,6 +36,7 @@ import { HttpClient } from './http';
 import { WebSocketClient } from './websocket';
 
 import type { Change, Json, JsonObject } from '.';
+import { join } from 'node:path';
 
 const trace = debug('@oada/client:client:trace');
 const info = debug('@oada/client:client:info');
@@ -127,9 +128,8 @@ export interface WatchPersist {
   lastRev: number;
   recordLapsedTimeout: number | undefined;
   lastCheck: number | undefined;
-  items: Record<number, boolean | number>;
-  // Items: {[key: string]: object};
-  recorded: Record<number, boolean | number>;
+  items: Map<number, boolean | number>;
+  recorded: Map<number, boolean | number>;
 }
 
 export interface WatchRequestBase {
@@ -254,11 +254,11 @@ async function doWatchCallback<
  * Main  OADAClient class
  */
 export class OADAClient {
-  #token;
-  #domain;
-  #concurrency;
-  #connection: Connection;
-  #persistList: Map<string, WatchPersist>;
+  readonly #token;
+  readonly #domain;
+  readonly #concurrency;
+  readonly #connection: Connection;
+  readonly #persistList: Map<string, WatchPersist>;
 
   constructor({
     domain,
@@ -468,7 +468,7 @@ export class OADAClient {
       }
 
       // Retrieve list of previously lapsed revs
-      let recorded;
+      let recorded: Record<number, boolean | number>;
       try {
         const { data: revData } = await this.get({
           path: `${persistPath}/items`,
@@ -479,7 +479,7 @@ export class OADAClient {
             : {};
       } catch (cError: unknown) {
         // @ts-expect-error stupid error handling
-        if (cError.status === 404) {
+        if (cError?.code === '404') {
           recorded = {};
         } else {
           throw cError as Error;
@@ -490,8 +490,10 @@ export class OADAClient {
         lastCheck: undefined,
         recordLapsedTimeout,
         lastRev,
-        items: {},
-        recorded,
+        items: new Map(),
+        recorded: new Map(
+          Object.entries(recorded).map(([k, v]) => [Number(k), v])
+        ),
       });
     }
 
@@ -543,8 +545,9 @@ export class OADAClient {
             ) {
               parentRev = bod._rev;
               if (persistPath && this.#persistList.has(persistPath)) {
-                this.#persistList.get(persistPath)!.items[Number(parentRev)] =
-                  Date.now();
+                this.#persistList
+                  .get(persistPath)!
+                  .items.set(Number(parentRev), Date.now());
               }
             }
           }
@@ -648,15 +651,13 @@ export class OADAClient {
       return body;
     }
 
-    const data = body;
-
     // Select children to traverse
     const children: Array<{ treeKey: string; dataKey: string }> = [];
     if ('*' in subTree) {
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
       for (const [key, value] of Object.entries(
-        data as Record<string, unknown>
+        body as Record<string, unknown>
       )) {
         if (typeof value === 'object') {
           children.push({ treeKey: '*', dataKey: key });
@@ -665,33 +666,144 @@ export class OADAClient {
     } else {
       // Otherwise, get children from the tree provided by the user
       for (const key of Object.keys(subTree ?? {})) {
-        if (typeof data![key as keyof typeof data] === 'object') {
+        if (typeof body![key as keyof typeof body] === 'object') {
           children.push({ treeKey: key, dataKey: key });
         }
       }
     }
 
-    // Initiate recursive calls
-    const promises = children.map(async (item) => {
-      const childPath = `${path}/${item.dataKey}`;
-      if (!data) {
-        return;
-      }
+    if (body) {
+      // Initiate recursive calls
+      await Promise.all(
+        children.map(async (item) => {
+          const childPath = `${path}/${item.dataKey}`;
 
-      const response = await this.#recursiveGet(
-        childPath,
-        subTree[item.treeKey],
-        (data as JsonObject)[item.dataKey]
+          const response = await this.#recursiveGet(
+            childPath,
+            subTree[item.treeKey],
+            (body as JsonObject)[item.dataKey]
+          );
+          if (Buffer.isBuffer(response)) {
+            throw new TypeError('Non JSON is not supported.');
+          }
+
+          (body as JsonObject)[item.dataKey] = response;
+        })
       );
-      if (Buffer.isBuffer(response)) {
-        throw new TypeError('Non JSON is not supported.');
+    }
+
+    return body; // Return object at "path"
+  }
+
+  async #ensureTree(tree: OADATree, pathArray: readonly string[]) {
+    // Retry counter
+    let retryCount = 0;
+    // Link object (eventually substituted by an actual link object)
+    let linkObject: Json = null;
+    let newResourcePathArray: string[] = [];
+    for (let index = pathArray.length - 1; index >= 0; index--) {
+      // Get current path
+      const partialPathArray = pathArray.slice(0, index + 1);
+      // Get corresponding data definition from the provided tree
+      const treeObject = getObjectAtPath(tree, partialPathArray);
+      if (treeObject._type) {
+        // It's a resource
+        const contentType = treeObject._type;
+        const partialPath = toStringPath(partialPathArray);
+        // Check if resource already exists on the remote server
+        // eslint-disable-next-line no-await-in-loop
+        const resourceCheckResult = await this.#resourceExists(partialPath);
+        if (resourceCheckResult.exist) {
+          // CASE 1: resource exists on server.
+          // simply create a link using PUT request
+          if (linkObject && newResourcePathArray.length > 0) {
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              await this.put({
+                path: toStringPath(newResourcePathArray),
+                contentType,
+                data: linkObject,
+                // Ensure the resource has not been modified (opportunistic lock)
+                revIfMatch: resourceCheckResult.rev,
+              });
+            } catch (cError: unknown) {
+              // Handle 412 (If-Match failed)
+              // @ts-expect-error stupid errors
+              if (cError?.code === '412' && retryCount++ < 5) {
+                // eslint-disable-next-line no-await-in-loop
+                await setTimeout(
+                  // Retry with exponential backoff
+                  100 * (retryCount * retryCount + Math.random())
+                );
+                // Reset loop counter and do tree construction again.
+                index = pathArray.length;
+                continue;
+              }
+
+              // eslint-disable-next-line no-await-in-loop
+              throw await fixError(cError as Error);
+            }
+          }
+
+          // We hit a resource that already exists.
+          // No need to further traverse the tree.
+          break;
+        } else {
+          // CASE 2: resource does NOT exist on server.
+          // create a new nested object containing a link
+          const relativePathArray = newResourcePathArray.slice(index + 1);
+          const newResource = linkObject
+            ? createNestedObject(linkObject, relativePathArray)
+            : {};
+          // Create a new resource
+          // eslint-disable-next-line no-await-in-loop
+          const resourceId: string = await this.#createResource(
+            contentType,
+            newResource as Json
+          );
+          // Save a link
+          linkObject =
+            '_rev' in treeObject
+              ? { _id: resourceId, _rev: 0 } // Versioned link
+              : { _id: resourceId }; // Non-versioned link
+          newResourcePathArray = partialPathArray.slice(); // Clone
+        }
       }
+    }
+  }
 
-      (data as JsonObject)[item.dataKey] = response;
-    });
+  async #guessContentType(
+    { contentType, data, tree }: PUTRequest,
+    pathArray: readonly string[]
+  ): Promise<string> {
+    // 1) get content-type from the argument
+    if (contentType) {
+      return contentType;
+    }
 
-    await Promise.all(promises);
-    return data; // Return object at "path"
+    // 2) get content-type from the resource body
+    if (Buffer.isBuffer(data)) {
+      const type = await fromBuffer(data);
+      if (type?.mime) {
+        return type.mime;
+      }
+    } else {
+      const type = (data as JsonObject)?._type;
+      if (type) {
+        return type as string;
+      }
+    }
+
+    // 3) get content-type from the tree
+    if (tree) {
+      const { _type } = getObjectAtPath(tree as OADATree, pathArray);
+      if (_type) {
+        return _type;
+      }
+    }
+
+    // Assume it is JSON?
+    return 'application/json';
   }
 
   /**
@@ -704,109 +816,16 @@ export class OADAClient {
     const pathArray = toArrayPath(request.path);
 
     if (request.tree) {
-      // Retry counter
-      let retryCount = 0;
-      // Link object (eventually substituted by an actual link object)
-      let linkObject: Json = null;
-      let newResourcePathArray: string[] = [];
-      for (let index = pathArray.length - 1; index >= 0; index--) {
-        // Get current path
-        const partialPathArray = pathArray.slice(0, index + 1);
-        // Get corresponding data definition from the provided tree
-        const treeObject = getObjectAtPath(
-          request.tree as OADATree,
-          partialPathArray
-        );
-        if ('_type' in treeObject) {
-          // It's a resource
-          const contentType = treeObject._type!;
-          const partialPath = toStringPath(partialPathArray);
-          // Check if resource already exists on the remote server
-          // eslint-disable-next-line no-await-in-loop
-          const resourceCheckResult = await this.#resourceExists(partialPath);
-          if (resourceCheckResult.exist) {
-            // CASE 1: resource exists on server.
-            // simply create a link using PUT request
-            if (linkObject && newResourcePathArray.length > 0) {
-              // eslint-disable-next-line no-await-in-loop
-              const linkPutResponse = await this.put({
-                path: toStringPath(newResourcePathArray),
-                contentType,
-                data: linkObject,
-                // Ensure the resource has not been modified (opportunistic lock)
-                revIfMatch: resourceCheckResult.rev,
-              }).catch((cError: unknown) => {
-                // @ts-expect-error stupid error checking
-                if (cError.status === 412) {
-                  return cError as Response;
-                }
-
-                // @ts-expect-error stupid error checking
-                throw new Error(cError.statusText);
-              });
-
-              // Handle return code 412 (If-Match failed)
-              if (linkPutResponse.status === 412) {
-                // Retry with exponential backoff
-                if (retryCount++ < 5) {
-                  // eslint-disable-next-line no-await-in-loop
-                  await setTimeout(
-                    100 * (retryCount * retryCount + Math.random())
-                  );
-                  // Reset loop counter and do tree construction again.
-                  index = pathArray.length;
-                  continue;
-                } else {
-                  throw new Error('If-match failed.');
-                }
-              }
-            }
-
-            // We hit a resource that already exists.
-            // No need to further traverse the tree.
-            break;
-          } else {
-            // CASE 2: resource does NOT exist on server.
-            // create a new nested object containing a link
-            const relativePathArray = newResourcePathArray.slice(index + 1);
-            const newResource = linkObject
-              ? createNestedObject(linkObject, relativePathArray)
-              : {};
-            // Create a new resource
-            // eslint-disable-next-line no-await-in-loop
-            const resourceId: string = await this.#createResource(
-              contentType,
-              newResource as Json
-            );
-            // Save a link
-            linkObject =
-              '_rev' in treeObject
-                ? { _id: resourceId, _rev: 0 } // Versioned link
-                : { _id: resourceId }; // Non-versioned link
-            newResourcePathArray = partialPathArray.slice(); // Clone
-          }
-        }
-      }
+      await this.#ensureTree(request.tree as OADATree, pathArray);
     }
 
-    // Get content-type
-    const contentType =
-      request.contentType || // 1) get content-type from the argument
-      (Buffer.isBuffer(request.data) &&
-        // eslint-disable-next-line unicorn/no-await-expression-member
-        (await fromBuffer(request.data))?.mime) ||
-      (request.data as JsonObject)?._type || // 2) get content-type from the resource body
-      (request.tree
-        ? getObjectAtPath(request.tree as OADATree, pathArray)._type // 3) get content-type from the tree
-        : 'application/json'); // 4) Assume application/json
-
-    // return PUT response
+    const contentType = await this.#guessContentType(request, pathArray);
     const [response] = await this.#connection.request(
       {
         method: 'put',
         headers: {
           'authorization': `Bearer ${this.#token}`,
-          'content-type': contentType as string,
+          'content-type': contentType,
           ...(request.revIfMatch && {
             'if-match': request.revIfMatch.toString(),
           }), // Add if-match header if revIfMatch is provided
@@ -833,27 +852,16 @@ export class OADAClient {
       // We could go to all the trouble of re-implementing tree puts for posts,
       // but it's much easier to just make a ksuid and do the tree put
       const { string: newkey } = await ksuid.random();
-      request.path += `/${newkey}`;
-      return this.put(request);
+      return this.put({ ...request, path: join(path, newkey) });
     }
 
-    // Get content-type
-    const contentType =
-      request.contentType ?? // 1) get content-type from the argument
-      // eslint-disable-next-line unicorn/no-await-expression-member
-      (Buffer.isBuffer(data) && (await fromBuffer(data))?.mime) ??
-      (data as JsonObject)?._type ?? // 2) get content-type from the resource body
-      (tree
-        ? getObjectAtPath(tree, pathArray)._type // 3) get content-type from the tree
-        : 'application/json'); // 4) Assume application/json
-
-    // return PUT response
+    const contentType = await this.#guessContentType(request, pathArray);
     const [response] = await this.#connection.request(
       {
         method: 'post',
         headers: {
           'authorization': `Bearer ${this.#token}`,
-          'content-type': contentType as string,
+          'content-type': contentType,
         },
         path,
         data,
@@ -921,8 +929,8 @@ export class OADAClient {
       return response;
     } catch (cError: unknown) {
       // @ts-expect-error stupid errors
-      if (cError.status !== 404) {
-        throw cError as Error;
+      if (cError?.code !== '404') {
+        throw await fixError(cError as Error);
       }
 
       trace('Path to ensure did not exist. Creating');
@@ -930,17 +938,21 @@ export class OADAClient {
     }
   }
 
-  /** Attempt to save the latest rev processed, accommodating concurrency */
+  /**
+   * Attempt to save the latest rev processed, accommodating concurrency
+   */
   async #persistWatch(persistPath: string, rev: number): Promise<void> {
-    trace(`Persisting watch for path ${persistPath} to rev ${rev}`);
+    trace('Persisting watch for path %s to rev %d', persistPath, rev);
     if (this.#persistList.has(persistPath)) {
       let { lastRev, recorded, items, recordLapsedTimeout, lastCheck } =
         this.#persistList.get(persistPath)!;
       if (recordLapsedTimeout !== undefined) {
         // Handle finished revs that were previously recorded
-        if (rev in recorded) {
+        if (recorded.has(rev)) {
           info(
-            `Lapsed rev [${rev}] on path ${persistPath} is now resolved. Removing from 'items' list.`
+            "Lapsed rev [%d] on path %s is now resolved. Removing from 'items' list.",
+            rev,
+            persistPath
           );
           await this.delete({
             path: `${persistPath}/items/${rev}`,
@@ -956,12 +968,12 @@ export class OADAClient {
         this.#persistList.get(persistPath)!.lastCheck = now;
       }
 
-      items[Number(rev)] = true;
-      while (items[lastRev + 1] === true) {
+      items.set(Number(rev), true);
+      while (items.get(lastRev + 1) === true) {
         // Truthy won't work with items as timestamps
         lastRev++;
         this.#persistList.get(persistPath)!.lastRev = lastRev;
-        delete items[Number(lastRev)];
+        items.delete(Number(lastRev));
       }
 
       await this.put({
@@ -976,11 +988,15 @@ export class OADAClient {
    * Record unfinished revs and bring persisted rev up to date
    */
   async #recordLapsedRevs(persistPath: string, now: number): Promise<void> {
-    trace(`Checking for lapsed revs for path [${persistPath}] time: [${now}]`);
+    trace(
+      'Checking for lapsed revs for path [%s] time: [%s]',
+      persistPath,
+      now
+    );
     const { items, recorded, recordLapsedTimeout } =
       this.#persistList.get(persistPath)!;
     // Iterate over items;
-    for (const [key, item] of Object.entries(items)) {
+    for (const [key, item] of items) {
       if (
         recordLapsedTimeout !== undefined &&
         typeof item === 'number' &&
@@ -996,8 +1012,8 @@ export class OADAClient {
         });
 
         // Mark them as resolved
-        items[Number(key)] = true;
-        recorded[Number(key)] = true;
+        items.set(Number(key), true);
+        recorded.set(Number(key), true);
       }
     }
   }
@@ -1005,8 +1021,8 @@ export class OADAClient {
   /** Create a new resource. Returns resource ID */
   async #createResource(contentType: string, data: Json): Promise<string> {
     // Create unique resource ID
-    // eslint-disable-next-line unicorn/no-await-expression-member
-    const resourceId = `resources/${(await ksuid.random()).string}`;
+    const { string: id } = await ksuid.random();
+    const resourceId = `resources/${id}`;
     // Append resource ID and content type to object
     // const fullData = { _id: resourceId, _type: contentType, ...data };
     // send PUT request
@@ -1047,23 +1063,17 @@ export class OADAClient {
       }
     } catch (cError: unknown) {
       // @ts-expect-error stupid stupid error handling
-      if (cError.status === 404) {
+      if (cError?.code === '404') {
         return { exist: false };
       }
 
       // @ts-expect-error stupid stupid error handling
-      if (cError.status === 403 && path.startsWith('/resources')) {
+      if (cError?.code === '403' && path.startsWith('/resources')) {
         // 403 is what you get on resources that don't exist (i.e. Forbidden)
         return { exist: false };
       }
 
       throw await fixError(cError as Error);
-      /*
-      throw new Error(
-        // @ts-expect-error stupid stupid error handling
-        `Error: head for resource returned ${cError.statusText ?? cError}`
-      );
-      */
     }
 
     throw new Error('Status code is neither 200 nor 404.');

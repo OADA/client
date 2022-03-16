@@ -39,8 +39,8 @@ import type {
   ConnectionResponse,
   IConnectionResponse,
 } from './client';
+import { TimeoutError, fixError } from './utils';
 import type { Change } from './';
-import { fixError } from './utils';
 import { handleErrors } from './errors';
 
 const trace = debug('@oada/client:ws:trace');
@@ -95,10 +95,10 @@ class BetterWebSocket extends WebSocket {
 
 export class WebSocketClient extends EventEmitter implements Connection {
   #ws: Promise<ReconnectingWebSocket>;
-  #domain: string;
+  readonly #domain: string;
   #status: ConnectionStatus;
-  #requests: ResponseEmitter = new EventEmitter();
-  #q: PQueue;
+  readonly #requests: ResponseEmitter = new EventEmitter();
+  readonly #q: PQueue;
 
   /**
    * Constructor
@@ -207,7 +207,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
       responsePs.push(
         // eslint-disable-next-line github/no-then
         setTimeout(timeout).then(() => {
-          throw new Error('Request timeout');
+          throw new TimeoutError(request);
         })
       );
     }

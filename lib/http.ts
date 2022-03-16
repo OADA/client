@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-import { AbortController } from 'node-abort-controller';
 import { Buffer } from 'buffer';
 
+import { AbortController, Method } from 'fetch-h2';
 import EventEmitter from 'eventemitter3';
-import type { Method } from 'fetch-h2';
 import PQueue from 'p-queue';
 import debug from 'debug';
 import ksuid from 'ksuid';
@@ -33,10 +32,10 @@ import type {
   ConnectionRequest,
   IConnectionResponse,
 } from './client';
+import { TimeoutError, fixError } from './utils';
 import fetch, { context } from './fetch';
 import type { Json } from '.';
 import { WebSocketClient } from './websocket';
-import { fixError } from './utils';
 import { handleErrors } from './errors';
 
 const trace = debug('@oada/client:http:trace');
@@ -182,14 +181,16 @@ export class HttpClient extends EventEmitter implements Connection {
       request.path
     );
 
+    let done = false;
     let timedout = false;
-    let signal: AbortSignal | undefined;
+    let controller: AbortController | undefined;
     if (timeout) {
-      const controller = new AbortController();
-      ({ signal } = controller);
+      controller = new AbortController();
       setTimeout(() => {
-        controller.abort();
-        timedout = true;
+        if (!done) {
+          timedout = true;
+          controller!.abort();
+        }
       }, timeout);
     }
 
@@ -202,8 +203,7 @@ export class HttpClient extends EventEmitter implements Connection {
         new URL(request.path, this.#domain).toString(),
         {
           method: request.method.toUpperCase() as Method,
-          // @ts-expect-error fetch has a crazy type for this
-          signal,
+          signal: controller?.signal,
           timeout,
           body,
           // We are not explicitly sending token in each request
@@ -211,9 +211,7 @@ export class HttpClient extends EventEmitter implements Connection {
           headers: request.headers,
         }
       );
-      if (timedout) {
-        throw new Error('Request timeout');
-      }
+      done = true;
 
       trace('Fetch did not throw, checking status of %s', result.status);
 
@@ -246,6 +244,10 @@ export class HttpClient extends EventEmitter implements Connection {
         },
       ];
     } catch (cError: unknown) {
+      if (timedout) {
+        throw new TimeoutError(request);
+      }
+
       // @ts-expect-error stupid error handling
       // eslint-disable-next-line sonarjs/no-small-switch
       switch (cError?.code) {

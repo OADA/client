@@ -28,6 +28,7 @@ import { Headers } from './fetch';
 import debug from 'debug';
 
 import type { IConnectionResponse } from './client';
+import { fixError } from './utils';
 
 const warn = debug('@oada/client:errors:warn');
 const trace = debug('@oada/client:errors:trace');
@@ -100,11 +101,11 @@ export async function handleErrors<R extends unknown[]>(
     const error = cError?.[0]?.error ?? cError?.[0] ?? cError?.error ?? cError;
     trace(error, 'Attempting to handle error');
     // @ts-expect-error stupid error handling
-    switch (error.status ?? cError?.code) {
-      case 429:
+    switch (`${error.status ?? cError?.code}`) {
+      case '429':
         return await handleRatelimit(error, request, ...rest);
       // Some servers use 503 for rate limit...
-      case 503: {
+      case '503': {
         const headers = new Headers(error.headers);
         if (headers.has('Retry-After')) {
           return await handleRatelimit(error, request, ...rest);
@@ -122,6 +123,6 @@ export async function handleErrors<R extends unknown[]>(
     }
 
     // Pass error up
-    throw cError as Error;
+    throw await fixError(cError as Error);
   }
 }

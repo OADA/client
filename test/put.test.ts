@@ -23,15 +23,14 @@ import test from 'ava';
 
 import ksuid from 'ksuid';
 
-// eslint-disable-next-line import/no-namespace
-import * as oada from '../dist/index.js';
 import {
   Nested,
   deleteLinkAxios,
   getAxios,
   getTreeWithTestName,
   putResourceAxios,
-} from './utils';
+} from './utils.js';
+import { OADAClient, connect } from '../dist/index.js';
 
 interface Context {
   testName: string;
@@ -46,8 +45,11 @@ test.beforeEach('Initialize test name', async (t) => {
   const testTree = getTreeWithTestName(testName);
   // @ts-expect-error ava context typing is lame
   t.context.testTree = testTree;
-  const { resource_id } = await putResourceAxios({}, `/bookmarks/${testName}`);
-  t.log(resource_id);
+  const { resource_id: resourceId } = await putResourceAxios(
+    {},
+    `/bookmarks/${testName}`
+  );
+  t.log(resourceId);
 });
 test.afterEach('Clean up test', async (t) => {
   const { testName } = t.context as Context;
@@ -57,19 +59,22 @@ test.afterEach('Clean up test', async (t) => {
 
 for (const connection of <const>['ws', 'http']) {
   // Client instance
-  let client: oada.OADAClient;
+  let client: OADAClient;
 
   // Initialization
+  // eslint-disable-next-line ava/hooks-order
   test.before(`${connection}: Initialize connection`, async () => {
     // Connect
-    client = await oada.connect({
+    client = await connect({
       domain,
       token,
       connection,
+      concurrency: 1,
     });
   });
 
   // Cleanup
+  // eslint-disable-next-line ava/hooks-order
   test.after(`${connection}: Destroy connection`, async () => {
     // Disconnect
     await client?.disconnect();
@@ -145,10 +150,10 @@ for (const connection of <const>['ws', 'http']) {
         data: { anothertest: 123 },
         contentType: 'application/json',
         timeout: 1,
-      })
+      }),
+      { name: 'TimeoutError', code: 'REQUEST_TIMEDOUT' }
     );
   });
-  // TODO: Check the rejection reason
 
   test(`${connection}: Should create the proper resource breaks on the server when a tree parameter is supplied to a deep endpoint`, async (t) => {
     const { testName, testTree } = t.context as Context;

@@ -39,7 +39,10 @@ export function toArrayPath(path: string): string[] {
   return arrayPath;
 }
 
-export function getObjectAtPath(tree: OADATree, path: string[]): OADATree {
+export function getObjectAtPath(
+  tree: OADATree,
+  path: readonly string[]
+): OADATree {
   let result = tree;
   for (const key of path) {
     if (key in result) {
@@ -97,6 +100,24 @@ export function createNestedObject(
 }
 
 /**
+ * Use an Error class for timed out requests
+ */
+export class TimeoutError extends Error {
+  public get code() {
+    return 'REQUEST_TIMEDOUT';
+  }
+
+  public override get name() {
+    return 'TimeoutError';
+  }
+
+  constructor(request: unknown) {
+    super('Request timed out');
+    Object.assign(this, request);
+  }
+}
+
+/**
  * Ensure we throw real `Error`s
  */
 export async function fixError<
@@ -116,8 +137,10 @@ export async function fixError<
   let body: { message?: string } = {};
   try {
     // @ts-expect-error try to get error body?
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     body = (await error.json?.()) ?? error.data;
   } catch {}
+
   const message =
     error.message ??
     body?.message ??
