@@ -45,11 +45,7 @@ test.beforeEach('Initialize test name', async (t) => {
   const testTree = getTreeWithTestName(testName);
   // @ts-expect-error ava context typing is lame
   t.context.testTree = testTree;
-  const { resource_id: resourceId } = await putResourceAxios(
-    {},
-    `/bookmarks/${testName}`
-  );
-  t.log(resourceId);
+  await putResourceAxios({}, `/bookmarks/${testName}`);
 });
 test.afterEach('Clean up test', async (t) => {
   const { testName } = t.context as Context;
@@ -116,6 +112,7 @@ for (const connection of <const>['ws', 'http']) {
     t.assert(response.headers['x-oada-rev']);
   });
 
+  // TODO: Check the rejection reason
   test.skip(`${connection}: Should error when _type cannot be derived from the above tested sources`, async (t) => {
     const { testName } = t.context as Context;
     await t.throwsAsync(
@@ -125,7 +122,6 @@ for (const connection of <const>['ws', 'http']) {
       })
     );
   });
-  // TODO: Check the rejection reason
 
   test(`${connection}: Should error when using a contentType parameter for which your token does not have access to read/write`, async (t) => {
     const { testName } = t.context as Context;

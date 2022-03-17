@@ -733,7 +733,7 @@ export class OADAClient {
                 // eslint-disable-next-line no-await-in-loop
                 await setTimeout(
                   // Retry with exponential backoff
-                  100 * (retryCount * retryCount + Math.random())
+                  100 * (retryCount ** 2 + Math.random())
                 );
                 // Reset loop counter and do tree construction again.
                 index = pathArray.length;

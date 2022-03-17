@@ -29,7 +29,8 @@
     "dist/**/*"
   ],
   "scripts": {
-    "test": "yarn build test && c8 ava",
+    "test": "yarn run build test && c8 ava",
+    "test:debug": "yarn run build test && ava -T 60m -svc 1 --no-worker-threads",
     "build": "tsc -b",
     "dev": "tsc -w",
     "prettier": "prettier --write .",

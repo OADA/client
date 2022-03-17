@@ -27,12 +27,28 @@
     ".dccache": true,
     ".yarn": true,
     ".pnp.*": true,
-    "*.tsbuildinfo": true
+    "*.tsbuildinfo": true,
+    "**/.yarn": true,
+    "**/.pnp.*": true
   },
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "cSpell.words": ["esbuild", "ksuid", "lcov", "sonarjs", "unwatch"],
   "eslint.nodePath": ".yarn/sdks",
   "prettier.prettierPath": ".yarn/sdks/prettier/index.js",
   "typescript.tsdk": ".yarn/sdks/typescript/lib",
-  "explorerExclude.backup": null
+  "explorerExclude.backup": null,
+  "npm.packageManager": "yarn",
+  "debug.javascript.autoAttachFilter": "smart",
+  "debug.javascript.breakOnConditionalError": true,
+  "debug.javascript.defaultRuntimeExecutable": {
+    "node": "yarn",
+    "pwa-node": "yarn"
+  },
+  "debug.javascript.autoAttachSmartPattern": [
+    "${workspaceFolder}/**",
+    "!**/node_modules/**",
+    "**/$KNOWN_TOOLS$/**",
+    "!**/yarn-*",
+    "!**/ava-*/**/cli.mjs"
+  ]
 }
