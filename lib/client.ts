@@ -402,7 +402,7 @@ export class OADAClient {
     const restart = new AbortController();
     const headers: Record<string, string> = {};
 
-    // TODO: Decide whether this should go after persist to allow it to override the persist rev
+    // ???: Decide whether this should go after persist to allow it to override the persist rev
     if ('rev' in request) {
       headers['x-oada-rev'] = `${request.rev}`;
     }
@@ -431,13 +431,17 @@ export class OADAClient {
           lastRev = Number(r?.rev);
           headers['x-oada-rev'] = lastRev.toString();
           trace(
-            `Watch persist found _meta entry for [${name}]. Setting x-oada-rev header to ${lastRev}`
+            'Watch persist found _meta entry for [%s]. Setting x-oada-rev header to %d',
+            name,
+            lastRev
           );
         }
 
         if (!lastRev) {
           trace(
-            `Watch persist found _meta entry for [${name}], but 'rev' is undefined. Writing 'rev' as ${rev}`
+            "Watch persist found _meta entry for [%s], but 'rev' is undefined. Writing 'rev' as %d",
+            name,
+            lastRev
           );
           await this.put({
             path: `${persistPath}/rev`,
@@ -672,103 +676,84 @@ export class OADAClient {
       }
     }
 
-    if (body) {
-      // Initiate recursive calls
-      await Promise.all(
-        children.map(async (item) => {
-          const childPath = `${path}/${item.dataKey}`;
-
-          const response = await this.#recursiveGet(
-            childPath,
-            subTree[item.treeKey],
-            (body as JsonObject)[item.dataKey]
-          );
-          if (Buffer.isBuffer(response)) {
-            throw new TypeError('Non JSON is not supported.');
-          }
-
-          (body as JsonObject)[item.dataKey] = response;
-        })
-      );
+    if (!body) {
+      return body;
     }
 
+    // Await recursive calls
+    await Promise.all(
+      children.map(async (item) => {
+        const childPath = `${path}/${item.dataKey}`;
+
+        const response = await this.#recursiveGet(
+          childPath,
+          subTree[item.treeKey],
+          (body as JsonObject)[item.dataKey]
+        );
+        if (Buffer.isBuffer(response)) {
+          throw new TypeError('Non JSON is not supported.');
+        }
+
+        (body as JsonObject)[item.dataKey] = response;
+      })
+    );
     return body; // Return object at "path"
   }
 
   async #ensureTree(tree: OADATree, pathArray: readonly string[]) {
-    // Retry counter
-    let retryCount = 0;
     // Link object (eventually substituted by an actual link object)
     let linkObject: Json = null;
-    let newResourcePathArray: string[] = [];
-    for (let index = pathArray.length - 1; index >= 0; index--) {
+    let newResourcePathArray: readonly string[] = [];
+    for await (const index of Array.from(pathArray.keys()).reverse()) {
       // Get current path
-      const partialPathArray = pathArray.slice(0, index + 1);
+      const partialPathArray: readonly string[] = pathArray.slice(0, index + 1);
       // Get corresponding data definition from the provided tree
       const treeObject = getObjectAtPath(tree, partialPathArray);
-      if (treeObject._type) {
-        // It's a resource
-        const contentType = treeObject._type;
-        const partialPath = toStringPath(partialPathArray);
-        // Check if resource already exists on the remote server
-        // eslint-disable-next-line no-await-in-loop
-        const resourceCheckResult = await this.#resourceExists(partialPath);
-        if (resourceCheckResult.exist) {
-          // CASE 1: resource exists on server.
-          // simply create a link using PUT request
-          if (linkObject && newResourcePathArray.length > 0) {
-            try {
-              // eslint-disable-next-line no-await-in-loop
-              await this.put({
-                path: toStringPath(newResourcePathArray),
-                contentType,
-                data: linkObject,
-                // Ensure the resource has not been modified (opportunistic lock)
-                revIfMatch: resourceCheckResult.rev,
-              });
-            } catch (cError: unknown) {
-              // Handle 412 (If-Match failed)
-              // @ts-expect-error stupid errors
-              if (cError?.code === '412' && retryCount++ < 5) {
-                // eslint-disable-next-line no-await-in-loop
-                await setTimeout(
-                  // Retry with exponential backoff
-                  100 * (retryCount ** 2 + Math.random())
-                );
-                // Reset loop counter and do tree construction again.
-                index = pathArray.length;
-                continue;
-              }
-
-              // eslint-disable-next-line no-await-in-loop
-              throw await fixError(cError as Error);
-            }
-          }
-
-          // We hit a resource that already exists.
-          // No need to further traverse the tree.
-          break;
-        } else {
-          // CASE 2: resource does NOT exist on server.
-          // create a new nested object containing a link
-          const relativePathArray = newResourcePathArray.slice(index + 1);
-          const newResource = linkObject
-            ? createNestedObject(linkObject, relativePathArray)
-            : {};
-          // Create a new resource
-          // eslint-disable-next-line no-await-in-loop
-          const resourceId: string = await this.#createResource(
-            contentType,
-            newResource as Json
-          );
-          // Save a link
-          linkObject =
-            '_rev' in treeObject
-              ? { _id: resourceId, _rev: 0 } // Versioned link
-              : { _id: resourceId }; // Non-versioned link
-          newResourcePathArray = partialPathArray.slice(); // Clone
-        }
+      if (!treeObject._type) {
+        // No resource break here
+        continue;
       }
+
+      // It's a resource
+      const contentType = treeObject._type;
+      const partialPath = toStringPath(partialPathArray);
+      // Check if resource already exists on the remote server
+      const resourceCheckResult = await this.#resourceExists(partialPath);
+
+      // CASE 1: resource exists on server.
+      if (resourceCheckResult.exist) {
+        // Simply create a link using PUT request
+        if (linkObject && newResourcePathArray.length > 0) {
+          await this.put({
+            path: toStringPath(newResourcePathArray),
+            contentType,
+            data: linkObject,
+            // Ensure the resource has not been modified (opportunistic lock)
+            revIfMatch: resourceCheckResult.rev,
+          });
+        }
+
+        // Resource already exists, no need to further traverse the tree.
+        return;
+      }
+
+      // CASE 2: resource does NOT exist on server.
+      // create a new nested object containing a link
+      const relativePathArray = newResourcePathArray.slice(index + 1);
+      const newResource = linkObject
+        ? createNestedObject(linkObject, relativePathArray)
+        : {};
+      // Create a new resource
+      const resourceId: string = await this.#createResource(
+        contentType,
+        newResource as Json
+      );
+      // Save a link
+      linkObject =
+        '_rev' in treeObject
+          ? { _id: resourceId, _rev: 0 } // Versioned link
+          : { _id: resourceId }; // Non-versioned link
+      newResourcePathArray = partialPathArray.slice(); // Clone
     }
   }
 
@@ -806,6 +791,34 @@ export class OADAClient {
     return 'application/json';
   }
 
+  async #retryEnsureTree(tree: OADATree, pathArray: readonly string[]) {
+    // Retry on 412
+    const MAX_RETRIES = 5;
+
+    for await (const retryCount of Array.from({
+      length: MAX_RETRIES - 1,
+    }).keys()) {
+      try {
+        await this.#ensureTree(tree, pathArray);
+
+        return;
+      } catch (cError: unknown) {
+        // Handle 412 (If-Match failed)
+        // @ts-expect-error stupid errors
+        if (cError?.code === '412') {
+          await setTimeout(
+            // Retry with exponential backoff
+            100 * ((retryCount + 1) ** 2 + Math.random())
+          );
+        } else {
+          throw await fixError(cError as Error);
+        }
+      }
+    }
+
+    await this.#ensureTree(tree, pathArray);
+  }
+
   /**
    * Send PUT request
    * @param request PUT request
@@ -816,7 +829,7 @@ export class OADAClient {
     const pathArray = toArrayPath(request.path);
 
     if (request.tree) {
-      await this.#ensureTree(request.tree as OADATree, pathArray);
+      await this.#retryEnsureTree(request.tree as OADATree, pathArray);
     }
 
     const contentType = await this.#guessContentType(request, pathArray);

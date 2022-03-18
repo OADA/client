@@ -191,7 +191,7 @@ __metadata:
     bufferutil: ^4.0.6
     c8: ^7.11.0
     cross-fetch: ^3.1.5
-    debug: ^4.3.3
+    debug: ^4.3.4
     deep-clone: ^3.0.3
     dotenv: ^16.0.0
     encoding: ^0.1.13
@@ -216,10 +216,10 @@ __metadata:
     eslint-plugin-optimize-regex: ^1.2.1
     eslint-plugin-prettier: ^4.0.0
     eslint-plugin-promise: ^6.0.0
-    eslint-plugin-regexp: ^1.5.1
+    eslint-plugin-regexp: ^1.6.0
     eslint-plugin-security: ^1.4.0
     eslint-plugin-sonarjs: ^0.12.0
-    eslint-plugin-unicorn: ^41.0.0
+    eslint-plugin-unicorn: ^41.0.1
     event-iterator: ^2.0.0
     eventemitter3: ^4.0.7
     fetch-h2: ^3.0.2
@@ -228,7 +228,7 @@ __metadata:
     isomorphic-ws: ^4.0.1
     ksuid: ^3.0.0
     p-queue: ^6.6.2
-    prettier: ^2.5.1
+    prettier: ^2.6.0
     reconnecting-websocket: ^4.4.0
     resolve-alpn: ^1.2.1
     supports-color: ^9.2.1
@@ -1648,15 +1648,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"debug@npm:4, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.3":
-  version: 4.3.3
-  resolution: "debug@npm:4.3.3"
+"debug@npm:4, debug@npm:^4.1.0, debug@npm:^4.1.1, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4":
+  version: 4.3.4
+  resolution: "debug@npm:4.3.4"
   dependencies:
     ms: 2.1.2
   peerDependenciesMeta:
     supports-color:
       optional: true
-  checksum: 14472d56fe4a94dbcfaa6dbed2dd3849f1d72ba78104a1a328047bb564643ca49df0224c3a17fa63533fd11dd3d4c8636cd861191232a2c6735af00cc2d4de16
+  checksum: 3dbad3f94ea64f34431a9cbf0bafb61853eda57bff2880036153438f50fb5a84f27683ba0d8e5426bf41a8c6ff03879488120cf5b3a761e77953169c0600a708
   languageName: node
   linkType: hard
 
@@ -2274,9 +2274,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-plugin-regexp@npm:^1.5.1":
-  version: 1.5.1
-  resolution: "eslint-plugin-regexp@npm:1.5.1"
+"eslint-plugin-regexp@npm:^1.6.0":
+  version: 1.6.0
+  resolution: "eslint-plugin-regexp@npm:1.6.0"
   dependencies:
     comment-parser: ^1.1.2
     eslint-utils: ^3.0.0
@@ -2288,7 +2288,7 @@ __metadata:
     scslre: ^0.1.6
   peerDependencies:
     eslint: ">=6.0.0"
-  checksum: 80e86253c779dd09a603d18cd83749eb2572c99ba92d25cd92ad980eb2f89c626ef4963f50ccbe50b4bb47853e2a1a2fd7b2b12c7028b137cf1f632ee83201aa
+  checksum: 19e8b3a12e15474ae37e532589f9ca67876fb7551fb05466202dba0d5920e66333bd33870c11f25c7ecdc86b5ba4a56b3395c69b9efeb817dfdcceac8a4ca0e6
   languageName: node
   linkType: hard
 
@@ -2310,9 +2310,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-plugin-unicorn@npm:^41.0.0":
-  version: 41.0.0
-  resolution: "eslint-plugin-unicorn@npm:41.0.0"
+"eslint-plugin-unicorn@npm:^41.0.1":
+  version: 41.0.1
+  resolution: "eslint-plugin-unicorn@npm:41.0.1"
   dependencies:
     "@babel/helper-validator-identifier": ^7.15.7
     ci-info: ^3.3.0
@@ -2330,7 +2330,7 @@ __metadata:
     strip-indent: ^3.0.0
   peerDependencies:
     eslint: ">=8.8.0"
-  checksum: 661d572b244f9f61121806cb0b9b4914f37e978089633e8b401d95b736f5acb9ed70f398de9cebcdbb1456961e7360c2b196483a793f6f1613c2a4989a298488
+  checksum: 90c9dd93b57ec2cdd650168364b4e2220e2c72c1ffc8ea43cd1be2dabadc7821ec5077656f44fa4622e284caa39ca497058e1dbe609f530d392bdb2da3d73b70
   languageName: node
   linkType: hard
 
@@ -4607,12 +4607,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^2.2.1, prettier@npm:^2.5.1":
-  version: 2.5.1
-  resolution: "prettier@npm:2.5.1"
+"prettier@npm:^2.2.1, prettier@npm:^2.6.0":
+  version: 2.6.0
+  resolution: "prettier@npm:2.6.0"
   bin:
     prettier: bin-prettier.js
-  checksum: 21b9408476ea1c544b0e45d51ceb94a84789ff92095abb710942d780c862d0daebdb29972d47f6b4d0f7ebbfb0ffbf56cc2cfa3e3e9d1cca54864af185b15b66
+  checksum: 3e527ad62279676778a8404d18174d7ca2365ada4caba6eebbcdd9907d1187afd3bc6ade5b4e5f5d4549bb9fb71e45ca8930d71500017635524f8fc05bc52e93
   languageName: node
   linkType: hard
 

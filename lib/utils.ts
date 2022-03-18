@@ -22,7 +22,7 @@
 
 import type { OADATree } from './client';
 
-export function toStringPath(path: string[]): string {
+export function toStringPath(path: readonly string[]): string {
   return `/${path.join('/')}`;
 }
 

@@ -10,7 +10,7 @@
       "name": "Launch tests",
       "skipFiles": ["<node_internals>/**"],
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["test"],
+      "runtimeArgs": ["test:debug"],
       "outputCapture": "std",
       "preLaunchTask": "${defaultBuildTask}",
       "outFiles": ["${workspaceFolder}/dist/*.js"]
