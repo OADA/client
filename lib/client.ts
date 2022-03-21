@@ -792,7 +792,8 @@ export class OADAClient {
   }
 
   async #retryEnsureTree(tree: OADATree, pathArray: readonly string[]) {
-    // Retry on 412
+    // Retry on certain errors
+    const CODES = new Set(<const>['412', '422']);
     const MAX_RETRIES = 5;
 
     for await (const retryCount of Array.from({
@@ -805,7 +806,7 @@ export class OADAClient {
       } catch (cError: unknown) {
         // Handle 412 (If-Match failed)
         // @ts-expect-error stupid errors
-        if (cError?.code === '412') {
+        if (CODES.has(cError?.code)) {
           await setTimeout(
             // Retry with exponential backoff
             100 * ((retryCount + 1) ** 2 + Math.random())

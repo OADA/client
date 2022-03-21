@@ -290,7 +290,6 @@ for (const connection of <const>['ws', 'http']) {
       const response = await getAxios(
         `/bookmarks/${testName}/concurrent-put/${v}`
       );
-      t.log(response.data);
       t.is(response.status, 200);
       t.assert(response.headers['content-location']);
       t.assert(response.headers['x-oada-rev']);
