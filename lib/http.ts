@@ -20,6 +20,7 @@ import { Buffer } from 'buffer';
 import { AbortController, Method } from 'fetch-h2';
 import EventEmitter from 'eventemitter3';
 import PQueue from 'p-queue';
+import type { Response } from 'fetch-h2';
 import debug from 'debug';
 import ksuid from 'ksuid';
 import typeIs from 'type-is';
@@ -49,6 +50,12 @@ const enum ConnectionStatus {
 
 function getIsomorphicContext() {
   return context ? context() : { fetch };
+}
+
+async function getBody(result: Response): Promise<Body> {
+  return typeIs.is(result.headers.get('content-type')!, ['json', '+json'])
+    ? ((await result.json()) as Json)
+    : Buffer.from(await result.arrayBuffer());
 }
 
 export class HttpClient extends EventEmitter implements Connection {
@@ -225,13 +232,10 @@ export class HttpClient extends EventEmitter implements Connection {
       // Have to construct the headers as a regular object
       const headers = Object.fromEntries(result.headers.entries());
 
-      // Const length = +(result.headers.get("content-length") || 0);
-      let data: Body | undefined;
-      if (request.method.toUpperCase() !== 'HEAD') {
-        data = typeIs.is(result.headers.get('content-type')!, ['json', '+json'])
-          ? ((await result.json()) as Json)
-          : Buffer.from(await result.arrayBuffer());
-      }
+      const data: Body | undefined =
+        request.method.toUpperCase() === 'HEAD'
+          ? undefined
+          : await getBody(result);
 
       // Trace("length = %d, result.headers = %O", length, headers);
       return [

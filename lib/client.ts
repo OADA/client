@@ -653,7 +653,7 @@ export class OADAClient {
     }
 
     // TODO: should this error?
-    if (Buffer.isBuffer(body)) {
+    if (Buffer.isBuffer(body) || !body) {
       return body;
     }
 
@@ -672,14 +672,10 @@ export class OADAClient {
     } else {
       // Otherwise, get children from the tree provided by the user
       for (const key of Object.keys(subTree ?? {})) {
-        if (typeof body![key as keyof typeof body] === 'object') {
+        if (typeof body[key as keyof typeof body] === 'object') {
           children.push({ treeKey: key, dataKey: key });
         }
       }
-    }
-
-    if (!body) {
-      return body;
     }
 
     // Await recursive calls

@@ -54,6 +54,7 @@ for (const connection of <const>['ws', 'http']) {
   let client: OADAClient;
 
   // Initialization
+  // eslint-disable-next-line ava/hooks-order
   test.before(`${connection}: Initialize connection`, async () => {
     // Connect
     client = await connect({
@@ -64,6 +65,7 @@ for (const connection of <const>['ws', 'http']) {
   });
 
   // Cleanup
+  // eslint-disable-next-line ava/hooks-order
   test.after(`${connection}: Destroy connection`, async () => {
     // Disconnect
     await client?.disconnect();

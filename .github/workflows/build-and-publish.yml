@@ -22,5 +22,8 @@ jobs:
   call-build-and-publish:
     name: CI
     uses: qlever-llc/workflows/.github/workflows/build-and-publish-package.yml@master
+    secrets:
+      # This is just a dev token, not actually secret
+      oada_token: abc
     with:
       oada: true
