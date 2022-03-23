@@ -29,6 +29,7 @@ import {
   createNestedObject,
   fixError,
   getObjectAtPath,
+  toArray,
   toArrayPath,
   toStringPath,
 } from './utils';
@@ -188,7 +189,8 @@ export interface PUTRequest {
   path: string;
   data: Body;
   contentType?: string;
-  revIfMatch?: number; // If-match
+  /** If-Match */
+  etagIfMatch?: string | readonly string[];
   tree?: Record<string, unknown>;
   timeout?: number;
 }
@@ -729,7 +731,7 @@ export class OADAClient {
             contentType,
             data: linkObject,
             // Ensure the resource has not been modified (opportunistic lock)
-            revIfMatch: resourceCheckResult.rev,
+            etagIfMatch: resourceCheckResult.etag,
           });
         }
 
@@ -834,14 +836,15 @@ export class OADAClient {
     }
 
     const contentType = await this.#guessContentType(request, pathArray);
+    const etag = request.etagIfMatch && toArray(request.etagIfMatch);
     const [response] = await this.#connection.request(
       {
         method: 'put',
         headers: {
           'authorization': `Bearer ${this.#token}`,
           'content-type': contentType,
-          ...(request.revIfMatch && {
-            'if-match': request.revIfMatch.toString(),
+          ...(etag && {
+            'if-match': etag.join(', '),
           }), // Add if-match header if revIfMatch is provided
         },
         path: request.path,
@@ -1054,7 +1057,7 @@ export class OADAClient {
    */
   async #resourceExists(
     path: string
-  ): Promise<{ exist: boolean; rev?: number }> {
+  ): Promise<{ exist: boolean; etag?: string }> {
     // In tree put to /resources, the top-level "/resources" should
     // look like it exists, even though oada doesn't allow GET on /resources
     // directly.
@@ -1069,7 +1072,10 @@ export class OADAClient {
       });
       // Check status value
       if (headResponse.status === 200) {
-        return { exist: true, rev: Number(headResponse.headers['x-oada-rev']) };
+        return {
+          exist: true,
+          etag: headResponse.headers.etag,
+        };
       }
 
       if (headResponse.status === 404) {

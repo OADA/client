@@ -22,6 +22,19 @@
 
 import type { OADATree } from './client';
 
+// Typescript sucks at figuring out Array.isArray on its own
+function isArray<A extends unknown[] | readonly unknown[]>(
+  value: unknown
+): value is A {
+  return Array.isArray(value);
+}
+
+export function toArray<E extends unknown[] | readonly unknown[]>(
+  itemOrArray: E | E[0]
+): E {
+  return isArray(itemOrArray) ? itemOrArray : ([itemOrArray] as E);
+}
+
 export function toStringPath(path: readonly string[]): string {
   return `/${path.join('/')}`;
 }
