@@ -28,6 +28,7 @@ import {
   deleteLinkAxios,
   getAxios,
   getTreeWithTestName,
+  putAxios,
   putResourceAxios,
 } from './utils.js';
 import { OADAClient, connect } from '../dist/index.js';
@@ -112,6 +113,18 @@ for (const connection of <const>['ws', 'http']) {
     t.assert(response.headers['x-oada-rev']);
   });
 
+  test(`${connection}: Shouldn't error when the 'X-OADA-Ensure-Link' header is a supported value`, async (t) => {
+    const { testName } = t.context as Context;
+    const response = await putAxios(
+      { _type: 'application/json' },
+      `/bookmarks/${testName}/sometest`,
+      { 'X-OADA-Ensure-Link': 'versioned' }
+    );
+    t.is(response.status, 201);
+    t.assert(response.headers['content-location']);
+    t.assert(response.headers['x-oada-rev']);
+  });
+
   // TODO: Check the rejection reason
   test.skip(`${connection}: Should error when _type cannot be derived from the above tested sources`, async (t) => {
     const { testName } = t.context as Context;
@@ -149,6 +162,15 @@ for (const connection of <const>['ws', 'http']) {
       }),
       { name: 'TimeoutError', code: 'REQUEST_TIMEDOUT' }
     );
+  });
+
+  test(`${connection}: Should error when 'X-OADA-Ensure-Link' contains an unsupported value`, async (t) => {
+    const { testName } = t.context as Context;
+    await t.throwsAsync(putAxios(
+        { somedata: 456 },
+        `/bookmarks/${testName}/sometest4`,
+        { 'X-OADA-Ensure-Link': 'unsupportedValue' }
+      ));
   });
 
   test(`${connection}: Should create the proper resource breaks on the server when a tree parameter is supplied to a deep endpoint`, async (t) => {
