@@ -166,11 +166,17 @@ for (const connection of <const>['ws', 'http']) {
 
   test(`${connection}: Should error when 'X-OADA-Ensure-Link' contains an unsupported value`, async (t) => {
     const { testName } = t.context as Context;
-    await t.throwsAsync(putAxios(
+    await t.throwsAsync(
+      putAxios(
         { somedata: 456 },
         `/bookmarks/${testName}/sometest4`,
         { 'X-OADA-Ensure-Link': 'unsupportedValue' }
-      ));
+      ),
+      {
+        code: '400',
+        message: 'Unsupported value for X-OADA-Ensure-Link',
+      }
+    );
   });
 
   test(`${connection}: Should create the proper resource breaks on the server when a tree parameter is supplied to a deep endpoint`, async (t) => {
