@@ -23,7 +23,7 @@ import type EventEmitter from 'eventemitter3';
 import debug from 'debug';
 import deepClone from 'deep-clone';
 import { fromBuffer } from 'file-type/core';
-import ksuid from 'ksuid';
+import { generate as ksuid } from 'xksuid';
 
 import {
   createNestedObject,
@@ -791,7 +791,7 @@ export class OADAClient {
 
   async #retryEnsureTree(tree: OADATree, pathArray: readonly string[]) {
     // Retry on certain errors
-    const CODES = new Set(<const>['412', '422']);
+    const CODES = new Set(['412', '422'] as const);
     const MAX_RETRIES = 5;
 
     for await (const retryCount of Array.from({
@@ -864,7 +864,7 @@ export class OADAClient {
     if (tree) {
       // We could go to all the trouble of re-implementing tree puts for posts,
       // but it's much easier to just make a ksuid and do the tree put
-      const { string: newkey } = await ksuid.random();
+      const newkey = ksuid();
       return this.put({ ...request, path: join(path, newkey) });
     }
 
@@ -1034,7 +1034,7 @@ export class OADAClient {
   /** Create a new resource. Returns resource ID */
   async #createResource(contentType: string, data: Json): Promise<string> {
     // Create unique resource ID
-    const { string: id } = await ksuid.random();
+    const id = ksuid();
     const resourceId = `resources/${id}`;
     // Append resource ID and content type to object
     // const fullData = { _id: resourceId, _type: contentType, ...data };

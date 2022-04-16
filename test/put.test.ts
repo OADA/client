@@ -21,7 +21,7 @@ import { domain, token } from './config.js';
 
 import test from 'ava';
 
-import ksuid from 'ksuid';
+import { generate as ksuid } from 'xksuid';
 
 import {
   Nested,
@@ -38,7 +38,7 @@ interface Context {
 }
 
 test.beforeEach('Initialize test name', async (t) => {
-  const { string: uid } = await ksuid.random();
+  const uid = ksuid();
   const testName = `test-${uid}`;
   // @ts-expect-error ava context typing is lame
   t.context.testName = testName;
@@ -53,7 +53,7 @@ test.afterEach('Clean up test', async (t) => {
   await deleteLinkAxios(`/bookmarks/${testName}`);
 });
 
-for (const connection of <const>['ws', 'http']) {
+for (const connection of ['ws', 'http'] as const) {
   // Client instance
   let client: OADAClient;
 

@@ -17,7 +17,7 @@
 
 import { domain, token } from './config.js';
 import axios from 'axios';
-import ksuid from 'ksuid';
+import { generate as ksuid } from 'xksuid';
 
 export type Nested =
   | {
@@ -52,7 +52,7 @@ export async function putResourceAxios(
   data: Record<string, unknown>,
   path: string
 ) {
-  const _id = `resources/${ksuid.randomSync().string}`;
+  const _id = `resources/${ksuid()}`;
   const resource = await axios({
     method: 'put',
     url: `${domain}/${_id}`,

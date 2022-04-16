@@ -20,7 +20,7 @@ import PQueue from 'p-queue';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import WebSocket from 'isomorphic-ws';
 import debug from 'debug';
-import ksuid from 'ksuid';
+import { generate as ksuid } from 'xksuid';
 import { setTimeout } from 'isomorphic-timers-promises';
 
 import WebSocketRequest, {
@@ -187,8 +187,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
   ): Promise<IConnectionResponse> {
     const ws = await this.#ws;
     // Send object to the server.
-    // eslint-disable-next-line unicorn/no-await-expression-member
-    const requestId = request.requestId ?? (await ksuid.random()).string;
+    const requestId = request.requestId ?? ksuid();
     request.requestId = requestId;
     assertOADASocketRequest(request);
 

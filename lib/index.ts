@@ -18,8 +18,6 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="types.d.ts" />
 
-import { format } from 'url';
-
 import { Config, OADAClient } from './client';
 import { autoConnection, parseDomain } from './auto';
 
@@ -29,8 +27,8 @@ export function createInstance(config: Config): OADAClient {
 }
 
 export function normalizeDomain(domain: string) {
-  const { hostname, protocol, port } = parseDomain(domain);
-  return format({ hostname, protocol, port });
+  const url = parseDomain(domain);
+  return url.toString();
 }
 
 /** Create a new instance and wrap it with Promise */

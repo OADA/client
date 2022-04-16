@@ -23,40 +23,29 @@ import { WebSocketClient } from './websocket';
 
 const error = debug('@oada/client:auto:error');
 
-function tryDomain(domain: string): {
-  port: number;
-  hostname: string;
-  protocol: string;
-  protocols: string[];
-} {
-  const { port, hostname, protocol } = new URL(domain);
-  switch (protocol) {
+function tryDomain(domain: string) {
+  const url = new URL(domain);
+  switch (url.protocol) {
     case 'http2:':
-      return {
-        port: Number(port) || 80,
-        hostname,
-        protocol,
+      return Object.assign(url, {
+        port: Number(url.port) || 80,
         protocols: ['h2'],
-      };
+      });
 
     case 'https:':
-      return {
-        port: Number(port) || 443,
-        hostname,
-        protocol,
+      return Object.assign(url, {
+        port: Number(url.port) || 443,
         protocols: ['h2', 'http/1.1', 'http/1.0'],
-      };
+      });
 
     case 'http:':
-      return {
-        port: Number(port) || 80,
-        hostname,
-        protocol,
+      return Object.assign(url, {
+        port: Number(url.port) || 80,
         protocols: ['http/1.1', 'http/1.0'],
-      };
+      });
 
     default:
-      throw new Error(`Unsupported domain protocol: ${protocol}`);
+      throw new Error(`Unsupported domain protocol: ${url.protocol}`);
   }
 }
 

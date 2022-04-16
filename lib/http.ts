@@ -22,8 +22,8 @@ import EventEmitter from 'eventemitter3';
 import PQueue from 'p-queue';
 import type { Response } from 'fetch-h2';
 import debug from 'debug';
-import ksuid from 'ksuid';
-import typeIs from 'type-is';
+import { fromString } from 'media-type';
+import { generate as ksuid } from 'xksuid';
 
 import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request';
 
@@ -52,8 +52,13 @@ function getIsomorphicContext() {
   return context ? context() : { fetch };
 }
 
+function isJson(contentType: string) {
+  const media = fromString(contentType);
+  return [media.subtype, media.suffix].includes('json');
+}
+
 async function getBody(result: Response): Promise<Body> {
-  return typeIs.is(result.headers.get('content-type')!, ['json', '+json'])
+  return isJson(result.headers.get('content-type')!)
     ? ((await result.json()) as Json)
     : Buffer.from(await result.arrayBuffer());
 }
@@ -163,7 +168,7 @@ export class HttpClient extends EventEmitter implements Connection {
     }
 
     if (!request.requestId) {
-      request.requestId = ksuid.randomSync().string;
+      request.requestId = ksuid();
     }
 
     trace('Adding http request w/ id %s to the queue', request.requestId);

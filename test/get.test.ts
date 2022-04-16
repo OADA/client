@@ -19,7 +19,7 @@ import { domain, token } from './config.js';
 
 import test from 'ava';
 
-import ksuid from 'ksuid';
+import { generate as ksuid } from 'xksuid';
 
 // eslint-disable-next-line import/no-namespace
 import * as oada from '../dist/index.js';
@@ -30,7 +30,7 @@ import {
   putResourceAxios,
 } from './utils';
 
-for (const connection of <const>['ws', 'http']) {
+for (const connection of ['ws', 'http'] as const) {
   // Client instance
   let client: oada.OADAClient;
 
@@ -40,7 +40,7 @@ for (const connection of <const>['ws', 'http']) {
 
   // Initialization
   test.before(`${connection}: Initialize connection`, async () => {
-    testName = `test-${ksuid.randomSync().string}`;
+    testName = `test-${ksuid()}`;
     testTree = getTreeWithTestName(testName);
     await putResourceAxios({}, `/bookmarks/${testName}`);
     // Connect

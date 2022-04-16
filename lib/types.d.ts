@@ -31,3 +31,24 @@ declare module 'resolve-alpn' {
   }): Promise<{ alpnProtocol: string; timeout: boolean }>;
   export = resolve;
 }
+
+/**
+ * Generates new (x)KSUID based on current timestamp
+ * @param {boolean} desc
+ * @param {number} timestamp ms
+ * @returns {string} 27 chars KSUID or 28 chars for xKSUID
+ */
+declare module 'xksuid' {
+  export function generate(desc = false, timestamp = Date.now()): string;
+}
+
+declare module 'media-type' {
+  export interface MediaType {
+    type: string;
+    subtype: string;
+    suffix: string;
+    hasSuffix(): boolean;
+    asString(): string;
+  }
+  export function fromString(contentType: string): MediaType;
+}

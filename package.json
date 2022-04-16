@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "3.1.6",
+  "version": "3.2.0",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
@@ -8,22 +8,20 @@
     "node": ">=14.18.0"
   },
   "browser": {
-    "./dist/event-iterator": "./dist/event-iterator-browser",
-    "./dist/fetch": "cross-fetch",
-    "buffer": "buffer/",
+    "./dist/event-iterator.js": "./dist/event-iterator-browser.js",
+    "./dist/fetch.js": "cross-fetch",
+    "events": false,
     "fetch-h2": false,
-    "path": false,
-    "resolve-alpn": false,
-    "ws": false
+    "path": "path-browserify",
+    "resolve-alpn": false
   },
   "react-native": {
-    "./dist/event-iterator": "./dist/event-iterator-browser",
-    "./dist/fetch": "cross-fetch",
-    "buffer": "buffer/",
+    "./dist/event-iterator.js": "./dist/event-iterator-browser.js",
+    "./dist/fetch.js": "cross-fetch",
+    "events": false,
     "fetch-h2": false,
-    "path": false,
-    "resolve-alpn": false,
-    "ws": false
+    "path": "path-browserify",
+    "resolve-alpn": false
   },
   "files": [
     "lib/**/*",
@@ -33,6 +31,7 @@
     "test": "yarn run build test && c8 ava",
     "test:debug": "ava -T 60m -svc 1 --no-worker-threads",
     "build": "tsc -b",
+    "bundle": "webpack",
     "dev": "tsc -w",
     "prettier": "prettier --write .",
     "prepare": "npm run build",
@@ -84,15 +83,15 @@
     "file-type": "^16.5.3",
     "isomorphic-timers-promises": "^1.0.1",
     "isomorphic-ws": "^4.0.1",
-    "ksuid": "^3.0.0",
+    "media-type": "^0.3.1",
     "p-queue": "^6.6.2",
     "reconnecting-websocket": "^4.4.0",
     "resolve-alpn": "^1.2.1",
     "supports-color": "^9.2.2",
     "tslib": "^2.3.1",
-    "type-is": "^1.6.18",
     "utf-8-validate": "^5.0.9",
-    "ws": "^8.5.0"
+    "ws": "^8.5.0",
+    "xksuid": "^0.0.2"
   },
   "devDependencies": {
     "@ava/typescript": "^3.0.1",
@@ -135,8 +134,13 @@
     "eslint-plugin-security": "^1.4.0",
     "eslint-plugin-sonarjs": "^0.13.0",
     "eslint-plugin-unicorn": "^42.0.0",
+    "path-browserify": "^1.0.1",
     "prettier": "^2.6.2",
-    "typescript": "4.6.3"
+    "process": "^0.11.10",
+    "ts-loader": "^9.2.8",
+    "typescript": "4.6.3",
+    "webpack": "^5.72.0",
+    "webpack-cli": "^4.9.2"
   },
   "packageManager": "yarn@3.2.0"
 }
