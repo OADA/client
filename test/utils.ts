@@ -16,8 +16,9 @@
  */
 
 import { domain, token } from './config.js';
+
 import axios from 'axios';
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from 'xksuid/src/index.node.mjs';
 
 export type Nested =
   | {
@@ -25,20 +26,20 @@ export type Nested =
     }
   | undefined;
 
-export async function getAxios(path: string) {
+export async function getAxios(uri: string) {
   return axios({
     method: 'get',
-    url: `${domain}${path}`,
+    url: new URL(uri, domain).toString(),
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
 }
 
-export async function putAxios(data: Record<string, unknown>, path: string) {
+export async function putAxios(data: Record<string, unknown>, uri: string) {
   return axios({
     method: 'put',
-    url: `${domain}${path}`,
+    url: new URL(uri, domain).toString(),
     headers: {
       'Authorization': `Bearer ${token}`,
       // eslint-disable-next-line sonarjs/no-duplicate-string
@@ -50,12 +51,12 @@ export async function putAxios(data: Record<string, unknown>, path: string) {
 
 export async function putResourceAxios(
   data: Record<string, unknown>,
-  path: string
+  uri: string
 ) {
   const _id = `resources/${ksuid()}`;
   const resource = await axios({
     method: 'put',
-    url: `${domain}/${_id}`,
+    url: new URL(_id, domain).toString(),
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -64,7 +65,7 @@ export async function putResourceAxios(
   });
   const link = await axios({
     method: 'put',
-    url: `${domain}${path}`,
+    url: new URL(uri, domain).toString(),
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -75,10 +76,10 @@ export async function putResourceAxios(
   return { resource, link, resource_id: _id };
 }
 
-export async function deleteLinkAxios(path: string) {
+export async function deleteLinkAxios(uri: string) {
   const link = await axios({
     method: 'delete',
-    url: `${domain}${path}`,
+    url: new URL(uri, domain).toString(),
     headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',

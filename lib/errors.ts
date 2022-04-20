@@ -24,11 +24,11 @@
 
 import { setTimeout } from 'isomorphic-timers-promises';
 
-import { Headers } from './fetch';
+import { Headers } from './fetch.js';
 import debug from 'debug';
 
-import type { IConnectionResponse } from './client';
-import { fixError } from './utils';
+import type { IConnectionResponse } from './client.js';
+import { fixError } from './utils.js';
 
 const warn = debug('@oada/client:errors:warn');
 const trace = debug('@oada/client:errors:trace');

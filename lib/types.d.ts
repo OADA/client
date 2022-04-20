@@ -42,6 +42,10 @@ declare module 'xksuid' {
   export function generate(desc = false, timestamp = Date.now()): string;
 }
 
+declare module 'xksuid/src/index.node.mjs' {
+  export * from 'xksuid';
+}
+
 declare module 'media-type' {
   export interface MediaType {
     type: string;

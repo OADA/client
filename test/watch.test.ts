@@ -21,7 +21,7 @@ import test from 'ava';
 
 import { EventEmitter, once } from 'node:events';
 
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from 'xksuid/src/index.node.mjs';
 
 import { Change, OADAClient, connect } from '../dist/index.js';
 import {
@@ -30,7 +30,7 @@ import {
   getAxios,
   putAxios,
   putResourceAxios,
-} from './utils';
+} from './utils.js';
 
 interface Context {
   testName: string;

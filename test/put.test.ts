@@ -21,7 +21,7 @@ import { domain, token } from './config.js';
 
 import test from 'ava';
 
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from 'xksuid/src/index.node.mjs';
 
 import {
   Nested,

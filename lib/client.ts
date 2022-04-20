@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+import { join } from 'node:path';
+
 import { AbortController } from 'abort-controller';
 import { Buffer } from 'buffer';
 import { setTimeout } from 'isomorphic-timers-promises';
@@ -22,8 +24,8 @@ import { setTimeout } from 'isomorphic-timers-promises';
 import type EventEmitter from 'eventemitter3';
 import debug from 'debug';
 import deepClone from 'deep-clone';
-import { fromBuffer } from 'file-type/core';
-import { generate as ksuid } from 'xksuid';
+import { fileTypeFromBuffer } from 'file-type';
+import { generate as ksuid } from 'xksuid/src/index.node.mjs';
 
 import {
   createNestedObject,
@@ -32,12 +34,11 @@ import {
   toArray,
   toArrayPath,
   toStringPath,
-} from './utils';
-import { HttpClient } from './http';
-import { WebSocketClient } from './websocket';
+} from './utils.js';
+import { HttpClient } from './http.js';
+import { WebSocketClient } from './websocket.js';
 
 import type { Change, Json, JsonObject } from '.';
-import { join } from 'node:path';
 
 const trace = debug('@oada/client:client:trace');
 const info = debug('@oada/client:client:info');
@@ -766,7 +767,7 @@ export class OADAClient {
 
     // 2) get content-type from the resource body
     if (Buffer.isBuffer(data)) {
-      const type = await fromBuffer(data);
+      const type = await fileTypeFromBuffer(data);
       if (type?.mime) {
         return type.mime;
       }

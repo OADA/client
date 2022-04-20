@@ -20,7 +20,7 @@
  * Some useful functions
  */
 
-import type { OADATree } from './client';
+import type { OADATree } from './client.js';
 
 // Typescript sucks at figuring out Array.isArray on its own
 function isArray<A extends unknown[] | readonly unknown[]>(

@@ -17,11 +17,9 @@
 
 /* Config parameters for unit tests */
 
-import { config } from 'dotenv';
+import 'dotenv/config';
 
 import { normalizeDomain } from '../dist/index.js';
-
-config();
 
 export const domain = normalizeDomain(
   process.env.DOMAIN ?? 'https://localhost'

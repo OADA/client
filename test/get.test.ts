@@ -19,7 +19,7 @@ import { domain, token } from './config.js';
 
 import test from 'ava';
 
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from 'xksuid/src/index.node.mjs';
 
 // eslint-disable-next-line import/no-namespace
 import * as oada from '../dist/index.js';
@@ -28,7 +28,7 @@ import {
   deleteLinkAxios,
   getTreeWithTestName,
   putResourceAxios,
-} from './utils';
+} from './utils.js';
 
 for (const connection of ['ws', 'http'] as const) {
   // Client instance

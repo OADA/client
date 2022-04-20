@@ -18,8 +18,8 @@
 import debug from 'debug';
 import resolveALPN from 'resolve-alpn';
 
-import { HttpClient } from './http';
-import { WebSocketClient } from './websocket';
+import { HttpClient } from './http.js';
+import { WebSocketClient } from './websocket.js';
 
 const error = debug('@oada/client:auto:error');
 

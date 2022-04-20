@@ -23,21 +23,21 @@ import PQueue from 'p-queue';
 import type { Response } from 'fetch-h2';
 import debug from 'debug';
 import { fromString } from 'media-type';
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from 'xksuid/src/index.node.mjs';
 
-import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request';
+import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request.js';
 
 import type {
   Body,
   Connection,
   ConnectionRequest,
   IConnectionResponse,
-} from './client';
-import { TimeoutError, fixError } from './utils';
-import fetch, { context } from './fetch';
+} from './client.js';
+import { TimeoutError, fixError } from './utils.js';
+import fetch, { context } from './fetch.js';
 import type { Json } from '.';
-import { WebSocketClient } from './websocket';
-import { handleErrors } from './errors';
+import { WebSocketClient } from './websocket.js';
+import { handleErrors } from './errors.js';
 
 const trace = debug('@oada/client:http:trace');
 const error = debug('@oada/client:http:error');

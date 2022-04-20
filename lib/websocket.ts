@@ -20,17 +20,17 @@ import PQueue from 'p-queue';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import WebSocket from 'isomorphic-ws';
 import debug from 'debug';
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from 'xksuid/src/index.node.mjs';
 import { setTimeout } from 'isomorphic-timers-promises';
 
 import WebSocketRequest, {
   assert as assertOADASocketRequest,
-} from '@oada/types/oada/websockets/request';
-import { assert as assertOADAChangeV2 } from '@oada/types/oada/change/v2';
-import { is as isOADASocketChange } from '@oada/types/oada/websockets/change';
-import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response';
+} from '@oada/types/oada/websockets/request.js';
+import { assert as assertOADAChangeV2 } from '@oada/types/oada/change/v2.js';
+import { is as isOADASocketChange } from '@oada/types/oada/websockets/change.js';
+import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response.js';
 
-import { on, once } from './event-iterator';
+import { on, once } from './event-iterator.js';
 
 import type {
   Connection,
@@ -38,10 +38,10 @@ import type {
   ConnectionRequest,
   ConnectionResponse,
   IConnectionResponse,
-} from './client';
-import { TimeoutError, fixError } from './utils';
-import type { Change } from './';
-import { handleErrors } from './errors';
+} from './client.js';
+import { TimeoutError, fixError } from './utils.js';
+import type { Change } from './index.js';
+import { handleErrors } from './errors.js';
 
 const trace = debug('@oada/client:ws:trace');
 const error = debug('@oada/client:ws:error');
