@@ -26,17 +26,22 @@ export type Nested =
     }
   | undefined;
 
-export async function getAxios(uri: string) {
+export async function getAxios(uri: string, headers?: Record<string, unknown>) {
   return axios({
     method: 'get',
     url: new URL(uri, domain).toString(),
     headers: {
       Authorization: `Bearer ${token}`,
+      ...headers,
     },
   });
 }
 
-export async function putAxios(data: Record<string, unknown>, uri: string) {
+export async function putAxios(
+  data: Record<string, unknown>,
+  uri: string,
+  headers?: Record<string, unknown>
+) {
   return axios({
     method: 'put',
     url: new URL(uri, domain).toString(),
@@ -44,6 +49,7 @@ export async function putAxios(data: Record<string, unknown>, uri: string) {
       'Authorization': `Bearer ${token}`,
       // eslint-disable-next-line sonarjs/no-duplicate-string
       'Content-Type': 'application/json',
+      ...headers,
     },
     data,
   });

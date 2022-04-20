@@ -26,6 +26,8 @@ import * as oada from '../dist/index.js';
 import {
   Nested,
   deleteLinkAxios,
+  putAxios,
+  getAxios,
   getTreeWithTestName,
   putResourceAxios,
 } from './utils.js';
@@ -133,6 +135,28 @@ for (const connection of ['ws', 'http'] as const) {
         path: '/bookmarks/test/testTwo',
         tree: testTree,
       })
+    );
+  });
+
+  test(`${connection}: Should error when 'X-OADA-Ensure-Link' is present`, async (t) => {
+    const putResp = await putAxios(
+      { somedata: 789 },
+      `/bookmarks/${testName}/sometest4`,
+      { 'X-OADA-Ensure-Link': 'versioned' }
+    );
+    t.is(putResp.status, 201);
+    t.assert(putResp.headers['content-location']);
+    t.assert(putResp.headers['x-oada-rev']);
+
+    await t.throwsAsync(
+      getAxios(
+        `/bookmarks/${testName}/sometest4`,
+        { 'X-OADA-Ensure-Link': 'versioned' }
+      ),
+      {
+        code: '400',
+        message: 'X-OADA-Ensure-Link not allowed for this method',
+      }
     );
   });
 
