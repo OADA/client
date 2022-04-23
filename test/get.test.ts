@@ -19,16 +19,16 @@ import { domain, token } from './config.js';
 
 import test from 'ava';
 
-import { generate as ksuid } from 'xksuid/src/index.node.mjs';
+import { generate as ksuid } from 'xksuid';
 
 // eslint-disable-next-line import/no-namespace
 import * as oada from '../dist/index.js';
 import {
   Nested,
   deleteLinkAxios,
-  putAxios,
   getAxios,
   getTreeWithTestName,
+  putAxios,
   putResourceAxios,
 } from './utils.js';
 

@@ -32,20 +32,6 @@ declare module 'resolve-alpn' {
   export = resolve;
 }
 
-/**
- * Generates new (x)KSUID based on current timestamp
- * @param {boolean} desc
- * @param {number} timestamp ms
- * @returns {string} 27 chars KSUID or 28 chars for xKSUID
- */
-declare module 'xksuid' {
-  export function generate(desc = false, timestamp = Date.now()): string;
-}
-
-declare module 'xksuid/src/index.node.mjs' {
-  export * from 'xksuid';
-}
-
 declare module 'media-type' {
   export interface MediaType {
     type: string;

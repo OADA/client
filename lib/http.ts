@@ -23,7 +23,7 @@ import PQueue from 'p-queue';
 import type { Response } from 'fetch-h2';
 import debug from 'debug';
 import { fromString } from 'media-type';
-import { generate as ksuid } from 'xksuid/src/index.node.mjs';
+import { generate as ksuid } from 'xksuid';
 
 import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request.js';
 

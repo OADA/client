@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
@@ -13,7 +13,7 @@
     "./dist/fetch.js": "cross-fetch",
     "events": false,
     "fetch-h2": false,
-    "path": "path-browserify",
+    "file-type": "./dist/file-type-browser.js",
     "resolve-alpn": false
   },
   "react-native": {
@@ -21,7 +21,7 @@
     "./dist/fetch.js": "cross-fetch",
     "events": false,
     "fetch-h2": false,
-    "path": "path-browserify",
+    "file-type": "./dist/file-type-browser.js",
     "resolve-alpn": false
   },
   "files": [
@@ -87,28 +87,25 @@
     "reconnecting-websocket": "^4.4.0",
     "resolve-alpn": "^1.2.1",
     "supports-color": "^9.2.2",
-    "tslib": "^2.3.1",
+    "tslib": "^2.4.0",
     "utf-8-validate": "^5.0.9",
     "ws": "^8.5.0",
-    "xksuid": "^0.0.2"
+    "xksuid": "https://github.com/qlever-llc/xksuid.git#commit=5b2761792b1b1b59ea71ab48df1252fcb851e502"
   },
   "devDependencies": {
     "@ava/typescript": "^3.0.1",
     "@tsconfig/node14": "^1.0.1",
     "@types/debug": "^4.1.7",
-    "@types/events": "^3.0.0",
     "@types/node": "^16.11.27",
-    "@types/type-is": "^1.6.3",
-    "@types/uuid": "^8.3.4",
     "@types/ws": "^8.5.3",
     "@typescript-eslint/eslint-plugin": "^5.20.0",
     "@typescript-eslint/parser": "^5.20.0",
     "@yarnpkg/sdks": "3.0.0-rc.2",
     "ava": "4.0.0-rc.1",
     "axios": "^0.26.1",
-    "c8": "^7.11.0",
+    "c8": "^7.11.2",
     "dotenv": "^16.0.0",
-    "eslint": "^8.13.0",
+    "eslint": "^8.14.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-config-xo": "^0.40.0",
     "eslint-config-xo-typescript": "^0.50.0",
@@ -133,13 +130,8 @@
     "eslint-plugin-security": "^1.5.0",
     "eslint-plugin-sonarjs": "^0.13.0",
     "eslint-plugin-unicorn": "^42.0.0",
-    "path-browserify": "^1.0.1",
     "prettier": "^2.6.2",
-    "process": "^0.11.10",
-    "ts-loader": "^9.2.8",
-    "typescript": "4.6.3",
-    "webpack": "^5.72.0",
-    "webpack-cli": "^4.9.2"
+    "typescript": "4.6.3"
   },
   "packageManager": "yarn@3.2.0"
 }

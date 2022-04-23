@@ -20,7 +20,7 @@ import PQueue from 'p-queue';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import WebSocket from 'isomorphic-ws';
 import debug from 'debug';
-import { generate as ksuid } from 'xksuid/src/index.node.mjs';
+import { generate as ksuid } from 'xksuid';
 import { setTimeout } from 'isomorphic-timers-promises';
 
 import WebSocketRequest, {

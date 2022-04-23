@@ -18,7 +18,7 @@
 import { domain, token } from './config.js';
 
 import axios from 'axios';
-import { generate as ksuid } from 'xksuid/src/index.node.mjs';
+import { generate as ksuid } from 'xksuid';
 
 export type Nested =
   | {

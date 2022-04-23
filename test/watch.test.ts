@@ -21,7 +21,7 @@ import test from 'ava';
 
 import { EventEmitter, once } from 'node:events';
 
-import { generate as ksuid } from 'xksuid/src/index.node.mjs';
+import { generate as ksuid } from 'xksuid';
 
 import { Change, OADAClient, connect } from '../dist/index.js';
 import {

@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-import { join } from 'node:path';
-
 import { AbortController } from 'abort-controller';
 import { Buffer } from 'buffer';
 import { setTimeout } from 'isomorphic-timers-promises';
@@ -25,7 +23,7 @@ import type EventEmitter from 'eventemitter3';
 import debug from 'debug';
 import deepClone from 'deep-clone';
 import { fileTypeFromBuffer } from 'file-type';
-import { generate as ksuid } from 'xksuid/src/index.node.mjs';
+import { generate as ksuid } from 'xksuid';
 
 import {
   createNestedObject,
@@ -866,7 +864,10 @@ export class OADAClient {
       // We could go to all the trouble of re-implementing tree puts for posts,
       // but it's much easier to just make a ksuid and do the tree put
       const newkey = ksuid();
-      return this.put({ ...request, path: join(path, newkey) });
+      return this.put({
+        ...request,
+        path: (path.endsWith('/') ? path : `${path}/`) + newkey,
+      });
     }
 
     const contentType = await this.#guessContentType(request, pathArray);
