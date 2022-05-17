@@ -404,7 +404,7 @@ export class OADAClient {
     const headers: Record<string, string> = {};
 
     // ???: Decide whether this should go after persist to allow it to override the persist rev
-    if ('rev' in request) {
+    if (request.rev) {
       headers['x-oada-rev'] = `${request.rev}`;
     }
 
