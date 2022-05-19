@@ -40,6 +40,7 @@ import type { Change, Json, JsonObject } from '.';
 
 const trace = debug('@oada/client:client:trace');
 const info = debug('@oada/client:client:info');
+const warn = debug('@oada/client:client:warn');
 const error = debug('@oada/client:client:error');
 
 /**
@@ -566,7 +567,6 @@ export class OADAClient {
               if (change.path === '') {
                 const newRev = change.body?._rev;
                 if (newRev) {
-                  // WatchRev = newRev;
                   trace(
                     'Updated the rev of request %s to %s',
                     resp.requestId[0],
@@ -651,7 +651,7 @@ export class OADAClient {
       ({ data: body = {} } = await this.get({ path }));
     }
 
-    // TODO: should this error?
+    // ???: Should this error?
     if (Buffer.isBuffer(body) || !body) {
       return body;
     }
@@ -681,17 +681,21 @@ export class OADAClient {
     await Promise.all(
       children.map(async (item) => {
         const childPath = `${path}/${item.dataKey}`;
+        try {
+          const response = await this.#recursiveGet(
+            childPath,
+            subTree[item.treeKey],
+            (body as JsonObject)[item.dataKey]
+          );
+          if (Buffer.isBuffer(response)) {
+            throw new TypeError('Non JSON is not supported.');
+          }
 
-        const response = await this.#recursiveGet(
-          childPath,
-          subTree[item.treeKey],
-          (body as JsonObject)[item.dataKey]
-        );
-        if (Buffer.isBuffer(response)) {
-          throw new TypeError('Non JSON is not supported.');
+          (body as JsonObject)[item.dataKey] = response;
+        } catch (cError: unknown) {
+          // Keep going if a child GET throws
+          warn(cError, `Failed to recursively GET ${childPath}`);
         }
-
-        (body as JsonObject)[item.dataKey] = response;
       })
     );
     return body; // Return object at "path"

@@ -19,9 +19,9 @@ npm install @oada/client
 
 ### Connect
 
-```javascript
-const client = require('@oada/client');
-const connection = await client.connect({
+```typescript
+import { connect } from '@oada/client';
+const connection = await connect({
   domain: 'api.oada.com', // domain of OADA server
   token: 'abc', // token
 });
@@ -31,7 +31,7 @@ const connection = await client.connect({
 
 #### Single GET
 
-```javascript
+```typescript
 const response = await connection.get({
   path: '/bookmarks/test',
   timeout: 1000, // timeout in milliseconds (optional)
@@ -40,7 +40,7 @@ const response = await connection.get({
 
 #### Recursive GET
 
-```javascript
+```typescript
 const dataTree = {
   bookmarks: {
     _type: 'application/vnd.oada.bookmarks.1+json',
@@ -68,7 +68,7 @@ const response = await connection.get({
 
 A watch request can be issued by sending a `watch` request as follows.
 
-```javascript
+```typescript
 // Resolves once the watch is established
 const { changes } = await connection.watch({
   path: '/bookmarks/test',
@@ -84,7 +84,7 @@ for await (const change of changes) {
 
 You can also GET the current state of the resource when establishing a watch as follows.
 
-```javascript
+```typescript
 // Resolves once the watch is established
 const { data, changes } = await connection.watch({
   initialMethod: 'get',
@@ -104,7 +104,7 @@ for await (const change of changes) {
 
 #### Single PUT
 
-```javascript
+```typescript
 const response = await connection.put({
   path: '/bookmarks/test',
   data: { thing: 'abc' },
@@ -115,7 +115,7 @@ const response = await connection.put({
 
 #### Tree PUT
 
-```javascript
+```typescript
 const dataTree = {
   bookmarks: {
     _type: 'application/vnd.oada.bookmarks.1+json',
@@ -142,7 +142,7 @@ const response = await connection.put({
 
 ### HEAD
 
-```javascript
+```typescript
 const response = await connection.head({
   path: '/bookmarks/test',
   timeout: 1000, // timeout in milliseconds (optional)

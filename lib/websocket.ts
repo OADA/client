@@ -245,7 +245,6 @@ export class WebSocketClient extends EventEmitter implements Connection {
           ({ body, ...rest }) => ({ ...rest, body } as Change)
         );
         for (const requestId of requestIds) {
-          // TODO: Would be nice if @oad/types know "unknown" as Json
           const rChange: ConnectionChange = {
             requestId: [requestId],
             resourceId: message.resourceId,
