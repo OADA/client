@@ -34,9 +34,14 @@ export function normalizeDomain(domain: string) {
 /** Create a new instance and wrap it with Promise */
 export async function connect({
   connection: proto = 'auto',
+  concurrency = 1,
+  userAgent = `${process.env.npm_package_name}/${process.env.npm_package_version}`,
   ...config
 }: Config & { token: string }): Promise<OADAClient> {
-  const connection = proto === 'auto' ? await autoConnection(config) : proto;
+  const connection =
+    proto === 'auto'
+      ? await autoConnection({ concurrency, userAgent, ...config })
+      : proto;
   // Create an instance of client and start connection
   const client = new OADAClient({
     ...config,

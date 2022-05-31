@@ -89,8 +89,8 @@
     "supports-color": "^9.2.2",
     "tslib": "^2.4.0",
     "utf-8-validate": "^5.0.9",
-    "ws": "^8.6.0",
-    "xksuid": "https://github.com/qlever-llc/xksuid.git#commit=5b2761792b1b1b59ea71ab48df1252fcb851e502"
+    "ws": "^8.7.0",
+    "xksuid": "^0.0.3"
   },
   "devDependencies": {
     "@ava/typescript": "^3.0.1",
@@ -98,14 +98,14 @@
     "@types/debug": "^4.1.7",
     "@types/node": "^16.11.36",
     "@types/ws": "^8.5.3",
-    "@typescript-eslint/eslint-plugin": "^5.25.0",
-    "@typescript-eslint/parser": "^5.25.0",
+    "@typescript-eslint/eslint-plugin": "^5.27.0",
+    "@typescript-eslint/parser": "^5.27.0",
     "@yarnpkg/sdks": "3.0.0-rc.6",
     "ava": "4.0.0-rc.1",
     "axios": "^0.27.2",
     "c8": "^7.11.3",
     "dotenv": "^16.0.1",
-    "eslint": "^8.15.0",
+    "eslint": "^8.16.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-config-xo": "^0.41.0",
     "eslint-config-xo-typescript": "^0.51.1",

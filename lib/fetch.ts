@@ -15,11 +15,19 @@
  * limitations under the License.
  */
 
+import { createRequire } from 'node:module';
+
 import { context as _context } from 'fetch-h2';
 
+const nodeRequire = createRequire(import.meta.url); // construct the require method
+const { name, version } = nodeRequire('../package.json');
+
+const ourAgent = `${name}/${version}`;
+
 // Create our own context to honor NODE_TLS_REJECT_UNAUTHORIZED like https
-export const context = () =>
+export const context = ({ userAgent }: { userAgent: string }) =>
   _context({
+    userAgent: `${userAgent} ${ourAgent}`,
     session: {
       rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
     },

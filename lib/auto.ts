@@ -65,10 +65,12 @@ export async function autoConnection({
   domain,
   token,
   concurrency,
+  userAgent,
 }: {
   domain: string;
   token: string;
-  concurrency?: number;
+  concurrency: number;
+  userAgent: string;
 }) {
   try {
     const { hostname, port, protocols } = parseDomain(domain);
@@ -83,18 +85,18 @@ export async function autoConnection({
     switch (alpnProtocol) {
       // Prefer HTTP/2
       case 'h2':
-        return new HttpClient(domain, token, concurrency);
+        return new HttpClient(domain, token, { concurrency, userAgent });
 
       // If no HTTP/2, use a WebSocket
       case 'http/1.1':
       case 'http/1.0':
-        return new WebSocketClient(domain, concurrency);
+        return new WebSocketClient(domain, { concurrency, userAgent });
       default:
         throw new Error(`Unsupported ALPN protocol: ${alpnProtocol}`);
     }
   } catch (cError: unknown) {
     // Fallback to HTTP on error
     error(cError, 'Failed to auto pick connection type, falling back to HTTP');
-    return new HttpClient(domain, token, concurrency);
+    return new HttpClient(domain, token, { concurrency, userAgent });
   }
 }

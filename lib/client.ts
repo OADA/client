@@ -101,6 +101,7 @@ export interface Config {
   concurrency?: number;
   /** @default 'auto' */
   connection?: 'auto' | 'ws' | 'http' | Connection;
+  userAgent?: string;
 }
 
 export type Response = ConnectionResponse;
@@ -266,6 +267,7 @@ export class OADAClient {
     domain,
     token = '',
     concurrency = 1,
+    userAgent = `${process.env.npm_package_name}/${process.env.npm_package_version}`,
     connection = 'http',
   }: Config) {
     // Help for those who can't remember if https should be there
@@ -277,14 +279,16 @@ export class OADAClient {
       case 'auto':
         throw new Error('Connection type "auto" is not supported');
       case 'ws':
-        this.#connection = new WebSocketClient(this.#domain, this.#concurrency);
+        this.#connection = new WebSocketClient(this.#domain, {
+          concurrency: this.#concurrency,
+          userAgent,
+        });
         break;
       case 'http':
-        this.#connection = new HttpClient(
-          this.#domain,
-          this.#token,
-          this.#concurrency
-        );
+        this.#connection = new HttpClient(this.#domain, this.#token, {
+          concurrency: this.#concurrency,
+          userAgent,
+        });
         break;
       default:
         // Otherwise, they gave us a WebSocketClient to use

@@ -95,18 +95,23 @@ class BetterWebSocket extends WebSocket {
 
 export class WebSocketClient extends EventEmitter implements Connection {
   #ws: Promise<ReconnectingWebSocket>;
-  readonly #domain: string;
-  #status: ConnectionStatus;
+  readonly #domain;
+  #status;
   readonly #requests: ResponseEmitter = new EventEmitter();
-  readonly #q: PQueue;
+  readonly #q;
+  readonly #userAgent;
 
   /**
    * Constructor
    * @param domain Domain. E.g., www.example.com
    * @param concurrency Number of allowed in-flight requests. Default 10.
    */
-  constructor(domain: string, concurrency = 10) {
+  constructor(
+    domain: string,
+    { concurrency = 10, userAgent }: { concurrency: number; userAgent: string }
+  ) {
     super();
+    this.#userAgent = userAgent;
     this.#domain = domain.replace(/^http/, 'ws');
     this.#status = ConnectionStatus.Connecting;
     // Create websocket connection
@@ -182,7 +187,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
 
   /** Send a request to server */
   async #doRequest(
-    request: ConnectionRequest,
+    { headers: { authorization, ...headers }, ...request }: ConnectionRequest,
     { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {}
   ): Promise<IConnectionResponse> {
     const ws = await this.#ws;
@@ -195,6 +200,11 @@ export class WebSocketClient extends EventEmitter implements Connection {
     const responsePs = [once(this.#requests, `response:${requestId}`)];
     const socketRequest: WebSocketRequest = {
       ...request,
+      headers: {
+        'user-agent': this.#userAgent,
+        'authorization': authorization!,
+        ...headers,
+      },
       method: request.watch
         ? request.method === 'head'
           ? 'watch'

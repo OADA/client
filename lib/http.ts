@@ -48,8 +48,8 @@ const enum ConnectionStatus {
   Connected,
 }
 
-function getIsomorphicContext() {
-  return context ? context() : { fetch };
+function getIsomorphicContext({ userAgent }: { userAgent: string }) {
+  return context ? context({ userAgent }) : { fetch };
 }
 
 function isJson(contentType: string) {
@@ -70,6 +70,7 @@ export class HttpClient extends EventEmitter implements Connection {
   #q: PQueue;
   #initialConnection: Promise<void>; // Await on the initial HEAD
   #concurrency;
+  #userAgent;
   #context;
   #ws?: WebSocketClient; // Fall-back socket for watches
 
@@ -78,10 +79,14 @@ export class HttpClient extends EventEmitter implements Connection {
    * @param domain Domain. E.g., www.example.com
    * @param concurrency Number of allowed in-flight requests. Default 10.
    */
-  constructor(domain: string, token: string, concurrency = 10) {
+  constructor(
+    domain: string,
+    token: string,
+    { concurrency = 10, userAgent }: { concurrency: number; userAgent: string }
+  ) {
     super();
 
-    this.#context = getIsomorphicContext();
+    this.#context = getIsomorphicContext({ userAgent });
 
     // Ensure leading https://
     this.#domain = domain.startsWith('http') ? domain : `https://${domain}`;
@@ -116,6 +121,7 @@ export class HttpClient extends EventEmitter implements Connection {
       });
 
     this.#concurrency = concurrency;
+    this.#userAgent = userAgent;
     this.#q = new PQueue({ concurrency });
     this.#q.on('active', () => {
       trace('HTTP Queue. Size: %d pending: %d', this.#q.size, this.#q.pending);
@@ -160,7 +166,10 @@ export class HttpClient extends EventEmitter implements Connection {
       );
       if (!this.#ws) {
         // Open a WebSocket connection
-        this.#ws = new WebSocketClient(this.#domain, this.#concurrency);
+        this.#ws = new WebSocketClient(this.#domain, {
+          concurrency: this.#concurrency,
+          userAgent: this.#userAgent,
+        });
         await this.#ws.awaitConnection();
       }
 
