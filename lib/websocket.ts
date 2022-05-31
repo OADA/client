@@ -187,7 +187,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
 
   /** Send a request to server */
   async #doRequest(
-    { headers: { authorization, ...headers }, ...request }: ConnectionRequest,
+    request: ConnectionRequest,
     { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {}
   ): Promise<IConnectionResponse> {
     const ws = await this.#ws;
@@ -196,20 +196,21 @@ export class WebSocketClient extends EventEmitter implements Connection {
     request.requestId = requestId;
     assertOADASocketRequest(request);
 
+    const { headers, watch, method } = request;
+
     // Start listening for response before sending the request so we don't miss it
     const responsePs = [once(this.#requests, `response:${requestId}`)];
     const socketRequest: WebSocketRequest = {
       ...request,
       headers: {
         'user-agent': this.#userAgent,
-        'authorization': authorization!,
         ...headers,
       },
-      method: request.watch
-        ? request.method === 'head'
+      method: watch
+        ? method === 'head'
           ? 'watch'
-          : `${request.method}-watch`
-        : request.method,
+          : `${method}-watch`
+        : method,
     };
     ws.send(JSON.stringify(socketRequest));
     if (timeout) {
@@ -224,7 +225,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     const [response] = await Promise.race(responsePs);
 
     if (response.status >= 200 && response.status < 300) {
-      if (request.watch) {
+      if (watch) {
         const changes = on(this.#requests, `change:${requestId}`, { signal });
         return [response, changes];
       }
