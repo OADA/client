@@ -119,6 +119,7 @@ export interface GETRequest {
   path: string;
   tree?: Record<string, unknown>;
   timeout?: number;
+  headers?: Record<string, string>;
 }
 
 export interface PersistConfig {
@@ -147,6 +148,7 @@ export interface WatchRequestBase {
   rev?: number | string;
   persist?: PersistConfig;
   timeout?: number;
+  headers?: Record<string, string>;
 }
 
 /**
@@ -194,6 +196,7 @@ export interface PUTRequest {
   etagIfMatch?: string | readonly string[];
   tree?: Record<string, unknown>;
   timeout?: number;
+  headers?: Record<string, string>;
 }
 
 export interface POSTRequest {
@@ -202,16 +205,19 @@ export interface POSTRequest {
   contentType?: string;
   tree?: Record<string, unknown>;
   timeout?: number;
+  headers?: Record<string, string>;
 }
 
 export interface HEADRequest {
   path: string;
   timeout?: number;
+  headers?: Record<string, string>;
 }
 
 export interface DELETERequest {
   path: string;
   timeout?: number;
+  headers?: Record<string, string>;
 }
 
 export interface ENSURERequest {
@@ -219,6 +225,7 @@ export interface ENSURERequest {
   timeout?: number;
   tree?: Record<string, unknown>;
   data: Json;
+  headers?: Record<string, string>;
 }
 
 /**
@@ -352,6 +359,7 @@ export class OADAClient {
       {
         method: 'get',
         headers: {
+          ...request.headers,
           authorization: `Bearer ${this.#token}`,
         },
         path: request.path,
@@ -524,8 +532,9 @@ export class OADAClient {
         watch: true,
         method,
         headers: {
-          authorization: `Bearer ${this.#token}`,
+          ...request.headers,
           ...headers,
+          authorization: `Bearer ${this.#token}`,
         },
         path,
       },
@@ -844,6 +853,7 @@ export class OADAClient {
       {
         method: 'put',
         headers: {
+          ...request.headers,
           'authorization': `Bearer ${this.#token}`,
           'content-type': contentType,
           ...(etag && {
@@ -883,6 +893,7 @@ export class OADAClient {
       {
         method: 'post',
         headers: {
+          ...request.headers,
           'authorization': `Bearer ${this.#token}`,
           'content-type': contentType,
         },
@@ -904,6 +915,7 @@ export class OADAClient {
       {
         method: 'head',
         headers: {
+          ...request.headers,
           authorization: `Bearer ${this.#token}`,
         },
         path: request.path,
@@ -923,6 +935,7 @@ export class OADAClient {
       {
         method: 'delete',
         headers: {
+          ...request.headers,
           authorization: `Bearer ${this.#token}`,
         },
         path: request.path,
@@ -943,6 +956,7 @@ export class OADAClient {
         {
           method: 'head',
           headers: {
+            ...request.headers,
             authorization: `Bearer ${this.#token}`,
           },
           path: request.path,
