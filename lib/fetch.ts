@@ -19,7 +19,8 @@ import { createRequire } from 'node:module';
 
 import { context as _context } from 'fetch-h2';
 
-const nodeRequire = createRequire(import.meta.url); // construct the require method
+const nodeRequire = createRequire(import.meta.url); // Construct the require method
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 const { name, version } = nodeRequire('../package.json');
 
 const ourAgent = `${name}/${version}`;

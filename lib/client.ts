@@ -538,7 +538,7 @@ export class OADAClient {
         },
         path,
       },
-      { timeout, signal: restart.signal }
+      { timeout, signal: restart.signal as AbortSignal }
     );
 
     if (response.status !== 200) {
@@ -877,7 +877,7 @@ export class OADAClient {
     // (e.g., /bookmarks/abc/def -> ['bookmarks', 'abc', 'def'])
     const pathArray = toArrayPath(request.path);
 
-    const { data, tree, path, timeout } = request;
+    const { data, tree, path, timeout, headers } = request;
     if (tree) {
       // We could go to all the trouble of re-implementing tree puts for posts,
       // but it's much easier to just make a ksuid and do the tree put
@@ -893,7 +893,7 @@ export class OADAClient {
       {
         method: 'post',
         headers: {
-          ...request.headers,
+          ...headers,
           'authorization': `Bearer ${this.#token}`,
           'content-type': contentType,
         },
