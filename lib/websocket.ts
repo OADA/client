@@ -259,7 +259,6 @@ export class WebSocketClient extends EventEmitter implements Connection {
           const rChange: ConnectionChange = {
             requestId: [requestId],
             resourceId: message.resourceId,
-            path_leftover: message.path_leftover,
             change,
           };
           this.#requests.emit(`change:${requestId}`, rChange);

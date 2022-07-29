@@ -202,10 +202,10 @@ __metadata:
   resolution: "@oada/client@workspace:."
   dependencies:
     "@ava/typescript": ^3.0.1
-    "@oada/types": ^3.0.6
+    "@oada/types": ^3.1.1
     "@tsconfig/node14": ^1.0.3
     "@types/debug": ^4.1.7
-    "@types/node": ^16.11.45
+    "@types/node": ^16.11.46
     "@types/ws": ^8.5.3
     "@typescript-eslint/eslint-plugin": ^5.31.0
     "@typescript-eslint/parser": ^5.31.0
@@ -242,7 +242,7 @@ __metadata:
     eslint-plugin-optimize-regex: ^1.2.1
     eslint-plugin-prettier: ^4.2.1
     eslint-plugin-promise: ^6.0.0
-    eslint-plugin-regexp: ^1.7.0
+    eslint-plugin-regexp: ^1.8.0
     eslint-plugin-security: ^1.5.0
     eslint-plugin-sonarjs: ^0.14.0
     eslint-plugin-unicorn: ^43.0.2
@@ -266,15 +266,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@oada/types@npm:^3.0.6":
-  version: 3.0.6
-  resolution: "@oada/types@npm:3.0.6"
+"@oada/types@npm:^3.1.1":
+  version: 3.1.1
+  resolution: "@oada/types@npm:3.1.1"
   dependencies:
     ajv: 8.11.0
     ajv-formats: ^2.1.1
     ajv-formats-draft2019: ^1.6.1
     tslib: ^2.4.0
-  checksum: 082bcdf9c52418ed0f961000916bddee289077346a6e328abd5761b95f89fa9d53224c41f04e2913fc3adb5a5f80c95287cdfae3f144875cd68b0e6833907c4f
+  checksum: 5bd1c88a7c3f37e705675278d59ae26bf1bfc7c31f1877943a2a5965f076aa80927ddadfb26e88c44c7505a488086388ad945ae97465d38cbb44d4721bee48e9
   languageName: node
   linkType: hard
 
@@ -418,10 +418,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^16.11.45":
-  version: 16.11.45
-  resolution: "@types/node@npm:16.11.45"
-  checksum: 57d61c951024f66d796e71e4a972faef266007398cd4e93a195822fea2d5deb41d0615f394a99ece89772b145ff057321d138c7e3442455dc7d785ff67cebde3
+"@types/node@npm:^16.11.46":
+  version: 16.11.46
+  resolution: "@types/node@npm:16.11.46"
+  checksum: 9fff6b70fc8a47019c28f080ead5484bd4620fad1d25bfa3c55ebe444a1adbb7e339db5fcc33227d8a272232039221a31bf0b026c1b77410c49760976fa4cce1
   languageName: node
   linkType: hard
 
@@ -2336,9 +2336,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"eslint-plugin-regexp@npm:^1.7.0":
-  version: 1.7.0
-  resolution: "eslint-plugin-regexp@npm:1.7.0"
+"eslint-plugin-regexp@npm:^1.8.0":
+  version: 1.8.0
+  resolution: "eslint-plugin-regexp@npm:1.8.0"
   dependencies:
     comment-parser: ^1.1.2
     eslint-utils: ^3.0.0
@@ -2350,7 +2350,7 @@ __metadata:
     scslre: ^0.1.6
   peerDependencies:
     eslint: ">=6.0.0"
-  checksum: eb105d8dad765a870618f6cca0bca7a590ceebf24a640d713e85952a765c66cc9c2bcdbc604eaaf1ac0a37570aceec4ee42f2d53b1eda5d4490c088af68b8549
+  checksum: 971cd74873c25a268ceb80dc1dcb71d42ccbaed971e07d291ff3cd0bcf44eda70235613ba95ea8949821a83fd60a7c17f8b4e8521f89bd96bdc801a59d73287a
   languageName: node
   linkType: hard
 

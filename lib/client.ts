@@ -76,7 +76,6 @@ export interface ConnectionResponse {
 export interface ConnectionChange {
   requestId: string[];
   resourceId: string;
-  path_leftover: string | string[];
   change: Change[];
 }
 
