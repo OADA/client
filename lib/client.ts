@@ -25,6 +25,8 @@ import deepClone from 'deep-clone';
 import { fileTypeFromBuffer } from 'file-type';
 import { generate as ksuid } from 'xksuid';
 
+import type { Tree, TreeKey } from '@oada/types/oada/tree/v1.js';
+
 import {
   createNestedObject,
   fixError,
@@ -116,7 +118,7 @@ export interface WatchResponse<
 
 export interface GETRequest {
   path: string;
-  tree?: Record<string, unknown>;
+  tree?: Tree;
   timeout?: number;
   headers?: Record<string, string>;
 }
@@ -193,7 +195,7 @@ export interface PUTRequest {
   contentType?: string;
   /** If-Match */
   etagIfMatch?: string | readonly string[];
-  tree?: Record<string, unknown>;
+  tree?: Tree;
   timeout?: number;
   headers?: Record<string, string>;
 }
@@ -202,7 +204,7 @@ export interface POSTRequest {
   path: string;
   data: Body;
   contentType?: string;
-  tree?: Record<string, unknown>;
+  tree?: Tree;
   timeout?: number;
   headers?: Record<string, string>;
 }
@@ -222,18 +224,9 @@ export interface DELETERequest {
 export interface ENSURERequest {
   path: string;
   timeout?: number;
-  tree?: Record<string, unknown>;
+  tree?: Tree;
   data: Json;
   headers?: Record<string, string>;
-}
-
-/**
- * @internal
- */
-export interface OADATree {
-  [k: string]: OADATree;
-  // @ts-expect-error dumb trees
-  _type?: string;
 }
 
 /**
@@ -370,7 +363,7 @@ export class OADAClient {
     if (request.tree) {
       // Get subtree
       const arrayPath = toArrayPath(request.path);
-      const subTree = getObjectAtPath(request.tree as OADATree, arrayPath);
+      const subTree = getObjectAtPath(request.tree, arrayPath);
 
       // Replace "data" with the recursive GET result
       topLevelResponse.data = await this.#recursiveGet(
@@ -648,7 +641,7 @@ export class OADAClient {
   // GET resource recursively
   async #recursiveGet(
     path: string,
-    subTree: OADATree | undefined,
+    subTree: Tree | undefined,
     body: Body | undefined
   ): Promise<Body> {
     // If either subTree or data does not exist, there's mismatch between
@@ -669,7 +662,7 @@ export class OADAClient {
     }
 
     // Select children to traverse
-    const children: Array<{ treeKey: string; dataKey: string }> = [];
+    const children: Array<{ treeKey: TreeKey; dataKey: string }> = [];
     if ('*' in subTree) {
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
@@ -684,7 +677,7 @@ export class OADAClient {
       // Otherwise, get children from the tree provided by the user
       for (const key of Object.keys(subTree ?? {})) {
         if (typeof body[key as keyof typeof body] === 'object') {
-          children.push({ treeKey: key, dataKey: key });
+          children.push({ treeKey: key as TreeKey, dataKey: key });
         }
       }
     }
@@ -713,7 +706,7 @@ export class OADAClient {
     return body; // Return object at "path"
   }
 
-  async #ensureTree(tree: OADATree, pathArray: readonly string[]) {
+  async #ensureTree(tree: Tree, pathArray: readonly string[]) {
     // Link object (eventually substituted by an actual link object)
     let linkObject: Json = null;
     let newResourcePathArray: readonly string[] = [];
@@ -794,9 +787,10 @@ export class OADAClient {
 
     // 3) get content-type from the tree
     if (tree) {
-      const { _type } = getObjectAtPath(tree as OADATree, pathArray);
+      const { _type } = getObjectAtPath(tree, pathArray);
       if (_type) {
-        return _type;
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
+        return `${_type}`;
       }
     }
 
@@ -804,7 +798,7 @@ export class OADAClient {
     return 'application/json';
   }
 
-  async #retryEnsureTree(tree: OADATree, pathArray: readonly string[]) {
+  async #retryEnsureTree(tree: Tree, pathArray: readonly string[]) {
     // Retry on certain errors
     const CODES = new Set(['412', '422'] as const);
     const MAX_RETRIES = 5;
@@ -843,7 +837,7 @@ export class OADAClient {
     const pathArray = toArrayPath(request.path);
 
     if (request.tree) {
-      await this.#retryEnsureTree(request.tree as OADATree, pathArray);
+      await this.#retryEnsureTree(request.tree, pathArray);
     }
 
     const contentType = await this.#guessContentType(request, pathArray);

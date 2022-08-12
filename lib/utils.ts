@@ -20,7 +20,7 @@
  * Some useful functions
  */
 
-import type { OADATree } from './client.js';
+import type { Tree, TreeKey } from '@oada/types/oada/tree/v1.js';
 
 // Typescript sucks at figuring out Array.isArray on its own
 function isArray<A extends unknown[] | readonly unknown[]>(
@@ -52,14 +52,11 @@ export function toArrayPath(path: string): string[] {
   return arrayPath;
 }
 
-export function getObjectAtPath(
-  tree: OADATree,
-  path: readonly string[]
-): OADATree {
+export function getObjectAtPath(tree: Tree, path: readonly string[]): Tree {
   let result = tree;
   for (const key of path) {
     if (key in result) {
-      result = result[key]!;
+      result = result[key as TreeKey]!;
     } else if ('*' in result) {
       result = result['*']!;
     } else {
@@ -72,14 +69,14 @@ export function getObjectAtPath(
   return result;
 }
 
-export function toTreePath(tree: OADATree, path: string[]): string[] {
+export function toTreePath(tree: Tree, path: string[]): string[] {
   const treePath: string[] = [];
 
   let current = tree;
   for (const key of path) {
     if (key in current) {
       treePath.push(key);
-      current = current[key]!;
+      current = current[key as TreeKey]!;
     } else if ('*' in current) {
       treePath.push('*');
       current = current['*']!;
@@ -93,7 +90,7 @@ export function toTreePath(tree: OADATree, path: string[]): string[] {
   return treePath;
 }
 
-export function isResource(tree: OADATree, path: string[]): boolean {
+export function isResource(tree: Tree, path: string[]): boolean {
   const object = getObjectAtPath(tree, path);
   return '_id' in object;
 }
