@@ -21,6 +21,8 @@ import test from 'ava';
 
 import { setTimeout } from 'isomorphic-timers-promises';
 
+import type { Tree } from '@oada/types/oada/tree/v1.js';
+
 import type { Nested } from './utils.js';
 import { connect } from '../dist/index.js';
 
@@ -115,7 +117,7 @@ test('Recursive PUT/GET', async (t) => {
         },
       },
     },
-  };
+  } as unknown as Tree;
   const client = await connect({
     domain,
     token,

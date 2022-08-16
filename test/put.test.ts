@@ -23,6 +23,8 @@ import test from 'ava';
 
 import { generate as ksuid } from 'xksuid';
 
+import type { Tree } from '@oada/types/oada/tree/v1.js';
+
 import {
   Nested,
   deleteLinkAxios,
@@ -35,7 +37,7 @@ import { OADAClient, connect } from '../dist/index.js';
 
 interface Context {
   testName: string;
-  testTree: Record<string, unknown>;
+  testTree: Tree;
 }
 
 test.beforeEach('Initialize test name', async (t) => {

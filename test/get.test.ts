@@ -21,6 +21,8 @@ import test from 'ava';
 
 import { generate as ksuid } from 'xksuid';
 
+import type { Tree } from '@oada/types/oada/tree/v1.js';
+
 // eslint-disable-next-line import/no-namespace
 import * as oada from '../dist/index.js';
 import {
@@ -38,7 +40,7 @@ for (const connection of ['ws', 'http'] as const) {
 
   // Tree
   let testName: string;
-  let testTree: Record<string, unknown>;
+  let testTree: Tree;
 
   // Initialization
   test.before(`${connection}: Initialize connection`, async () => {

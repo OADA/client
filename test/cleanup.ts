@@ -50,4 +50,5 @@ async function run() {
   );
 }
 
+// eslint-disable-next-line unicorn/prefer-top-level-await
 void run();

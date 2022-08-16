@@ -789,8 +789,7 @@ export class OADAClient {
     if (tree) {
       const { _type } = getObjectAtPath(tree, pathArray);
       if (_type) {
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string
-        return `${_type}`;
+        return _type;
       }
     }
 

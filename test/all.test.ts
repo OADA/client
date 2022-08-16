@@ -22,6 +22,8 @@ import test from 'ava';
 import type { Nested } from './utils.js';
 import { connect } from '../dist/index.js';
 
+import type Tree from '@oada/types/oada/tree/v1.js';
+
 const generateRandomString = () => Math.random().toString(36).slice(7);
 
 test('Connect/Disconnect', async (t) => {
@@ -102,7 +104,7 @@ test.skip('Recursive PUT/GET', async (t) => {
         },
       },
     },
-  };
+  } as unknown as Tree;
   const client = await connect({
     domain,
     token,

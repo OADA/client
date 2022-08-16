@@ -20,6 +20,8 @@ import { domain, token } from './config.js';
 import axios from 'axios';
 import { generate as ksuid } from 'xksuid';
 
+import type Tree from '@oada/types/oada/tree/v1.js';
+
 export type Nested =
   | {
       [k: string]: Nested;
@@ -96,7 +98,7 @@ export async function deleteLinkAxios(uri: string) {
   return { link };
 }
 
-export function getTreeWithTestName(testName: string) {
+export function getTreeWithTestName(testName: string): Tree {
   return {
     bookmarks: {
       _type: 'application/json',
@@ -140,5 +142,5 @@ export function getTreeWithTestName(testName: string) {
         },
       },
     },
-  };
+  } as unknown as Tree;
 }
