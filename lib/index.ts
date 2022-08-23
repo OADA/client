@@ -21,6 +21,8 @@
 import { Config, OADAClient } from './client.js';
 import { autoConnection, parseDomain } from './auto.js';
 
+import type ChangeArray from '@oada/types/oada/change/v2.js';
+
 /** Create a new instance of OADAClient */
 export function createInstance(config: Config): OADAClient {
   return new OADAClient(config);
@@ -84,9 +86,4 @@ export type JsonCompatible<T> = {
     : JsonCompatible<T[P]>;
 };
 
-export interface Change {
-  type: 'merge' | 'delete';
-  body: JsonObject & { _rev: number | string };
-  path: string;
-  resource_id: string;
-}
+export type Change = ChangeArray[0];
