@@ -35,7 +35,7 @@ import type {
 } from './client.js';
 import { TimeoutError, fixError } from './utils.js';
 import fetch, { context } from './fetch.js';
-import type { Json } from '.';
+import type { Json } from './index.js';
 import { WebSocketClient } from './websocket.js';
 import { handleErrors } from './errors.js';
 

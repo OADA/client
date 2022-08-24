@@ -38,7 +38,7 @@ import {
 import { HttpClient } from './http.js';
 import { WebSocketClient } from './websocket.js';
 
-import type { Change, Json, JsonObject } from '.';
+import type { Change, Json, JsonObject } from './index.js';
 
 const trace = debug('@oada/client:client:trace');
 const info = debug('@oada/client:client:info');

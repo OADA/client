@@ -17,7 +17,7 @@
 
 import { domain, token } from './config.js';
 
-import axios from 'axios';
+import { default as axios } from 'axios';
 import { generate as ksuid } from 'xksuid';
 
 import type Tree from '@oada/types/oada/tree/v1.js';
