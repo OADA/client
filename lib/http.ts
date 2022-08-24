@@ -34,7 +34,8 @@ import type {
   IConnectionResponse,
 } from './client.js';
 import { TimeoutError, fixError } from './utils.js';
-import fetch, { context } from './fetch.js';
+// eslint-disable-next-line node/no-extraneous-import -- hack for skypack?
+import fetch, { context } from '@oada/client/dist/fetch.js';
 import type { Json } from './index.js';
 import { WebSocketClient } from './websocket.js';
 import { handleErrors } from './errors.js';

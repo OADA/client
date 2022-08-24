@@ -24,7 +24,8 @@
 
 import { setTimeout } from 'isomorphic-timers-promises';
 
-import { Headers } from './fetch.js';
+// eslint-disable-next-line node/no-extraneous-import -- hack for skypack?
+import { Headers } from '@oada/client/dist/fetch.js';
 import debug from 'debug';
 
 import type { IConnectionResponse } from './client.js';

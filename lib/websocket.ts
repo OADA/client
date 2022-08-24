@@ -30,7 +30,8 @@ import { assert as assertOADAChangeV2 } from '@oada/types/oada/change/v2.js';
 import { is as isOADASocketChange } from '@oada/types/oada/websockets/change.js';
 import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response.js';
 
-import { on, once } from './event-iterator.js';
+// eslint-disable-next-line node/no-extraneous-import -- hack for skypack?
+import { on, once } from '@oada/client/dist/event-iterator.js';
 
 import type {
   Connection,
