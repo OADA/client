@@ -18,8 +18,9 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="types.d.ts" />
 
-import { Config, OADAClient } from './client.js';
 import { autoConnection, parseDomain } from './auto.js';
+import type { Config } from './client.js';
+import { OADAClient } from './client.js';
 
 import type ChangeArray from '@oada/types/oada/change/v2.js';
 
@@ -56,8 +57,7 @@ export async function connect({
   return client;
 }
 
-export {
-  OADAClient,
+export type {
   Config,
   GETRequest,
   PUTRequest,
@@ -69,6 +69,7 @@ export {
   ConnectionChange,
   Connection,
 } from './client.js';
+export { OADAClient } from './client.js';
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type JsonPrimitive = string | number | boolean | null;

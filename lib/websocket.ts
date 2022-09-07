@@ -23,10 +23,9 @@ import debug from 'debug';
 import { generate as ksuid } from 'xksuid';
 import { setTimeout } from 'isomorphic-timers-promises';
 
-import WebSocketRequest, {
-  assert as assertOADASocketRequest,
-} from '@oada/types/oada/websockets/request.js';
+import type WebSocketRequest from '@oada/types/oada/websockets/request.js';
 import { assert as assertOADAChangeV2 } from '@oada/types/oada/change/v2.js';
+import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request.js';
 import { is as isOADASocketChange } from '@oada/types/oada/websockets/change.js';
 import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response.js';
 

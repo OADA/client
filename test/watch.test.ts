@@ -23,14 +23,15 @@ import { EventEmitter, once } from 'node:events';
 
 import { generate as ksuid } from 'xksuid';
 
-import { Change, OADAClient, connect } from '../dist/index.js';
+import type { Change, OADAClient } from '../dist/index.js';
 import {
-  Nested,
   deleteLinkAxios,
   getAxios,
   putAxios,
   putResourceAxios,
 } from './utils.js';
+import type { Nested } from './utils.js';
+import { connect } from '../dist/index.js';
 
 interface Context {
   testName: string;

@@ -26,14 +26,15 @@ import { generate as ksuid } from 'xksuid';
 import type { Tree } from '@oada/types/oada/tree/v1.js';
 
 import {
-  Nested,
   deleteLinkAxios,
   getAxios,
   getTreeWithTestName,
   putAxios,
   putResourceAxios,
 } from './utils.js';
-import { OADAClient, connect } from '../dist/index.js';
+import type { Nested } from './utils.js';
+import type { OADAClient } from '../dist/index.js';
+import { connect } from '../dist/index.js';
 
 interface Context {
   testName: string;

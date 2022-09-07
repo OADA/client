@@ -32,7 +32,7 @@ function isArray<A extends unknown[] | readonly unknown[]>(
 export function toArray<E extends unknown[] | readonly unknown[]>(
   itemOrArray: E | E[0]
 ): E {
-  return isArray(itemOrArray) ? itemOrArray : ([itemOrArray] as E);
+  return isArray<E>(itemOrArray) ? itemOrArray : ([itemOrArray] as E);
 }
 
 export function toStringPath(path: readonly string[]): string {

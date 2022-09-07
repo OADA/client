@@ -17,10 +17,10 @@
 
 import { Buffer } from 'buffer';
 
-import { AbortController, Method } from 'fetch-h2';
+import type { Method, Response } from 'fetch-h2';
+import { AbortController } from 'fetch-h2';
 import EventEmitter from 'eventemitter3';
 import PQueue from 'p-queue';
-import type { Response } from 'fetch-h2';
 import debug from 'debug';
 import { fromString } from 'media-type';
 import { generate as ksuid } from 'xksuid';
@@ -161,6 +161,7 @@ export class HttpClient extends EventEmitter implements Connection {
   ): Promise<IConnectionResponse> {
     trace(request, 'Starting http request');
     // Check for WATCH/UNWATCH
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
     if (request.watch || request.method === 'unwatch') {
       trace(
         'WATCH/UNWATCH not currently supported for http(2), falling-back to ws'

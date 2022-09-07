@@ -26,13 +26,13 @@ import type { Tree } from '@oada/types/oada/tree/v1.js';
 // eslint-disable-next-line import/no-namespace
 import * as oada from '../dist/index.js';
 import {
-  Nested,
   deleteLinkAxios,
   getAxios,
   getTreeWithTestName,
   putAxios,
   putResourceAxios,
 } from './utils.js';
+import type { Nested } from './utils.js';
 
 for (const connection of ['ws', 'http'] as const) {
   // Client instance
