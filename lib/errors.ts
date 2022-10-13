@@ -103,8 +103,10 @@ export async function handleErrors<R extends unknown[]>(
     trace(error, 'Attempting to handle error');
     // @ts-expect-error stupid error handling
     switch (`${error.status ?? cError?.code}`) {
-      case '429':
+      case '429': {
         return await handleRatelimit(error, request, ...rest);
+      }
+
       // Some servers use 503 for rate limit...
       case '503': {
         const headers = new Headers(error.headers);
@@ -116,8 +118,9 @@ export async function handleErrors<R extends unknown[]>(
         break;
       }
 
-      case 'ECONNRESET':
+      case 'ECONNRESET': {
         return await handleReset(error, request, ...rest);
+      }
 
       default:
       // Do nothing

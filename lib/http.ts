@@ -272,16 +272,18 @@ export class HttpClient extends EventEmitter implements Connection {
       // eslint-disable-next-line sonarjs/no-small-switch
       switch (cError?.code) {
         // Happens when the HTTP/2 session is killed
-        case 'ERR_HTTP2_INVALID_SESSION':
+        case 'ERR_HTTP2_INVALID_SESSION': {
           error('HTTP/2 session was killed, reconnecting');
           if ('disconnect' in this.#context) {
             await this.#context.disconnect(this.#domain);
           }
 
           return this.#doRequest(request, timeout);
+        }
 
-        default:
+        default: {
           throw cError as Error;
+        }
       }
     }
   }

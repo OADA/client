@@ -276,23 +276,30 @@ export class OADAClient {
     this.#concurrency = concurrency;
     this.#persistList = new Map();
     switch (connection) {
-      case 'auto':
+      case 'auto': {
         throw new Error('Connection type "auto" is not supported');
-      case 'ws':
+      }
+
+      case 'ws': {
         this.#connection = new WebSocketClient(this.#domain, {
           concurrency: this.#concurrency,
           userAgent,
         });
         break;
-      case 'http':
+      }
+
+      case 'http': {
         this.#connection = new HttpClient(this.#domain, this.#token, {
           concurrency: this.#concurrency,
           userAgent,
         });
         break;
-      default:
+      }
+
+      default: {
         // Otherwise, they gave us a WebSocketClient to use
         this.#connection = connection;
+      }
     }
   }
 

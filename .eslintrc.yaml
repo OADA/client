@@ -17,6 +17,7 @@ extends:
 
 plugins:
   - node
+  - escompat
   - github
   - promise
   - regexp

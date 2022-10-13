@@ -26,26 +26,30 @@ const error = debug('@oada/client:auto:error');
 function tryDomain(domain: string) {
   const url = new URL(domain);
   switch (url.protocol) {
-    case 'http2:':
+    case 'http2:': {
       return Object.assign(url, {
         port: Number(url.port) || 80,
         protocols: ['h2'],
       });
+    }
 
-    case 'https:':
+    case 'https:': {
       return Object.assign(url, {
         port: Number(url.port) || 443,
         protocols: ['h2', 'http/1.1', 'http/1.0'],
       });
+    }
 
-    case 'http:':
+    case 'http:': {
       return Object.assign(url, {
         port: Number(url.port) || 80,
         protocols: ['http/1.1', 'http/1.0'],
       });
+    }
 
-    default:
+    default: {
       throw new Error(`Unsupported domain protocol: ${url.protocol}`);
+    }
   }
 }
 
@@ -84,15 +88,19 @@ export async function autoConnection({
     });
     switch (alpnProtocol) {
       // Prefer HTTP/2
-      case 'h2':
+      case 'h2': {
         return new HttpClient(domain, token, { concurrency, userAgent });
+      }
 
       // If no HTTP/2, use a WebSocket
       case 'http/1.1':
-      case 'http/1.0':
+      case 'http/1.0': {
         return new WebSocketClient(domain, { concurrency, userAgent });
-      default:
+      }
+
+      default: {
         throw new Error(`Unsupported ALPN protocol: ${alpnProtocol}`);
+      }
     }
   } catch (cError: unknown) {
     // Fallback to HTTP on error
