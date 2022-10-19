@@ -15,4 +15,13 @@
  * limitations under the License.
  */
 
+import fetch from 'cross-fetch';
+
 export * from 'cross-fetch';
+
+// eslint-disable-next-line unicorn/prefer-export-from -- HACK: for vite
+export default fetch; // HACK: a`
+
+// eslint-disable-next-line @typescript-eslint/naming-convention -- HACK: for vite
+const { AbortController } = global;
+export { AbortController };

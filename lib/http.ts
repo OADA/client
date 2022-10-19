@@ -18,7 +18,6 @@
 import { Buffer } from 'buffer';
 
 import type { Method, Response } from 'fetch-h2';
-import { AbortController } from 'fetch-h2';
 import EventEmitter from 'eventemitter3';
 import PQueue from 'p-queue';
 import debug from 'debug';
@@ -35,7 +34,7 @@ import type {
 } from './client.js';
 import { TimeoutError, fixError } from './utils.js';
 // eslint-disable-next-line node/no-extraneous-import -- hack for skypack?
-import fetch, { context } from '@oada/client/dist/fetch.js';
+import fetch, { AbortController, context } from '@oada/client/dist/fetch.js';
 import type { Json } from './index.js';
 import { WebSocketClient } from './websocket.js';
 import { handleErrors } from './errors.js';

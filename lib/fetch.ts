@@ -37,5 +37,6 @@ export const context = ({ userAgent }: { userAgent: string }) =>
 export { Headers } from 'cross-fetch';
 
 // Cross-fetch has fetch as default export
+export * from 'fetch-h2';
 
 export { fetch as default } from 'fetch-h2';
