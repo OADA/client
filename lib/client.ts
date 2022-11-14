@@ -677,6 +677,12 @@ export class OADAClient {
       for (const [key, value] of Object.entries(
         body as Record<string, unknown>
       )) {
+        // Do not recurse into _meta or changes unless otherwise stated
+        if (key === '_meta' && !('_meta' in subTree))
+          continue;
+        if (key === '_changes' && !('_changes' in subTree))
+          continue;
+
         if (typeof value === 'object') {
           children.push({ treeKey: '*', dataKey: key });
         }
