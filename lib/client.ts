@@ -678,9 +678,7 @@ export class OADAClient {
         body as Record<string, unknown>
       )) {
         // Do not recurse into _meta or changes unless otherwise stated
-        if (key === '_meta' && !('_meta' in subTree))
-          continue;
-        if (key === '_changes' && !('_changes' in subTree))
+        if (['_meta', '_changes'].indexOf(key) > -1 && !(key in subTree))
           continue;
 
         if (typeof value === 'object') {
