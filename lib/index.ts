@@ -88,3 +88,5 @@ export type JsonCompatible<T> = {
 };
 
 export type Change = ChangeArray[0];
+
+export { JobsRequest, JobEventType, doJob } from './jobs.js';

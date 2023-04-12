@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "4.5.0",
+  "version": "4.5.1",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
@@ -83,7 +83,8 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@oada/types": "^3.3.0",
+    "@oada/jobs": "^4.2.2",
+    "@oada/types": "^3.4.5",
     "abort-controller": "^3.0.0",
     "buffer": "^6.0.3",
     "bufferutil": "^4.0.6",
@@ -97,12 +98,16 @@
     "file-type": "^18.0.0",
     "isomorphic-timers-promises": "^1.0.1",
     "isomorphic-ws": "^5.0.0",
+    "json-ptr": "^3.1.1",
+    "jsonpath-plus": "^7.2.0",
     "media-type": "^0.3.1",
+    "object-assign-deep": "^0.4.0",
     "p-queue": "^7.3.0",
     "reconnecting-websocket": "^4.4.0",
     "resolve-alpn": "^1.2.1",
+    "serialize-error": "^11.0.0",
     "supports-color": "^9.2.3",
-    "tslib": "^2.4.0",
+    "tslib": "^2.5.0",
     "utf-8-validate": "^5.0.9",
     "ws": "^8.9.0",
     "xksuid": "^0.0.3"
@@ -112,6 +117,7 @@
     "@tsconfig/node14": "^1.0.3",
     "@types/debug": "^4.1.7",
     "@types/node": "^16.11.65",
+    "@types/object-assign-deep": "^0",
     "@types/ws": "^8.5.3",
     "@typescript-eslint/eslint-plugin": "^5.40.0",
     "@typescript-eslint/parser": "^5.40.0",
@@ -148,6 +154,7 @@
     "eslint-plugin-unicorn": "^44.0.2",
     "prettier": "^2.7.1",
     "typescript": "4.8.2"
+
   },
   "packageManager": "yarn@3.2.4",
   "volta": {
