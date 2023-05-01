@@ -248,8 +248,8 @@ export const doJob = async (oada: OADAClient, job: Job): Promise<Job> =>
   new Promise((resolve, reject) => {
     const jr = new JobsRequest({ oada, job });
 
-    jr.on(JobEventType.Status, async ({ job }) => {
-      const j = await job;
+    jr.on(JobEventType.Status, async ({ job: jo }) => {
+      const j = await jo;
       if (j.status === 'success') {
         resolve(j);
       } else if (j.status === 'failure') {

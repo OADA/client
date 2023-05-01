@@ -216,8 +216,8 @@ __metadata:
   resolution: "@oada/client@workspace:."
   dependencies:
     "@ava/typescript": ^3.0.1
-    "@oada/jobs": ^4.2.2
-    "@oada/types": ^3.4.5
+    "@oada/jobs": ^4.2.5
+    "@oada/types": ^3.4.6
     "@tsconfig/node14": ^1.0.3
     "@types/debug": ^4.1.7
     "@types/node": ^16.11.65
@@ -287,9 +287,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@oada/jobs@npm:^4.2.2":
-  version: 4.2.2
-  resolution: "@oada/jobs@npm:4.2.2"
+"@oada/jobs@npm:^4.2.5":
+  version: 4.2.5
+  resolution: "@oada/jobs@npm:4.2.5"
   dependencies:
     "@ava/typescript": ^3.0.1
     "@oada/client": ^4.5.0
@@ -318,7 +318,7 @@ __metadata:
     tslib: ^2.5.0
   bin:
     oada-jobs: ./src/cli.mjs
-  checksum: 15d62442b0e9fe5ca4f9858ad2e7819c5e21f630f9e06c8aa6ae5905aa736ca6c93888be49cbe40212f2837e431cd2335727745684b4f9bafc500e3f6bd46b98
+  checksum: 74d521db9ff618540504de06372cbe30dc9b9153c7ae05716d7dfc1e9df8b0506bb52274deb304a25676b6ac7283500c62823a62bd1724355b78f58070e74558
   languageName: node
   linkType: hard
 
@@ -374,6 +374,18 @@ __metadata:
     ajv-formats-draft2019: ^1.6.1
     tslib: ^2.5.0
   checksum: 702fc08f59f73c00033a10d1810956a4d31ce29af9bf87a47a290d3f148e862994167c00534958295614178ab5bd53540e253233722fed19d86409cffe6d1371
+  languageName: node
+  linkType: hard
+
+"@oada/types@npm:^3.4.6":
+  version: 3.4.6
+  resolution: "@oada/types@npm:3.4.6"
+  dependencies:
+    ajv: 8.12.0
+    ajv-formats: ^2.1.1
+    ajv-formats-draft2019: ^1.6.1
+    tslib: ^2.5.0
+  checksum: 70756925f134d7bdc8796225c6001831b37c54149bc6227b4da6f8968babf9abd174a196ca4b494a7865bf5b5d26146d7061e2120bc636263dcb1c47f07edabc
   languageName: node
   linkType: hard
 

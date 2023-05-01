@@ -83,8 +83,8 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@oada/jobs": "^4.2.2",
-    "@oada/types": "^3.4.5",
+    "@oada/jobs": "^4.2.5",
+    "@oada/types": "^3.4.6",
     "abort-controller": "^3.0.0",
     "buffer": "^6.0.3",
     "bufferutil": "^4.0.6",
@@ -154,7 +154,6 @@
     "eslint-plugin-unicorn": "^44.0.2",
     "prettier": "^2.7.1",
     "typescript": "4.8.2"
-
   },
   "packageManager": "yarn@3.2.4",
   "volta": {
