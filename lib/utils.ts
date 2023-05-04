@@ -19,10 +19,14 @@
  * @packageDocumentation
  * Some useful functions
  */
-import type { Change, Json, JsonObject } from './index.js';
-import type { Tree, TreeKey } from '@oada/types/oada/tree/v1.js';
+
 import { JsonPointer } from 'json-ptr';
 import objectAssignDeep from 'object-assign-deep';
+
+import type { Tree, TreeKey } from '@oada/types/oada/tree/v1.js';
+
+import type { Change, Json, JsonObject } from './index.js';
+import { Response } from './fetch.js';
 
 // Typescript sucks at figuring out Array.isArray on its own
 function isArray<A extends unknown[] | readonly unknown[]>(
@@ -152,6 +156,12 @@ export async function fixError<
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     body = (await error.json?.()) ?? error.data;
   } catch {}
+
+  if (error instanceof Response && !('size' in error.headers)) {
+    // @ts-expect-error HACK
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    error.headers.size = error.headers._data.size;
+  }
 
   const message =
     error.message ??

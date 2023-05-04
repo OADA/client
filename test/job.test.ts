@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-/* eslint-disable sonarjs/no-duplicate-string */
-
 import { domain, token } from './config.js';
+
+import { setTimeout } from 'node:timers/promises';
 
 import test from 'ava';
 
-import type { WorkerFunction } from '@oada/jobs';
 import { Service } from '@oada/jobs';
+import type { WorkerFunction } from '@oada/jobs';
 
+import { JobEventType, JobsRequest, connect, doJob } from '../dist/index.js';
 import type { OADAClient } from '../dist/index.js';
-import { connect, JobsRequest, JobEventType, doJob } from '../dist/index.js';
 
 let conn: OADAClient;
-const JOBTYPE= 'test-type';
+const JOBTYPE = 'test-type';
 const SERVICE = 'test-service';
 
 const testJob = {
@@ -37,8 +37,8 @@ const testJob = {
   config: {
     somekey: 'xyz',
     foo: { bar: 'baz' },
-  }
-}
+  },
+};
 const throwJob = {
   type: JOBTYPE,
   service: SERVICE,
@@ -46,13 +46,12 @@ const throwJob = {
     error: true,
     somekey: 'xyz',
     foo: { bar: 'baz' },
-  }
-}
-
+  },
+};
 
 const testWorker: WorkerFunction = async (job: any) => {
   if (job.config.error) throw new Error('some error');
-  return {great: 'success'};
+  return { great: 'success' };
 };
 
 test.before('Create connection and dummy service', async () => {
@@ -71,37 +70,37 @@ test.before('Create connection and dummy service', async () => {
 });
 
 test(`Should wait for the job to finish `, async (t) => {
-  let results : any = {};
+  const results: any = {};
   const someJob = new JobsRequest({
     oada: conn,
     job: testJob,
   });
-  someJob.on(JobEventType.Success, () => {
+  void someJob.on(JobEventType.Success, () => {
     results.success = true;
   });
 
-  someJob.on(JobEventType.Failure, () => {
+  void someJob.on(JobEventType.Failure, () => {
     results.failure = true;
   });
 
-  someJob.on(JobEventType.Result, () => {
-    results.result= true;
+  void someJob.on(JobEventType.Result, () => {
+    results.result = true;
   });
 
-  someJob.on(JobEventType.Update, () => {
+  void someJob.on(JobEventType.Update, () => {
     results.update = true;
   });
 
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  await setTimeout(3000);
 
   await conn.put({
     path: `/${someJob.oadaId}`,
-    data: {status: 'success'},
+    data: { status: 'success' },
   });
 
   await conn.put({
     path: `/${someJob.oadaId}`,
-    data: {status: 'failure'},
+    data: { status: 'failure' },
   });
 
   await conn.put({
@@ -116,25 +115,23 @@ test(`Should wait for the job to finish `, async (t) => {
   t.is(results?.result, true);
   t.is(results?.update, true);
 
-  let { data } = await conn.get({
+  const { data } = await conn.get({
     path: `/${someJob.oadaId}`,
-  })
+  });
 
   // @ts-expect-error too lazy to fix
-  t.is(Object.values(data.updates)[1].meta === 'update the job');
+  t.true(Object.values(data.updates)[1].meta === 'update the job');
 });
 
 test('doJobs should return the job after a status (and result) are available.', async (t) => {
-
   const job = await doJob(conn, testJob);
 
-  t.is(job.status, 'success')
-  t.deepEqual(job.result, { great: 'success'});
-})
+  t.is(job.status, 'success');
+  t.deepEqual(job.result, { great: 'success' });
+});
 
 test.only('doJobs should throw an error if the worker throws.', async (t) => {
+  const error = await t.throwsAsync(async () => doJob(conn, throwJob));
 
-  const err = await t.throwsAsync(async () => await doJob(conn, throwJob));
-
-  t.deepEqual(err!.message, 'some error')
-})
+  t.is(error!.message, 'some error');
+});
