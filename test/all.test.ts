@@ -128,3 +128,57 @@ test.skip('Recursive PUT/GET', async (t) => {
   t.assert(responseData?.level1?.abc?.level2?.def?.level3?.ghi?._type);
   await client.disconnect();
 });
+
+test.skip('Tree PUT should fail if a _require endpoint does not already exist', async (t) => {
+  const randomString = generateRandomString();
+  const tree = {
+    bookmarks: {
+      // eslint-disable-next-line sonarjs/no-duplicate-string
+      _type: 'application/json',
+      // _rev: 0,
+      [randomString]: {
+        _type: 'application/json',
+        // _rev: 0,
+        level1: {
+          '*': {
+            _type: 'application/json',
+            // _rev: 0,
+            level2: {
+              '*': {
+                _type: 'application/json',
+                _require: true,
+                // _rev: 0,
+                level3: {
+                  '*': {
+                    _type: 'application/json',
+                    // _rev: 0,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  } as unknown as Tree;
+  const client = await connect({
+    domain,
+    token,
+  });
+  // Tree PUT
+  let err = await t.throwsAsync(async () => await client.put({
+    path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
+    data: { thingy: 'abc' },
+    tree,
+  }));
+  t.truthy(err?.message.startsWith('Cannot create _require endpoint that did not exist'));
+
+  err = await t.throwsAsync(async () => await client.get({
+    path: `/bookmarks/${randomString}`,
+  }));
+  t.assert(err);
+  //@ts-expect-error status does not exist on Error
+  t.is(err!.status, 404);
+
+  await client.disconnect();
+});

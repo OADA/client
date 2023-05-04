@@ -738,6 +738,12 @@ export class OADAClient {
       // Check if resource already exists on the remote server
       const resourceCheckResult = await this.#resourceExists(partialPath);
 
+      // Handle _require for particular endpoints where writes are limited to
+      // certain services.
+      if (!resourceCheckResult.exist && treeObject._require) {
+        throw new Error(`Cannot create _require endpoint that did not exist: ${partialPath}`);
+      }
+
       // CASE 1: resource exists on server.
       if (resourceCheckResult.exist) {
         // Simply create a link using PUT request
