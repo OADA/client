@@ -17,13 +17,12 @@
 
 import type { Change, Json, OADAClient } from './index.js';
 import type { ChangeBody, Result } from './utils.js';
-import { changeSym } from './utils.js';
+import { buildChangeObject, changeSym } from './utils.js';
+import { postJob, postUpdate } from '@oada/jobs';
 import EventEmitter from 'eventemitter3';
+import { JSONPath } from 'jsonpath-plus';
 import type Job from '@oada/types/oada/service/job.js';
 import debug from 'debug';
-import { buildChangeObject } from './utils.js';
-import { JSONPath } from 'jsonpath-plus';
-import { postJob, postUpdate } from '@oada/jobs';
 import { deserializeError } from 'serialize-error';
 
 const log = {
@@ -52,16 +51,16 @@ export class JobsRequest<J extends Job> {
     event: E,
     listener: (jobChange: JobType<E, J>) => PromiseLike<void> | void
   ) {
+    this.#emitter.on(event, this.#wrapListener(event, listener));
+  }
+
+  async start() {
     const pending = `/bookmarks/services/${this.job.service}/jobs/pending`;
     const { _id, key } = await postJob(this.oada, pending, this.job);
     this.oadaId = _id;
     this.oadaListKey = key;
     this.#watch = await this.#watchJob();
-    try {
-      this.#emitter.on(event, this.#wrapListener(event, listener));
-    } catch (error: unknown) {
-      log.error(error);
-    }
+    return { _id, key };
   }
 
   #wrapListener<E extends JobEvent<J>>(
@@ -177,9 +176,7 @@ export class JobsRequest<J extends Job> {
         if (change?.body?.status === 'success')
           await this.#emit(JobEventType.Success);
 
-        if (change?.body?.status)
-          await this.#emit(JobEventType.Status);
-
+        if (change?.body?.status) await this.#emit(JobEventType.Status);
 
         if (change?.body?.status === 'failure')
           await this.#emit(JobEventType.Failure);
@@ -256,4 +253,5 @@ export const doJob = async (oada: OADAClient, job: Job): Promise<Job> =>
         reject(deserializeError(j.result));
       }
     });
+    jr.start();
   });
