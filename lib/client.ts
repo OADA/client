@@ -16,13 +16,12 @@
  */
 
 import { AbortController } from 'abort-controller';
-import { Buffer } from 'buffer';
+import { Buffer } from 'node:buffer';
 import { setTimeout } from 'isomorphic-timers-promises';
 
-import type EventEmitter from 'eventemitter3';
+import type { EventEmitter } from 'eventemitter3';
 import debug from 'debug';
 import deepClone from 'deep-clone';
-// eslint-disable-next-line node/no-extraneous-import -- hack for skypack?
 import { fileTypeFromBuffer } from '@oada/client/dist/file-type.js';
 import { generate as ksuid } from 'xksuid';
 
@@ -572,10 +571,10 @@ export class OADAClient {
           }
 
           if (request.type === 'tree') {
-            yield deepClone(resp.change);
+            yield deepClone(resp.change as Json) as typeof resp.change;
           } else if (!request.type || request.type === 'single') {
             for (const change of resp.change) {
-              yield deepClone(change);
+              yield deepClone(change as Json) as typeof change;
 
               if (change.path === '') {
                 const newRev = change.body?._rev;
@@ -609,7 +608,7 @@ export class OADAClient {
       // If the connection died, restart the watch
       if (restart.signal.aborted) {
         // FIXME: Possible stack overflow here?
-        // eslint-disable-next-line security/detect-non-literal-fs-filename
+
         const { changes } = await this.watch(request);
         yield* changes;
       }
@@ -644,204 +643,6 @@ export class OADAClient {
     // TODO: add timeout
 
     return response;
-  }
-
-  // GET resource recursively
-  async #recursiveGet(
-    path: string,
-    subTree: Tree | undefined,
-    body: Body | undefined
-  ): Promise<Body> {
-    // If either subTree or data does not exist, there's mismatch between
-    // the provided tree and the actual data stored on the server
-    if (!subTree || !body) {
-      throw new Error('Path mismatch.');
-    }
-
-    // If the object is a link to another resource (i.e., contains "_type"),
-    // then perform GET
-    if (subTree._type) {
-      ({ data: body = {} } = await this.get({ path }));
-    }
-
-    // ???: Should this error?
-    if (Buffer.isBuffer(body) || !body) {
-      return body;
-    }
-
-    // Select children to traverse
-    const children: Array<{ treeKey: TreeKey; dataKey: string }> = [];
-    if ('*' in subTree) {
-      // If "*" is specified in the tree provided by the user,
-      // get all children from the server
-      for (const [key, value] of Object.entries(
-        body as Record<string, unknown>
-      )) {
-        // Do not recurse into _meta or changes unless otherwise stated
-        if (['_meta', '_changes'].indexOf(key) > -1 && !(key in subTree))
-          continue;
-
-        if (typeof value === 'object') {
-          children.push({ treeKey: '*', dataKey: key });
-        }
-      }
-    } else {
-      // Otherwise, get children from the tree provided by the user
-      for (const key of Object.keys(subTree ?? {})) {
-        if (typeof body[key as keyof typeof body] === 'object') {
-          children.push({ treeKey: key as TreeKey, dataKey: key });
-        }
-      }
-    }
-
-    // Await recursive calls
-    await Promise.all(
-      children.map(async (item) => {
-        const childPath = `${path}/${item.dataKey}`;
-        try {
-          const response = await this.#recursiveGet(
-            childPath,
-            subTree[item.treeKey],
-            (body as JsonObject)[item.dataKey]
-          );
-          if (Buffer.isBuffer(response)) {
-            throw new TypeError('Non JSON is not supported.');
-          }
-
-          (body as JsonObject)[item.dataKey] = response;
-        } catch (cError: unknown) {
-          // Keep going if a child GET throws
-          warn(cError, `Failed to recursively GET ${childPath}`);
-        }
-      })
-    );
-    return body; // Return object at "path"
-  }
-
-  async #ensureTree(tree: Tree, pathArray: readonly string[]) {
-    // Link object (eventually substituted by an actual link object)
-    let linkObject: Json = null;
-    let newResourcePathArray: readonly string[] = [];
-    for await (const index of Array.from(pathArray.keys()).reverse()) {
-      // Get current path
-      const partialPathArray: readonly string[] = pathArray.slice(0, index + 1);
-      // Get corresponding data definition from the provided tree
-      const treeObject = getObjectAtPath(tree, partialPathArray);
-      if (!treeObject._type) {
-        // No resource break here
-        continue;
-      }
-
-      // It's a resource
-      const contentType = treeObject._type;
-      const partialPath = toStringPath(partialPathArray);
-      // Check if resource already exists on the remote server
-      const resourceCheckResult = await this.#resourceExists(partialPath);
-
-      // Handle _require for particular endpoints where writes are limited to
-      // certain services.
-      if (!resourceCheckResult.exist && treeObject._require) {
-        throw new Error(`Cannot create _require endpoint that did not exist: ${partialPath}`);
-      }
-
-      // CASE 1: resource exists on server.
-      if (resourceCheckResult.exist) {
-        // Simply create a link using PUT request
-        if (linkObject && newResourcePathArray.length > 0) {
-          await this.put({
-            path: toStringPath(newResourcePathArray),
-            contentType,
-            data: linkObject,
-            // Ensure the resource has not been modified (opportunistic lock)
-            etagIfMatch: resourceCheckResult.etag,
-          });
-        }
-
-        // Resource already exists, no need to further traverse the tree.
-        return;
-      }
-
-      // CASE 2: resource does NOT exist on server.
-      // create a new nested object containing a link
-      const relativePathArray = newResourcePathArray.slice(index + 1);
-      const newResource = linkObject
-        ? createNestedObject(linkObject, relativePathArray)
-        : {};
-      // Create a new resource
-      const resourceId: string = await this.#createResource(
-        contentType,
-        newResource as Json
-      );
-      // Save a link
-      linkObject =
-        '_rev' in treeObject
-          ? { _id: resourceId, _rev: 0 } // Versioned link
-          : { _id: resourceId }; // Non-versioned link
-      newResourcePathArray = partialPathArray.slice(); // Clone
-    }
-  }
-
-  async #guessContentType(
-    { contentType, data, tree }: PUTRequest,
-    pathArray: readonly string[]
-  ): Promise<string> {
-    // 1) get content-type from the argument
-    if (contentType) {
-      return contentType;
-    }
-
-    // 2) get content-type from the resource body
-    if (Buffer.isBuffer(data)) {
-      const type = await fileTypeFromBuffer(data);
-      if (type?.mime) {
-        return type.mime;
-      }
-    } else {
-      const type = (data as JsonObject)?._type;
-      if (type) {
-        return type as string;
-      }
-    }
-
-    // 3) get content-type from the tree
-    if (tree) {
-      const { _type } = getObjectAtPath(tree, pathArray);
-      if (_type) {
-        return _type;
-      }
-    }
-
-    // Assume it is JSON?
-    return 'application/json';
-  }
-
-  async #retryEnsureTree(tree: Tree, pathArray: readonly string[]) {
-    // Retry on certain errors
-    const CODES = new Set(['412', '422'] as const);
-    const MAX_RETRIES = 5;
-
-    for await (const retryCount of Array.from({
-      length: MAX_RETRIES - 1,
-    }).keys()) {
-      try {
-        await this.#ensureTree(tree, pathArray);
-
-        return;
-      } catch (cError: unknown) {
-        // Handle 412 (If-Match failed)
-        // @ts-expect-error stupid errors
-        if (CODES.has(cError?.code)) {
-          await setTimeout(
-            // Retry with exponential backoff
-            100 * ((retryCount + 1) ** 2 + Math.random())
-          );
-        } else {
-          throw await fixError(cError as Error);
-        }
-      }
-    }
-
-    await this.#ensureTree(tree, pathArray);
   }
 
   /**
@@ -983,6 +784,205 @@ export class OADAClient {
       trace('Path to ensure did not exist. Creating');
       return await this.put(request);
     }
+  }
+
+  // GET resource recursively
+  async #recursiveGet(
+    path: string,
+    subTree: Tree | undefined,
+    body: Body | undefined
+  ): Promise<Body> {
+    // If either subTree or data does not exist, there's mismatch between
+    // the provided tree and the actual data stored on the server
+    if (!subTree || !body) {
+      throw new Error('Path mismatch.');
+    }
+
+    // If the object is a link to another resource (i.e., contains "_type"),
+    // then perform GET
+    if (subTree._type) {
+      ({ data: body = {} } = await this.get({ path }));
+    }
+
+    // ???: Should this error?
+    if (Buffer.isBuffer(body) || !body) {
+      return body;
+    }
+
+    // Select children to traverse
+    const children: Array<{ treeKey: TreeKey; dataKey: string }> = [];
+    if ('*' in subTree) {
+      // If "*" is specified in the tree provided by the user,
+      // get all children from the server
+      for (const [key, value] of Object.entries(
+        body as Record<string, unknown>
+      )) {
+        // Do not recurse into _meta or changes unless otherwise stated
+        if (['_meta', '_changes'].includes(key) && !(key in subTree)) continue;
+
+        if (typeof value === 'object') {
+          children.push({ treeKey: '*', dataKey: key });
+        }
+      }
+    } else {
+      // Otherwise, get children from the tree provided by the user
+      for (const key of Object.keys(subTree ?? {})) {
+        if (typeof body[key as keyof typeof body] === 'object') {
+          children.push({ treeKey: key as TreeKey, dataKey: key });
+        }
+      }
+    }
+
+    // Await recursive calls
+    await Promise.all(
+      children.map(async (item) => {
+        const childPath = `${path}/${item.dataKey}`;
+        try {
+          const response = await this.#recursiveGet(
+            childPath,
+            subTree[item.treeKey],
+            (body as JsonObject)[item.dataKey]
+          );
+          if (Buffer.isBuffer(response)) {
+            throw new TypeError('Non JSON is not supported.');
+          }
+
+          (body as JsonObject)[item.dataKey] = response;
+        } catch (cError: unknown) {
+          // Keep going if a child GET throws
+          warn(cError, `Failed to recursively GET ${childPath}`);
+        }
+      })
+    );
+    return body; // Return object at "path"
+  }
+
+  async #ensureTree(tree: Tree, pathArray: readonly string[]) {
+    // Link object (eventually substituted by an actual link object)
+    let linkObject: Json = null;
+    let newResourcePathArray: readonly string[] = [];
+    for await (const index of Array.from(pathArray.keys()).reverse()) {
+      // Get current path
+      const partialPathArray: readonly string[] = pathArray.slice(0, index + 1);
+      // Get corresponding data definition from the provided tree
+      const treeObject = getObjectAtPath(tree, partialPathArray);
+      if (!treeObject._type) {
+        // No resource break here
+        continue;
+      }
+
+      // It's a resource
+      const contentType = treeObject._type;
+      const partialPath = toStringPath(partialPathArray);
+      // Check if resource already exists on the remote server
+      const resourceCheckResult = await this.#resourceExists(partialPath);
+
+      // Handle _require for particular endpoints where writes are limited to
+      // certain services.
+      if (!resourceCheckResult.exist && treeObject._require) {
+        throw new Error(
+          `Cannot create _require endpoint that did not exist: ${partialPath}`
+        );
+      }
+
+      // CASE 1: resource exists on server.
+      if (resourceCheckResult.exist) {
+        // Simply create a link using PUT request
+        if (linkObject && newResourcePathArray.length > 0) {
+          await this.put({
+            path: toStringPath(newResourcePathArray),
+            contentType,
+            data: linkObject,
+            // Ensure the resource has not been modified (opportunistic lock)
+            etagIfMatch: resourceCheckResult.etag,
+          });
+        }
+
+        // Resource already exists, no need to further traverse the tree.
+        return;
+      }
+
+      // CASE 2: resource does NOT exist on server.
+      // create a new nested object containing a link
+      const relativePathArray = newResourcePathArray.slice(index + 1);
+      const newResource = linkObject
+        ? createNestedObject(linkObject, relativePathArray)
+        : {};
+      // Create a new resource
+      const resourceId: string = await this.#createResource(
+        contentType,
+        newResource as Json
+      );
+      // Save a link
+      linkObject =
+        '_rev' in treeObject
+          ? { _id: resourceId, _rev: 0 } // Versioned link
+          : { _id: resourceId }; // Non-versioned link
+      newResourcePathArray = partialPathArray.slice(); // Clone
+    }
+  }
+
+  async #guessContentType(
+    { contentType, data, tree }: PUTRequest,
+    pathArray: readonly string[]
+  ): Promise<string> {
+    // 1) get content-type from the argument
+    if (contentType) {
+      return contentType;
+    }
+
+    // 2) get content-type from the resource body
+    if (Buffer.isBuffer(data)) {
+      const type = await fileTypeFromBuffer(data);
+      if (type?.mime) {
+        return type.mime;
+      }
+    } else {
+      const type = (data as JsonObject)?._type;
+      if (type) {
+        return type as string;
+      }
+    }
+
+    // 3) get content-type from the tree
+    if (tree) {
+      const { _type } = getObjectAtPath(tree, pathArray);
+      if (_type) {
+        return _type;
+      }
+    }
+
+    // Assume it is JSON?
+    return 'application/json';
+  }
+
+  async #retryEnsureTree(tree: Tree, pathArray: readonly string[]) {
+    // Retry on certain errors
+    const CODES = new Set(['412', '422'] as const);
+    const MAX_RETRIES = 5;
+
+    for await (const retryCount of Array.from({
+      length: MAX_RETRIES - 1,
+    }).keys()) {
+      try {
+        await this.#ensureTree(tree, pathArray);
+
+        return;
+      } catch (cError: unknown) {
+        // Handle 412 (If-Match failed)
+        // @ts-expect-error stupid errors
+        if (CODES.has(cError?.code)) {
+          await setTimeout(
+            // Retry with exponential backoff
+            100 * ((retryCount + 1) ** 2 + Math.random())
+          );
+        } else {
+          throw await fixError(cError as Error);
+        }
+      }
+    }
+
+    await this.#ensureTree(tree, pathArray);
   }
 
   /**

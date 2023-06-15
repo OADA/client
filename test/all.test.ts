@@ -51,7 +51,7 @@ test.skip('watch', async () => {
     domain,
     token,
   });
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
+
   const { changes } = await client.watch({
     path: '/bookmarks',
   });
@@ -133,7 +133,6 @@ test.skip('Tree PUT should fail if a _require endpoint does not already exist', 
   const randomString = generateRandomString();
   const tree = {
     bookmarks: {
-      // eslint-disable-next-line sonarjs/no-duplicate-string
       _type: 'application/json',
       // _rev: 0,
       [randomString]: {
@@ -166,19 +165,27 @@ test.skip('Tree PUT should fail if a _require endpoint does not already exist', 
     token,
   });
   // Tree PUT
-  let err = await t.throwsAsync(async () => await client.put({
-    path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
-    data: { thingy: 'abc' },
-    tree,
-  }));
-  t.truthy(err?.message.startsWith('Cannot create _require endpoint that did not exist'));
+  let error = await t.throwsAsync(async () =>
+    client.put({
+      path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
+      data: { thingy: 'abc' },
+      tree,
+    })
+  );
+  t.truthy(
+    error?.message.startsWith(
+      'Cannot create _require endpoint that did not exist'
+    )
+  );
 
-  err = await t.throwsAsync(async () => await client.get({
-    path: `/bookmarks/${randomString}`,
-  }));
-  t.assert(err);
-  //@ts-expect-error status does not exist on Error
-  t.is(err!.status, 404);
+  error = await t.throwsAsync(async () =>
+    client.get({
+      path: `/bookmarks/${randomString}`,
+    })
+  );
+  t.assert(error);
+  // @ts-expect-error status does not exist on Error
+  t.is(error!.status, 404);
 
   await client.disconnect();
 });

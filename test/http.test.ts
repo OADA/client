@@ -56,7 +56,7 @@ test('HTTP watch should not throw', async (t) => {
     token,
     connection: 'http',
   });
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
+
   const { changes } = await client.watch({
     path: '/bookmarks',
   });

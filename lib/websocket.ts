@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-import EventEmitter from 'eventemitter3';
+import { EventEmitter } from 'eventemitter3';
 import PQueue from 'p-queue';
-import { default as ReconnectingWebSocket } from 'reconnecting-websocket';
 import WebSocket from 'isomorphic-ws';
+import _ReconnectingWebSocket from 'reconnecting-websocket';
 import debug from 'debug';
 import { generate as ksuid } from 'xksuid';
 import { setTimeout } from 'isomorphic-timers-promises';
@@ -29,7 +29,6 @@ import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/r
 import { is as isOADASocketChange } from '@oada/types/oada/websockets/change.js';
 import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response.js';
 
-// eslint-disable-next-line node/no-extraneous-import -- hack for skypack?
 import { on, once } from '@oada/client/dist/event-iterator.js';
 
 import type {
@@ -42,6 +41,11 @@ import type {
 import { TimeoutError, fixError } from './utils.js';
 import type { Change } from './index.js';
 import { handleErrors } from './errors.js';
+
+// HACK: Fix for default export types in esm
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const ReconnectingWebSocket =
+  _ReconnectingWebSocket as unknown as typeof _ReconnectingWebSocket.default;
 
 const trace = debug('@oada/client:ws:trace');
 const error = debug('@oada/client:ws:error');
@@ -94,7 +98,7 @@ class BetterWebSocket extends WebSocket {
 }
 
 export class WebSocketClient extends EventEmitter implements Connection {
-  #ws: Promise<ReconnectingWebSocket>;
+  #ws: Promise<_ReconnectingWebSocket.default>;
   readonly #domain;
   #status;
   readonly #requests: ResponseEmitter = new EventEmitter();
@@ -180,8 +184,10 @@ export class WebSocketClient extends EventEmitter implements Connection {
     request: ConnectionRequest,
     { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {}
   ) {
-    return this.#q.add(async () =>
-      handleErrors(this.#doRequest.bind(this), request, { timeout, signal })
+    return this.#q.add(
+      async () =>
+        handleErrors(this.#doRequest.bind(this), request, { timeout, signal }),
+      { throwOnTimeout: true }
     );
   }
 

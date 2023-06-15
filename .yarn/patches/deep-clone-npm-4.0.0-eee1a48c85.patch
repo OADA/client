@@ -1,0 +1,92 @@
+diff --git a/package.json b/package.json
+index 12e971d4a7fc05ef9061ab63af572669ee6a585b..529a3fa762e1c60a37d66e3272142f2a0f10f6ee 100644
+--- a/package.json
++++ b/package.json
+@@ -8,7 +8,8 @@
+   "exports": {
+     ".": {
+       "import": "./dist/esm/deep-clone.js",
+-      "require": "./dist/cjs/deep-clone.js"
++      "require": "./dist/cjs/deep-clone.js",
++      "types": "./dist/deep-clone.d.ts"
+     }
+   },
+   "types": "./dist/deep-clone.d.ts",
+diff --git a/tags b/tags
+new file mode 100644
+index 0000000000000000000000000000000000000000..6436af8cc5bd37aa03c37546b5bbc7bcbcb3a975
+--- /dev/null
++++ b/tags
+@@ -0,0 +1,72 @@
++!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
++!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
++!_TAG_OUTPUT_EXCMD	mixed	/number, pattern, mixed, or combineV2/
++!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
++!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
++!_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
++!_TAG_PROC_CWD		//
++!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
++!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
++!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
++!_TAG_PROGRAM_VERSION	5.9.0	//
++.	package.json	/^    ".": {$/;"	o	object:exports
++0	package.json	/^    "clone"$/;"	s	array:keywords
++0	package.json	/^    "dist\/"$/;"	s	array:files
++@esbuild-kit/esm-loader	package.json	/^    "@esbuild-kit\/esm-loader": "^2.5.5",$/;"	s	object:devDependencies
++@rollup/plugin-typescript	package.json	/^    "@rollup\/plugin-typescript": "^11.0.0",$/;"	s	object:devDependencies
++@types/chai	package.json	/^    "@types\/chai": "^4.3.4",$/;"	s	object:devDependencies
++@types/lodash	package.json	/^    "@types\/lodash": "^4.14.192",$/;"	s	object:devDependencies
++@types/mocha	package.json	/^    "@types\/mocha": "^10.0.1",$/;"	s	object:devDependencies
++AnonymousFunctionef61dc840100	dist/umd/deep-clone.js	/^})(this, (function (exports) { 'use strict';$/;"	f
++Data	dist/deep-clone.d.ts	/^type Data = number | string | boolean | null | undefined | Date | Data[] | {$/;"	a
++FormatKey	dist/deep-clone.d.ts	/^type FormatKey = ((key: string) => string);$/;"	a
++`deepClone(obj, [stringFormatter])`	README.md	/^`deepClone(obj, [stringFormatter])`$/;"	s	chapter:deep-clone
++author	package.json	/^  "author": "Tim Davis <contact@timdav.is>",$/;"	s
++bugs	package.json	/^  "bugs": {$/;"	o
++build	package.json	/^    "build": "rollup -c --configPlugin typescript && tsc -p tsconfig.prod.json",$/;"	s	object:scripts
++c8	package.json	/^    "c8": "^7.13.0",$/;"	s	object:devDependencies
++chai	package.json	/^    "chai": "^4.3.7",$/;"	s	object:devDependencies
++cover	package.json	/^    "cover": "c8 -r text -r html -r lcov mocha",$/;"	s	object:scripts
++deep-clone	README.md	/^# deep-clone$/;"	c
++deepClone	dist/cjs/deep-clone.js	/^function deepClone(value, formatKey, refs = new Map()) {$/;"	f
++deepClone	dist/deep-clone.d.ts	/^declare function deepClone<I extends Data, O extends Data = I>(value: I, formatKey?: FormatKey, /;"	f
++deepClone	dist/esm/deep-clone.js	/^function deepClone(value, formatKey, refs = new Map()) {$/;"	f
++deepClone	dist/umd/deep-clone.js	/^    function deepClone(value, formatKey, refs = new Map()) {$/;"	f	function:AnonymousFunctionef61dc840100
++description	package.json	/^  "description": "Deep cloning of Arrays and plain Objects.",$/;"	s
++devDependencies	package.json	/^  "devDependencies": {$/;"	o
++eslint	package.json	/^    "eslint": "^8.36.0",$/;"	s	object:devDependencies
++eslint-config-standard-with-typescript	package.json	/^    "eslint-config-standard-with-typescript": "^34.0.1",$/;"	s	object:devDependencies
++exports	package.json	/^  "exports": {$/;"	o
++files	package.json	/^  "files": [$/;"	a
++formatKeys	dist/cjs/deep-clone.js	/^function formatKeys(format) {$/;"	f
++formatKeys	dist/deep-clone.d.ts	/^export declare function formatKeys(format: FormatKey): <I extends Data, O extends Data = I>(valu/;"	f
++formatKeys	dist/esm/deep-clone.js	/^function formatKeys(format) {$/;"	f
++formatKeys	dist/umd/deep-clone.js	/^    function formatKeys(format) {$/;"	f	function:AnonymousFunctionef61dc840100
++homepage	package.json	/^  "homepage": "https:\/\/github.com\/thebearingedge\/deep-clone#readme",$/;"	s
++import	package.json	/^      "import": ".\/dist\/esm\/deep-clone.js",$/;"	s	object:exports..
++keywords	package.json	/^  "keywords": [$/;"	a
++license	package.json	/^  "license": "MIT",$/;"	s
++lint	package.json	/^    "lint": "eslint .",$/;"	s	object:scripts
++lodash	package.json	/^    "lodash": "^4.17.21",$/;"	s	object:devDependencies
++main	package.json	/^  "main": ".\/dist\/cjs\/deep-clone.js",$/;"	s
++mocha	package.json	/^    "mocha": "^10.2.0",$/;"	s	object:devDependencies
++module	package.json	/^  "module": ".\/dist\/esm\/deep-clone.js",$/;"	s
++name	package.json	/^  "name": "deep-clone",$/;"	s
++prebuild	package.json	/^    "prebuild": "rimraf dist\/",$/;"	s	object:scripts
++prelint	package.json	/^    "prelint": "tsc --noEmit",$/;"	s	object:scripts
++prepack	package.json	/^    "prepack": "npm run build"$/;"	s	object:scripts
++pretest	package.json	/^    "pretest": "tsc --noEmit",$/;"	s	object:scripts
++repository	package.json	/^  "repository": {$/;"	o
++require	package.json	/^      "require": ".\/dist\/cjs\/deep-clone.js"$/;"	s	object:exports..
++rimraf	package.json	/^    "rimraf": "^4.4.1",$/;"	s	object:devDependencies
++rollup	package.json	/^    "rollup": "^3.20.2",$/;"	s	object:devDependencies
++scripts	package.json	/^  "scripts": {$/;"	o
++tdd	package.json	/^    "tdd": "mocha -w -p",$/;"	s	object:scripts
++test	package.json	/^    "test": "mocha",$/;"	s	object:scripts
++type	package.json	/^    "type": "git",$/;"	s	object:repository
++type	package.json	/^  "type": "module",$/;"	s
++types	package.json	/^  "types": ".\/dist\/deep-clone.d.ts",$/;"	s
++typescript	package.json	/^    "typescript": "^5.0.2"$/;"	s	object:devDependencies
++url	package.json	/^    "url": "git+https:\/\/github.com\/thebearingedge\/deep-clone.git"$/;"	s	object:repository
++url	package.json	/^    "url": "https:\/\/github.com\/thebearingedge\/deep-clone\/issues"$/;"	s	object:bugs
++version	package.json	/^  "version": "4.0.0",$/;"	s

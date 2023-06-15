@@ -23,5 +23,5 @@ export * from 'cross-fetch';
 export default fetch; // HACK: a`
 
 // eslint-disable-next-line @typescript-eslint/naming-convention -- HACK: for vite
-const { AbortController } = window;
-export { AbortController };
+const { AbortController, Response } = window;
+export { AbortController, Response };

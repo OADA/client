@@ -79,7 +79,7 @@ for (const connection of ['ws', 'http'] as const) {
     // 1) Get current rev
     const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
     // 2) Set up watch
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
+
     const watch = await client.watch({
       type: 'single',
       path: `/bookmarks/${testName}/test1`,
@@ -111,7 +111,7 @@ for (const connection of ['ws', 'http'] as const) {
     // 1) Get current rev
     const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
     // 2) Set up watch
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
+
     const { changes } = await client.watch({
       path: `/bookmarks/${testName}/test1`,
     });
@@ -137,7 +137,6 @@ for (const connection of ['ws', 'http'] as const) {
     const { testName } = t.context as Context;
     await putResourceAxios({ a: 1, b: 2 }, `/bookmarks/${testName}/test1`);
 
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const { changes, data, status } = await client.watch({
       initialMethod: 'get',
       path: `/bookmarks/${testName}/test1`,
@@ -154,7 +153,7 @@ for (const connection of ['ws', 'http'] as const) {
     // 1) Get current rev
     await getAxios(`/bookmarks/${testName}/test2`);
     // 2) Set up watch
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
+
     const { changes } = await client.watch({
       path: `/bookmarks/${testName}/test2`,
     });
@@ -178,7 +177,7 @@ for (const connection of ['ws', 'http'] as const) {
     // 1) Get current rev
     const axiosResp = await getAxios(`/bookmarks/${testName}/test3`);
     // 2) Set up watch
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
+
     const { changes } = await client.watch({
       path: `/bookmarks/${testName}/test3`,
     });

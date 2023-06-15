@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-import { Buffer } from 'buffer';
+import { Buffer } from 'node:buffer';
 
 import type { Method, Response } from 'fetch-h2';
-import EventEmitter from 'eventemitter3';
+import { EventEmitter } from 'eventemitter3';
 import PQueue from 'p-queue';
 import debug from 'debug';
 import { fromString } from 'media-type';
@@ -182,8 +182,9 @@ export class HttpClient extends EventEmitter implements Connection {
     }
 
     trace('Adding http request w/ id %s to the queue', request.requestId);
-    return this.#q.add(async () =>
-      handleErrors(this.#doRequest.bind(this), request, timeout)
+    return this.#q.add(
+      async () => handleErrors(this.#doRequest.bind(this), request, timeout),
+      { throwOnTimeout: true }
     );
   }
 
