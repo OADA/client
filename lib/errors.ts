@@ -57,13 +57,15 @@ async function handleRatelimit<R extends unknown[]>(
 
   // Figure out how many ms to wait
   // Header is either number of seconds, or a date/time
-  const retry = headers.get('Retry-After');
+  const retry =
+    headers.get('Retry-After') ??
+    headers.get('RateLimit-Reset') ??
+    headers.get('X-RateLimit-Reset');
   const timeout = retry
     ? Number(retry) * 1000 || Number(new Date(retry)) - Date.now()
     : DEFAULT_RETRY_TIMEOUT;
 
-  // @ts-expect-error stupid errors
-  warn('Received %s, retrying in %d ms', error.status, timeout);
+  warn(error, `Received error, retrying in ${timeout} ms`);
   await setTimeout(timeout);
 
   return handleErrors(request, ...rest);

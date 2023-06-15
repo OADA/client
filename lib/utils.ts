@@ -51,7 +51,7 @@ export function toArrayPath(path: string): string[] {
     arrayPath.shift();
   }
 
-  if (arrayPath.length > 0 && arrayPath[arrayPath.length - 1] === '') {
+  if (arrayPath.length > 0 && arrayPath.at(-1) === '') {
     arrayPath.pop();
   }
 
