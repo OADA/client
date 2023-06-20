@@ -69,7 +69,7 @@ test.before('Create connection and dummy service', async () => {
   await svc.start();
 });
 
-test(`Should wait for the job to finish `, async (t) => {
+test.only(`Should wait for the job to finish `, async (t) => {
   const results: any = {};
   const someJob = new JobsRequest({
     oada: conn,
@@ -90,6 +90,8 @@ test(`Should wait for the job to finish `, async (t) => {
   void someJob.on(JobEventType.Update, () => {
     results.update = true;
   });
+
+  await someJob.start();
 
   await setTimeout(3000);
 
@@ -130,7 +132,7 @@ test('doJobs should return the job after a status (and result) are available.', 
   t.deepEqual(job.result, { great: 'success' });
 });
 
-test.only('doJobs should throw an error if the worker throws.', async (t) => {
+test('doJobs should throw an error if the worker throws.', async (t) => {
   const error = await t.throwsAsync(async () => doJob(conn, throwJob));
 
   t.is(error!.message, 'some error');
