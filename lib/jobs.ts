@@ -20,7 +20,7 @@ import { JSONPath } from 'jsonpath-plus';
 import debug from 'debug';
 import { deserializeError } from 'serialize-error';
 
-import { postJob, postUpdate } from '@oada/jobs';
+import { postUpdate } from '@oada/jobs';
 import type Job from '@oada/types/oada/service/job.js';
 
 import type { Change, Json, OADAClient } from './index.js';
@@ -58,10 +58,23 @@ export class JobsRequest<J extends Job> {
 
   async start() {
     const pending = `/bookmarks/services/${this.job.service}/jobs/pending`;
-    const { _id, key } = await postJob(this.oada, pending, this.job as Json);
+    const { headers } = await this.oada.post({
+      path: `/resources`,
+      data: this.job as unknown as Json,
+      contentType: 'application/vnd.oada.service.jobs.1+json',
+    })
+    const _id = headers['content-location']?.replace(/^\//, '') ?? '';
+    const key = _id.replace(/^resources\//, '');
+//    const { _id, key } = await postJob(this.oada, pending, this.job as Json);
     this.oadaId = _id;
     this.oadaListKey = key;
     this.#watch = await this.#watchJob();
+    await this.oada.put({
+      path: `${pending}/${key}`,
+      data: {
+        _id,
+      }
+    })
     return { _id, key };
   }
 
