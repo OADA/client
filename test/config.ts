@@ -19,9 +19,10 @@
 
 import 'dotenv/config';
 
-import { normalizeDomain } from '../dist/index.js';
+// eslint-disable-next-line node/no-extraneous-import
+import { normalizeDomain } from '@oada/client';
 
 export const domain = normalizeDomain(
-  process.env.DOMAIN ?? 'https://localhost'
+  process.env.DOMAIN ?? 'https://localhost',
 );
 export const token = process.env.TOKEN ?? 'abc';

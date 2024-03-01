@@ -17,10 +17,11 @@
 
 import { domain, token } from './config.js';
 
-import { default as axios } from 'axios';
 import { generate as ksuid } from 'xksuid';
 
+import { Agent, type HeadersInit, fetch, setGlobalDispatcher } from 'undici';
 import type Tree from '@oada/types/oada/tree/v1.js';
+import { handleErrors } from '../dist/errors.js';
 
 export type Nested =
   | {
@@ -28,71 +29,93 @@ export type Nested =
     }
   | undefined;
 
-export async function getAxios(uri: string, headers?: Record<string, unknown>) {
-  return axios({
-    method: 'get',
-    url: new URL(uri, domain).toString(),
+setGlobalDispatcher(
+  new Agent({
+    connect: {
+      rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
+    },
+  }),
+);
+
+async function _request(
+  uri: string | URL,
+  {
+    headers = {},
+    body,
+    ...rest
+  }: Omit<RequestInit, 'body'> & {
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    body?: Record<string, unknown> | null;
+  } = {},
+) {
+  const url = new URL(uri, domain);
+  const response = await fetch(url, {
+    ...rest,
     headers: {
       Authorization: `Bearer ${token}`,
+      ...(body ? { 'Content-Type': 'application/json' } : undefined),
       ...headers,
     },
+    body: typeof body === 'object' ? JSON.stringify(body) : body,
+  });
+
+  if (!response.ok) {
+    throw Object.assign(new Error(response.statusText), {
+      response,
+      code: `${response.status}`,
+    });
+  }
+
+  return response;
+}
+
+export const request = (async (...rest) =>
+  handleErrors(_request, ...rest)) satisfies typeof _request;
+
+export async function getResource(uri: string | URL, headers?: HeadersInit) {
+  return request(uri, {
+    method: 'get',
+    headers,
   });
 }
 
-export async function putAxios(
-  data: Record<string, unknown>,
-  uri: string,
-  headers?: Record<string, unknown>
+export async function putResource(
+  body: Record<string, unknown>,
+  uri: string | URL,
+  headers?: HeadersInit,
 ) {
-  return axios({
+  return request(uri, {
     method: 'put',
-    url: new URL(uri, domain).toString(),
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-    data,
+    headers,
+    body,
   });
 }
 
-export async function putResourceAxios(
-  data: Record<string, unknown>,
-  uri: string
+export async function putResourceEnsureLink(
+  body: Record<string, unknown>,
+  uri: string | URL,
 ) {
   const _id = `resources/${ksuid()}`;
-  const resource = await axios({
+  const resource = await request(`/${_id}`, {
     method: 'put',
-    url: new URL(_id, domain).toString(),
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    data,
+    body,
   });
-  const link = await axios({
+  const link = await request(uri, {
     method: 'put',
-    url: new URL(uri, domain).toString(),
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    data: { _id, _rev: 0 },
+    body: { _id, _rev: 0 },
   });
 
   return { resource, link, resource_id: _id };
 }
 
-export async function deleteLinkAxios(uri: string) {
-  const link = await axios({
+export async function deleteLink(uri: string | URL) {
+  const link = await request(uri, {
     method: 'delete',
-    url: new URL(uri, domain).toString(),
     headers: {
-      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    data: null,
+    // eslint-disable-next-line unicorn/no-null
+    body: null,
   });
 
   return { link };

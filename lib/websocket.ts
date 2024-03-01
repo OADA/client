@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
+import WebSocket, { type MessageEvent } from 'isomorphic-ws';
 import { EventEmitter } from 'eventemitter3';
 import PQueue from 'p-queue';
-import WebSocket from 'isomorphic-ws';
 import _ReconnectingWebSocket from 'reconnecting-websocket';
 import debug from 'debug';
 import { generate as ksuid } from 'xksuid';
@@ -53,11 +53,11 @@ const error = debug('@oada/client:ws:error');
 interface ResponseEmitter extends EventEmitter {
   on(
     event: `response:${string}`,
-    listener: (response: Readonly<ConnectionResponse>) => void
+    listener: (response: Readonly<ConnectionResponse>) => void,
   ): this;
   on(
     event: `change:${string}`,
-    listener: (response: Readonly<ConnectionChange>) => void
+    listener: (response: Readonly<ConnectionChange>) => void,
   ): this;
 }
 
@@ -66,12 +66,12 @@ declare module 'events' {
   class EventEmitter {
     static once(
       emitter: ResponseEmitter,
-      event: `response:${string}`
+      event: `response:${string}`,
     ): Promise<[ConnectionResponse]>;
     static on(
       emitter: ResponseEmitter,
       event: `change:${string}`,
-      options?: { signal?: AbortSignal }
+      options?: { signal?: AbortSignal },
     ): AsyncIterableIterator<[ConnectionChange]>;
   }
 }
@@ -91,14 +91,14 @@ class BetterWebSocket extends WebSocket {
   constructor(
     url: string | URL,
     protocols = [],
-    { maxPayload = 0, ...rest } = {}
+    { maxPayload = 0, ...rest } = {},
   ) {
     super(url, protocols, { maxPayload, ...rest });
   }
 }
 
 export class WebSocketClient extends EventEmitter implements Connection {
-  #ws: Promise<_ReconnectingWebSocket.default>;
+  readonly #ws: Promise<_ReconnectingWebSocket.default>;
   readonly #domain;
   #status;
   readonly #requests: ResponseEmitter = new EventEmitter();
@@ -112,7 +112,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
    */
   constructor(
     domain: string,
-    { concurrency = 10, userAgent }: { concurrency: number; userAgent: string }
+    { concurrency = 10, userAgent }: { concurrency: number; userAgent: string },
   ) {
     super();
     this.#userAgent = userAgent;
@@ -182,19 +182,19 @@ export class WebSocketClient extends EventEmitter implements Connection {
 
   public async request(
     request: ConnectionRequest,
-    { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {}
+    { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {},
   ) {
     return this.#q.add(
       async () =>
         handleErrors(this.#doRequest.bind(this), request, { timeout, signal }),
-      { throwOnTimeout: true }
+      { throwOnTimeout: true },
     );
   }
 
   /** Send a request to server */
   async #doRequest(
     request: ConnectionRequest,
-    { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {}
+    { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {},
   ): Promise<IConnectionResponse> {
     const ws = await this.#ws;
     // Send object to the server.
@@ -224,7 +224,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
         // eslint-disable-next-line github/no-then
         setTimeout(timeout).then(() => {
           throw new TimeoutError(request);
-        })
+        }),
       );
     }
 
@@ -242,9 +242,13 @@ export class WebSocketClient extends EventEmitter implements Connection {
     throw await fixError(response);
   }
 
-  #receive(m: MessageEvent<unknown>) {
+  #receive(m: MessageEvent) {
     try {
-      const message = JSON.parse(String(m.data)) as Record<string, unknown>;
+      const message = JSON.parse(String(m.data)) as {
+        requestId: string | string[];
+        change?: unknown;
+        resourceId?: string;
+      };
 
       const requestIds: readonly string[] = Array.isArray(message.requestId)
         ? message.requestId
@@ -259,7 +263,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
 
         const change = message.change.map(
           // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-          ({ body, ...rest }) => ({ ...rest, body } as Change)
+          ({ body, ...rest }) => ({ ...rest, body }) as Change,
         );
         for (const requestId of requestIds) {
           const rChange: ConnectionChange = {
@@ -275,7 +279,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     } catch (cError: unknown) {
       error(
         '[Websocket %s] Received invalid response. Ignoring.',
-        this.#domain
+        this.#domain,
       );
       trace(cError, '[Websocket %s] Received invalid response', this.#domain);
       // No point in throwing here; the promise cannot be resolved because the

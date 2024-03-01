@@ -17,48 +17,48 @@
 
 import { domain, token } from './config.js';
 
-import test from 'ava';
+import ava, { type TestFn } from 'ava';
 
 import { EventEmitter, once } from 'node:events';
 
 import { generate as ksuid } from 'xksuid';
 
-import type { Change, OADAClient } from '../dist/index.js';
+// eslint-disable-next-line node/no-extraneous-import
+import { type Change, type OADAClient, connect } from '@oada/client';
 import {
-  deleteLinkAxios,
-  getAxios,
-  putAxios,
-  putResourceAxios,
+  type Nested,
+  deleteLink,
+  getResource,
+  putResource,
+  putResourceEnsureLink,
 } from './utils.js';
-import type { Nested } from './utils.js';
-import { connect } from '../dist/index.js';
 
 interface Context {
   testName: string;
+  client: Record<'ws' | 'http', OADAClient>;
 }
+
+const test = ava as TestFn<Context>;
 
 test.beforeEach('Initialize test name', async (t) => {
   const uid = ksuid();
   const testName = `test-${uid}`;
-  // @ts-expect-error ava context typing is lame
   t.context.testName = testName;
-  await putResourceAxios({}, `/bookmarks/${testName}`);
+  await putResourceEnsureLink({}, `/bookmarks/${testName}`);
 });
-test.afterEach('Clean up test', async (t) => {
-  const { testName } = t.context as Context;
+test.afterEach.always('Clean up test', async (t) => {
+  const { testName } = t.context;
   // This does not delete resources... oh well.
-  await deleteLinkAxios(`/bookmarks/${testName}`);
+  await deleteLink(`/bookmarks/${testName}`);
 });
 
 for (const connection of ['ws', 'http'] as const) {
-  // Client instance
-  let client: OADAClient;
-
   // Initialization
-  // eslint-disable-next-line ava/hooks-order
-  test.before(`${connection}: Initialize connection`, async () => {
+  test.before(`${connection}: Initialize connection`, async (t) => {
+    // @ts-expect-error stuff
+    t.context.client ??= {};
     // Connect
-    client = await connect({
+    t.context.client[connection] = await connect({
       domain,
       token,
       connection,
@@ -66,34 +66,33 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   // Cleanup
-  // eslint-disable-next-line ava/hooks-order
-  test.after(`${connection}: Destroy connection`, async () => {
+  test.after.always(`${connection}: Destroy connection`, async (t) => {
     // Disconnect
-    await client?.disconnect();
+    await t.context.client[connection]?.disconnect();
   });
 
   test(`${connection}: Should deprecate v2 API`, async (t) => {
-    const { testName } = t.context as Context;
+    const { testName } = t.context;
+    // eslint-disable-next-line unicorn/prefer-event-target
     const emitter = new EventEmitter();
-    await putResourceAxios({}, `/bookmarks/${testName}/test1`);
+    await putResourceEnsureLink({}, `/bookmarks/${testName}/test1`);
     // 1) Get current rev
-    const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
+    const getResp = await getResource(`/bookmarks/${testName}/test1`);
     // 2) Set up watch
-
-    const watch = await client.watch({
+    const watch = await t.context.client[connection].watch({
       type: 'single',
       path: `/bookmarks/${testName}/test1`,
       async watchCallback(change: Readonly<Change>) {
         try {
-          const { data } = axiosResp as { data: Nested };
+          const data = (await getResp.json()) as Nested;
           // Check
           t.assert(data?._rev);
-          const nextRev = Number(axiosResp.data._rev) + 1;
+          const nextRev = Number(data?._rev) + 1;
           t.like(change.body, { _rev: nextRev });
           // @ts-expect-error stuff
           t.assert(change.body?.testData1?.abc);
 
-          await client.unwatch(watch);
+          await t.context.client[connection].unwatch(watch);
           emitter.emit('done');
         } catch (error: unknown) {
           emitter.emit('error', error);
@@ -101,30 +100,29 @@ for (const connection of ['ws', 'http'] as const) {
       },
     });
     // 3) Make changes
-    await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
+    await putResource({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
     await once(emitter, 'done');
   });
 
   test(`${connection}: Should receive the watch change from a single PUT request`, async (t) => {
-    const { testName } = t.context as Context;
-    await putResourceAxios({}, `/bookmarks/${testName}/test1`);
+    const { testName } = t.context;
+    await putResourceEnsureLink({}, `/bookmarks/${testName}/test1`);
     // 1) Get current rev
-    const axiosResp = await getAxios(`/bookmarks/${testName}/test1`);
+    const getResp = await getResource(`/bookmarks/${testName}/test1`);
     // 2) Set up watch
-
-    const { changes } = await client.watch({
+    const { changes } = await t.context.client[connection].watch({
       path: `/bookmarks/${testName}/test1`,
     });
     // 3) Make changes
-    await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
+    await putResource({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
 
     // Check
-    const { data } = axiosResp as { data: Nested };
+    const data = (await getResp.json()) as Nested;
     t.assert(data?._rev);
     // eslint-disable-next-line no-unreachable-loop
     for await (const change of changes) {
       t.log(change);
-      const nextRev = Number(axiosResp.data._rev) + 1;
+      const nextRev = Number(data?._rev) + 1;
       t.like(change.body, { _rev: nextRev });
       // @ts-expect-error stuff
       t.assert(change.body?.testData1?.abc);
@@ -134,10 +132,10 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   test(`${connection}: Should receive the response to an initial GET request`, async (t) => {
-    const { testName } = t.context as Context;
-    await putResourceAxios({ a: 1, b: 2 }, `/bookmarks/${testName}/test1`);
+    const { testName } = t.context;
+    await putResourceEnsureLink({ a: 1, b: 2 }, `/bookmarks/${testName}/test1`);
 
-    const { changes, data, status } = await client.watch({
+    const { changes, data, status } = await t.context.client[connection].watch({
       initialMethod: 'get',
       path: `/bookmarks/${testName}/test1`,
     });
@@ -148,19 +146,19 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   test(`${connection}: Should not receive the watch change after unwatch request`, async (t) => {
-    const { testName } = t.context as Context;
-    await putResourceAxios({}, `/bookmarks/${testName}/test2`);
+    const { testName } = t.context;
+    await putResourceEnsureLink({}, `/bookmarks/${testName}/test2`);
     // 1) Get current rev
-    await getAxios(`/bookmarks/${testName}/test2`);
+    await getResource(`/bookmarks/${testName}/test2`);
     // 2) Set up watch
 
-    const { changes } = await client.watch({
+    const { changes } = await t.context.client[connection].watch({
       path: `/bookmarks/${testName}/test2`,
     });
     // 3) Unwatch
     await changes.return?.();
     // 4) Make changes
-    await putAxios({ abc: 'def' }, `/bookmarks/${testName}/test2/testData`);
+    await putResource({ abc: 'def' }, `/bookmarks/${testName}/test2/testData`);
     // eslint-disable-next-line no-unreachable-loop
     for await (const change of changes) {
       throw new Error(`Received change: ${JSON.stringify(change)}`);
@@ -170,30 +168,33 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   test.skip(`${connection}: Should receive the watch change from a single deep PUT request`, async (t) => {
-    const { testName } = t.context as Context;
-    await putResourceAxios({}, `/bookmarks/${testName}/test3`);
-    await putResourceAxios({}, `/bookmarks/${testName}/test3/level1`);
-    await putResourceAxios({}, `/bookmarks/${testName}/test3/level1/level2`);
+    const { testName } = t.context;
+    await putResourceEnsureLink({}, `/bookmarks/${testName}/test3`);
+    await putResourceEnsureLink({}, `/bookmarks/${testName}/test3/level1`);
+    await putResourceEnsureLink(
+      {},
+      `/bookmarks/${testName}/test3/level1/level2`,
+    );
     // 1) Get current rev
-    const axiosResp = await getAxios(`/bookmarks/${testName}/test3`);
+    const getResp = await getResource(`/bookmarks/${testName}/test3`);
     // 2) Set up watch
-
-    const { changes } = await client.watch({
+    const { changes } = await t.context.client[connection].watch({
       path: `/bookmarks/${testName}/test3`,
     });
     // 3) Make changes
-    await putAxios(
+    await putResource(
       { abc: 'def' },
-      `/bookmarks/${testName}/test3/level1/level2/testData`
+      `/bookmarks/${testName}/test3/level1/level2/testData`,
     );
 
     // Check
-    t.assert(axiosResp.data?._rev);
+    const data = (await getResp.json()) as Nested;
+    t.assert(data?._rev);
     // eslint-disable-next-line no-unreachable-loop
     for await (const change of changes) {
-      const nextRev = Number(axiosResp.data._rev) + 1;
+      const nextRev = Number(data?._rev) + 1;
       t.like(change.body, { _rev: nextRev });
-      // @ts-expect-error stuff
+      // @ts-expect-error sadsadds
       t.assert(change.body?.testData1?.abc);
 
       break;

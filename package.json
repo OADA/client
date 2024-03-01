@@ -1,12 +1,12 @@
 {
   "name": "@oada/client",
-  "version": "4.5.6",
+  "version": "5.0.0",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "dist/index.js",
   "type": "module",
   "engines": {
-    "node": ">=14.18.0"
+    "node": ">=18.0.0"
   },
   "exports": {
     ".": "./dist/index.js",
@@ -16,7 +16,7 @@
     },
     "./dist/fetch.js": {
       "node": "./dist/fetch.js",
-      "default": "./dist/fetch-browser.js"
+      "default": "./dist/fetch.browser.js"
     },
     "./dist/file-type.js": {
       "node": "./dist/file-type.js",
@@ -25,17 +25,15 @@
   },
   "browser": {
     "./dist/event-iterator.js": "./dist/event-iterator-browser.js",
-    "./dist/fetch.js": "cross-fetch",
+    "./dist/fetch.js": "./dist/fetch.browser.js",
     "events": false,
-    "fetch-h2": false,
     "file-type": "./dist/file-type-browser.js",
     "resolve-alpn": false
   },
   "react-native": {
     "./dist/event-iterator.js": "./dist/event-iterator-browser.js",
-    "./dist/fetch.js": "cross-fetch",
+    "./dist/fetch.js": "./dist/fetch.browser.js",
     "events": false,
-    "fetch-h2": false,
     "file-type": "./dist/file-type-browser.js",
     "resolve-alpn": false
   },
@@ -52,7 +50,7 @@
     "prestart": "$npm_execpath run build"
   },
   "ava": {
-    "concurrency": 2,
+    "concurrency": 1,
     "failFast": false,
     "files": [
       "**/*.test.ts"
@@ -83,83 +81,91 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
-    "@oada/jobs": "^4.2.5",
-    "@oada/types": "^3.5.2",
-    "abort-controller": "^3.0.0",
+    "@oada/types": "^3.5.3",
     "buffer": "^6.0.3",
-    "bufferutil": "^4.0.7",
-    "cross-fetch": "^3.1.6",
+    "bufferutil": "^4.0.8",
     "debug": "^4.3.4",
     "deep-clone": "^4.0.0",
     "encoding": "^0.1.13",
     "event-iterator": "^2.0.0",
     "eventemitter3": "^5.0.1",
-    "fetch-h2": "^3.0.2",
-    "file-type": "^18.5.0",
+    "file-type": "^19.0.0",
     "isomorphic-timers-promises": "^1.0.1",
     "isomorphic-ws": "^5.0.0",
     "json-ptr": "^3.1.1",
-    "jsonpath-plus": "^7.2.0",
+    "jsonpath-plus": "^8.0.0",
     "media-type": "^0.3.1",
     "object-assign-deep": "^0.4.0",
-    "p-queue": "^7.3.4",
+    "p-queue": "^8.0.1",
+    "p-timeout": "^6.1.2",
     "reconnecting-websocket": "^4.4.0",
     "resolve-alpn": "^1.2.1",
-    "serialize-error": "^11.0.0",
-    "supports-color": "^9.3.1",
-    "tslib": "^2.5.3",
+    "serialize-error": "^11.0.3",
+    "supports-color": "^9.4.0",
+    "tslib": "^2.6.2",
+    "undici": "^6.6.2",
     "utf-8-validate": "^6.0.3",
-    "ws": "^8.13.0",
-    "xksuid": "aultac/xksuid#fix-crypto-polyfill"
+    "ws": "^8.16.0",
+    "xksuid": "https://github.com/aultac/xksuid.git#commit=22a21eb01331191feb62ea0a4e67d96d2e80f396"
+  },
+  "peerDependencies": {
+    "@oada/jobs": ">= 4.4.4"
+  },
+  "peerDependenciesMeta": {
+    "@oada/jobs": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@ava/typescript": "^4.0.0",
-    "@tsconfig/node14": "^1.0.3",
-    "@types/debug": "^4.1.8",
-    "@types/node": "^16.18.36",
-    "@types/object-assign-deep": "^0.4.0",
-    "@types/ws": "^8.5.5",
-    "@typescript-eslint/eslint-plugin": "^5.59.11",
-    "@typescript-eslint/parser": "^5.59.11",
-    "@yarnpkg/sdks": "3.0.0-rc.45",
-    "ava": "5.3.0",
-    "axios": "^1.4.0",
-    "c8": "^8.0.0",
-    "dotenv": "^16.1.4",
-    "eslint": "^8.42.0",
-    "eslint-config-prettier": "^8.8.0",
-    "eslint-config-xo": "^0.43.1",
-    "eslint-config-xo-typescript": "^0.57.0",
-    "eslint-formatter-pretty": "^5.0.0",
-    "eslint-import-resolver-node": "^0.3.7",
-    "eslint-plugin-array-func": "^3.1.8",
+    "@ava/typescript": "^4.1.0",
+    "@oada/jobs": "^4.4.4",
+    "@tsconfig/node18": "^18.2.2",
+    "@types/debug": "^4.1.12",
+    "@types/node": "^20.11.24",
+    "@types/object-assign-deep": "^0.4.3",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^7.1.0",
+    "@typescript-eslint/parser": "^7.1.0",
+    "@yarnpkg/sdks": "3.1.0",
+    "ava": "6.1.2",
+    "c8": "^9.1.0",
+    "dotenv": "^16.4.5",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-xo": "^0.44.0",
+    "eslint-config-xo-typescript": "^3.0.0",
+    "eslint-formatter-pretty": "^6.0.1",
+    "eslint-import-resolver-node": "^0.3.9",
+    "eslint-plugin-array-func": "^5.0.1",
     "eslint-plugin-ava": "^14.0.0",
     "eslint-plugin-escompat": "^3.4.0",
     "eslint-plugin-eslint-comments": "^3.2.0",
     "eslint-plugin-filenames": "^1.3.2",
-    "eslint-plugin-github": "^4.8.0",
+    "eslint-plugin-github": "^4.10.2",
     "eslint-plugin-i18n-text": "^1.0.1",
-    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-no-constructor-bind": "^2.0.4",
     "eslint-plugin-no-only-tests": "^3.1.0",
     "eslint-plugin-no-secrets": "^0.8.9",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-notice": "^0.9.10",
     "eslint-plugin-optimize-regex": "^1.2.1",
-    "eslint-plugin-prettier": "^4.2.1",
+    "eslint-plugin-prettier": "^5.1.3",
     "eslint-plugin-promise": "^6.1.1",
-    "eslint-plugin-regexp": "^1.15.0",
-    "eslint-plugin-security": "^1.7.1",
-    "eslint-plugin-sonarjs": "^0.19.0",
-    "eslint-plugin-unicorn": "^47.0.0",
-    "prettier": "^2.8.8",
-    "typescript": "5.1.3"
+    "eslint-plugin-regexp": "^2.2.0",
+    "eslint-plugin-security": "^2.1.1",
+    "eslint-plugin-sonarjs": "^0.24.0",
+    "eslint-plugin-unicorn": "^51.0.1",
+    "prettier": "^3.2.5",
+    "typescript": "5.3.3"
   },
-  "packageManager": "yarn@3.6.0",
+  "packageManager": "yarn@4.1.0",
   "volta": {
-    "node": "16.16.0"
+    "node": "20.11.1"
   },
   "resolutions": {
-    "deep-clone@^4.0.0": "patch:deep-clone@npm%3A4.0.0#./.yarn/patches/deep-clone-npm-4.0.0-eee1a48c85.patch"
+    "@oada/client": "5.0.0",
+    "deep-clone@^4.0.0": "patch:deep-clone@npm%3A4.0.0#./.yarn/patches/deep-clone-npm-4.0.0-eee1a48c85.patch",
+    "xksuid": "https://github.com/aultac/xksuid.git#commit=22a21eb01331191feb62ea0a4e67d96d2e80f396"
   }
 }

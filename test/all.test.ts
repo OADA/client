@@ -20,9 +20,11 @@ import { domain, token } from './config.js';
 import test from 'ava';
 
 import type { Nested } from './utils.js';
-import { connect } from '../dist/index.js';
 
 import type Tree from '@oada/types/oada/tree/v1.js';
+
+// eslint-disable-next-line node/no-extraneous-import
+import { connect } from '@oada/client';
 
 const generateRandomString = () => Math.random().toString(36).slice(7);
 
@@ -78,7 +80,6 @@ test.skip('Recursive PUT/GET', async (t) => {
   const randomString = generateRandomString();
   const tree = {
     bookmarks: {
-      // eslint-disable-next-line sonarjs/no-duplicate-string
       _type: 'application/json',
       // _rev: 0,
       [randomString]: {
@@ -170,22 +171,22 @@ test.skip('Tree PUT should fail if a _require endpoint does not already exist', 
       path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
       data: { thingy: 'abc' },
       tree,
-    })
+    }),
   );
   t.truthy(
     error?.message.startsWith(
-      'Cannot create _require endpoint that did not exist'
-    )
+      'Cannot create _require endpoint that did not exist',
+    ),
   );
 
   error = await t.throwsAsync(async () =>
     client.get({
       path: `/bookmarks/${randomString}`,
-    })
+    }),
   );
   t.assert(error);
   // @ts-expect-error status does not exist on Error
-  t.is(error!.status, 404);
+  t.is(error.status, 404);
 
   await client.disconnect();
 });

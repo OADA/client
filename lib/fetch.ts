@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2021 Open Ag Data Alliance
+ * Copyright 2024 Open Ag Data Alliance
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,28 +15,6 @@
  * limitations under the License.
  */
 
-import { createRequire } from 'node:module';
+export { fetch, Agent, Headers, Request, Response } from 'undici';
 
-import { context as _context } from 'fetch-h2';
-
-const nodeRequire = createRequire(import.meta.url); // Construct the require method
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const { name, version } = nodeRequire('../package.json');
-
-const ourAgent = `${name}/${version}`;
-
-// Create our own context to honor NODE_TLS_REJECT_UNAUTHORIZED like https
-export const context = ({ userAgent }: { userAgent: string }) =>
-  _context({
-    userAgent: `${userAgent} ${ourAgent}`,
-    session: {
-      rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
-    },
-  });
-
-export { Headers } from 'cross-fetch';
-
-// Cross-fetch has fetch as default export
-export * from 'fetch-h2';
-
-export { fetch as default } from 'fetch-h2';
+export const { AbortController } = globalThis;

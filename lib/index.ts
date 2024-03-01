@@ -18,9 +18,8 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="types.d.ts" />
 
+import { type Config, OADAClient } from './client.js';
 import { autoConnection, parseDomain } from './auto.js';
-import type { Config } from './client.js';
-import { OADAClient } from './client.js';
 
 import type ChangeArray from '@oada/types/oada/change/v2.js';
 
@@ -57,23 +56,23 @@ export async function connect({
   return client;
 }
 
-export type {
-  Config,
-  GETRequest,
-  PUTRequest,
-  HEADRequest,
-  WatchRequest,
+export {
+  type Config,
+  type GETRequest,
+  type PUTRequest,
+  type HEADRequest,
+  type WatchRequest,
   // These are for developing an external connection (like google apps script):
-  ConnectionRequest,
-  ConnectionResponse,
-  ConnectionChange,
-  Connection,
+  type ConnectionRequest,
+  type ConnectionResponse,
+  type ConnectionChange,
+  type Connection,
+  OADAClient,
 } from './client.js';
-export { OADAClient } from './client.js';
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type JsonPrimitive = string | number | boolean | null;
-export type JsonArray = Json[];
+export type JsonArray = Json[] | readonly Json[];
 export type JsonObject = { [property in string]?: Json };
 export type Json = JsonPrimitive | JsonObject | JsonArray;
 
@@ -81,12 +80,20 @@ export type JsonCompatible<T> = {
   [P in keyof T]: T[P] extends Json
     ? T[P]
     : Pick<T, P> extends Required<Pick<T, P>>
-    ? never
-    : T[P] extends (() => unknown) | undefined
-    ? never
-    : JsonCompatible<T[P]>;
+      ? never
+      : T[P] extends (() => unknown) | undefined
+        ? never
+        : JsonCompatible<T[P]>;
 };
+
+declare global {
+  interface ArrayConstructor {
+    isArray(value: unknown): value is unknown[] | readonly unknown[];
+  }
+}
 
 export type Change = ChangeArray[0];
 
 export { JobsRequest, JobEventType, doJob } from './jobs.js';
+
+export { TimeoutError } from './utils.js';

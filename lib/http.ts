@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 
-import { Buffer } from 'node:buffer';
-
-import type { Method, Response } from 'fetch-h2';
 import { EventEmitter } from 'eventemitter3';
 import PQueue from 'p-queue';
 import debug from 'debug';
@@ -26,6 +23,7 @@ import { generate as ksuid } from 'xksuid';
 
 import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request.js';
 
+import { AbortController, Agent, type Response, fetch } from './fetch.js';
 import type {
   Body,
   Connection,
@@ -33,8 +31,7 @@ import type {
   IConnectionResponse,
 } from './client.js';
 import { TimeoutError, fixError } from './utils.js';
-// eslint-disable-next-line node/no-extraneous-import -- hack for skypack?
-import fetch, { AbortController, context } from '@oada/client/dist/fetch.js';
+
 import type { Json } from './index.js';
 import { WebSocketClient } from './websocket.js';
 import { handleErrors } from './errors.js';
@@ -48,10 +45,6 @@ const enum ConnectionStatus {
   Connected,
 }
 
-function getIsomorphicContext({ userAgent }: { userAgent: string }) {
-  return context ? context({ userAgent }) : { fetch };
-}
-
 function isJson(contentType: string) {
   const media = fromString(contentType);
   return [media.subtype, media.suffix].includes('json');
@@ -60,18 +53,18 @@ function isJson(contentType: string) {
 async function getBody(result: Response): Promise<Body> {
   return isJson(result.headers.get('content-type')!)
     ? ((await result.json()) as Json)
-    : Buffer.from(await result.arrayBuffer());
+    : new Uint8Array(await result.arrayBuffer());
 }
 
 export class HttpClient extends EventEmitter implements Connection {
-  #domain: string;
-  #token;
+  readonly #domain: string;
+  readonly #token;
   #status;
-  #q: PQueue;
-  #initialConnection: Promise<void>; // Await on the initial HEAD
-  #concurrency;
-  #userAgent;
-  #context;
+  readonly #q: PQueue;
+  readonly #initialConnection: Promise<void>; // Await on the initial HEAD
+  readonly #concurrency;
+  readonly #userAgent;
+  readonly #agent?;
   #ws?: WebSocketClient; // Fall-back socket for watches
 
   /**
@@ -82,11 +75,9 @@ export class HttpClient extends EventEmitter implements Connection {
   constructor(
     domain: string,
     token: string,
-    { concurrency = 10, userAgent }: { concurrency: number; userAgent: string }
+    { concurrency = 10, userAgent }: { concurrency: number; userAgent: string },
   ) {
     super();
-
-    this.#context = getIsomorphicContext({ userAgent });
 
     // Ensure leading https://
     this.#domain = domain.startsWith('http') ? domain : `https://${domain}`;
@@ -98,13 +89,23 @@ export class HttpClient extends EventEmitter implements Connection {
     trace(
       'Opening HTTP connection to HEAD %s/bookmarks w/authorization: Bearer %s',
       this.#domain,
-      this.#token
+      this.#token,
     );
-    this.#initialConnection = this.#context
-      .fetch(`${this.#domain}/bookmarks`, {
-        method: 'HEAD',
-        headers: { authorization: `Bearer ${this.#token}` },
-      })
+    this.#agent =
+      Agent &&
+      new Agent({
+        connect: {
+          rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
+        },
+      });
+    this.#initialConnection = fetch(`${this.#domain}/bookmarks`, {
+      dispatcher: this.#agent,
+      method: 'HEAD',
+      headers: {
+        'user-agent': userAgent,
+        'authorization': `Bearer ${this.#token}`,
+      },
+    })
       // eslint-disable-next-line github/no-then
       .then((result) => {
         trace('Initial HEAD returned status: ', result.status);
@@ -131,13 +132,14 @@ export class HttpClient extends EventEmitter implements Connection {
   /** Disconnect the connection */
   public async disconnect(): Promise<void> {
     this.#status = ConnectionStatus.Disconnected;
-    // Close our connections
-    if ('disconnectAll' in this.#context) {
-      await this.#context.disconnectAll();
-    }
 
-    // Close our ws connection
-    await this.#ws?.disconnect();
+    await Promise.all([
+      // Close fetch agent
+      this.#agent?.close(),
+
+      // Close our ws connection
+      this.#ws?.disconnect(),
+    ]);
 
     this.emit('close');
   }
@@ -153,39 +155,48 @@ export class HttpClient extends EventEmitter implements Connection {
     await this.#initialConnection;
   }
 
-  // TODO: Add support for WATCH via h2 push and/or RFC 8441
   public async request(
     request: ConnectionRequest,
-    { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {}
+    { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {},
   ): Promise<IConnectionResponse> {
     trace(request, 'Starting http request');
-    // Check for WATCH/UNWATCH
-    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-    if (request.watch || request.method === 'unwatch') {
-      trace(
-        'WATCH/UNWATCH not currently supported for http(2), falling-back to ws'
-      );
-      if (!this.#ws) {
-        // Open a WebSocket connection
-        this.#ws = new WebSocketClient(this.#domain, {
-          concurrency: this.#concurrency,
-          userAgent: this.#userAgent,
-        });
-        await this.#ws.awaitConnection();
+    try {
+      // Check for WATCH/UNWATCH
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+      if (request.watch || request.method === 'unwatch') {
+        trace(
+          'WATCH/UNWATCH not currently supported for http(2), falling-back to ws',
+        );
+        if (!this.#ws) {
+          // Open a WebSocket connection
+          this.#ws = new WebSocketClient(this.#domain, {
+            concurrency: this.#concurrency,
+            userAgent: this.#userAgent,
+          });
+          await this.#ws.awaitConnection();
+        }
+
+        return await this.#ws.request(request, { timeout, signal });
       }
 
-      return this.#ws.request(request, { timeout, signal });
-    }
+      request.requestId ||= ksuid();
 
-    if (!request.requestId) {
-      request.requestId = ksuid();
+      trace('Adding http request w/ id %s to the queue', request.requestId);
+      return await this.#q.add(
+        async () => handleErrors(this.#doRequest.bind(this), request, timeout),
+        { throwOnTimeout: true },
+      );
+    } catch (cError: unknown) {
+      // @ts-expect-error stupid errors
+      const code = `${cError?.code}`;
+      throw Object.assign(
+        new Error((cError as Error)?.message ?? 'HTTP request failed', {
+          cause: cError,
+        }),
+        cError as Error,
+        { request, code },
+      );
     }
-
-    trace('Adding http request w/ id %s to the queue', request.requestId);
-    return this.#q.add(
-      async () => handleErrors(this.#doRequest.bind(this), request, timeout),
-      { throwOnTimeout: true }
-    );
   }
 
   /**
@@ -193,7 +204,7 @@ export class HttpClient extends EventEmitter implements Connection {
    */
   async #doRequest(
     request: ConnectionRequest,
-    timeout?: number
+    timeout?: number,
   ): Promise<IConnectionResponse> {
     // Send object to the server.
     trace('Pulled request %s from queue, starting on it', request.requestId);
@@ -201,7 +212,7 @@ export class HttpClient extends EventEmitter implements Connection {
     trace(
       'Req looks like socket request, awaiting race of timeout and fetch to %s%s',
       this.#domain,
-      request.path
+      request.path,
     );
 
     let done = false;
@@ -217,23 +228,24 @@ export class HttpClient extends EventEmitter implements Connection {
       }, timeout);
     }
 
-    // Assume anything that is not a Buffer should be JSON?
-    const body = Buffer.isBuffer(request.data)
-      ? request.data
-      : JSON.stringify(request.data);
+    // Assume anything that is not a Uint8Array should be JSON?
+    const body =
+      request.data instanceof Uint8Array
+        ? request.data
+        : JSON.stringify(request.data);
     try {
-      const result = await this.#context.fetch(
-        new URL(request.path, this.#domain).toString(),
-        {
-          method: request.method.toUpperCase() as Method,
-          signal: controller?.signal,
-          timeout,
-          body,
-          // We are not explicitly sending token in each request
-          // because parent library sends it
-          headers: request.headers,
-        }
-      );
+      const result = await fetch(new URL(request.path, this.#domain), {
+        dispatcher: this.#agent,
+        method: request.method.toUpperCase(),
+        signal: controller?.signal,
+        body,
+        // We are not explicitly sending token in each request
+        // because parent library sends it
+        headers: {
+          'user-agent': this.#userAgent,
+          ...request.headers,
+        },
+      });
       done = true;
 
       trace('Fetch did not throw, checking status of %s', result.status);
@@ -273,11 +285,7 @@ export class HttpClient extends EventEmitter implements Connection {
       switch (cError?.code) {
         // Happens when the HTTP/2 session is killed
         case 'ERR_HTTP2_INVALID_SESSION': {
-          error('HTTP/2 session was killed, reconnecting');
-          if ('disconnect' in this.#context) {
-            await this.#context.disconnect(this.#domain);
-          }
-
+          error(cError, 'HTTP/2 session was killed, reconnecting');
           return this.#doRequest(request, timeout);
         }
 

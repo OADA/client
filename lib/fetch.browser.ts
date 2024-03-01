@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2022 Open Ag Data Alliance
+ * Copyright 2024 Open Ag Data Alliance
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,7 @@
  * limitations under the License.
  */
 
-import fetch from 'cross-fetch';
+export const { AbortController, Response, fetch } = globalThis;
 
-export * from 'cross-fetch';
-
-// eslint-disable-next-line unicorn/prefer-export-from -- HACK: for vite
-export default fetch; // HACK: a`
-
-// eslint-disable-next-line @typescript-eslint/naming-convention -- HACK: for vite
-const { AbortController, Response } = window;
-export { AbortController, Response };
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const Agent = undefined;

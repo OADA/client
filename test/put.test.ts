@@ -19,53 +19,52 @@
 
 import { domain, token } from './config.js';
 
-import test from 'ava';
+import ava, { type TestFn } from 'ava';
 
 import { generate as ksuid } from 'xksuid';
 
 import type { Tree } from '@oada/types/oada/tree/v1.js';
 
 import {
-  deleteLinkAxios,
-  getAxios,
+  type Nested,
+  deleteLink,
+  getResource,
   getTreeWithTestName,
-  putAxios,
-  putResourceAxios,
+  putResource,
+  putResourceEnsureLink,
 } from './utils.js';
-import type { Nested } from './utils.js';
-import type { OADAClient } from '../dist/index.js';
-import { connect } from '../dist/index.js';
+// eslint-disable-next-line node/no-extraneous-import
+import { type OADAClient, TimeoutError, connect } from '@oada/client';
 
 interface Context {
   testName: string;
   testTree: Tree;
+  client: Record<'ws' | 'http', OADAClient>;
 }
+
+const test = ava as TestFn<Context>;
 
 test.beforeEach('Initialize test name', async (t) => {
   const uid = ksuid();
   const testName = `test-${uid}`;
-  // @ts-expect-error ava context typing is lame
   t.context.testName = testName;
   const testTree = getTreeWithTestName(testName);
-  // @ts-expect-error ava context typing is lame
   t.context.testTree = testTree;
-  await putResourceAxios({}, `/bookmarks/${testName}`);
+  await putResourceEnsureLink({}, `/bookmarks/${testName}`);
 });
 test.afterEach('Clean up test', async (t) => {
-  const { testName } = t.context as Context;
+  const { testName } = t.context;
   // This does not delete resources... oh well.
-  await deleteLinkAxios(`/bookmarks/${testName}`);
+  await deleteLink(`/bookmarks/${testName}`);
 });
 
 for (const connection of ['ws', 'http'] as const) {
-  // Client instance
-  let client: OADAClient;
-
   // Initialization
-  // eslint-disable-next-line ava/hooks-order
-  test.before(`${connection}: Initialize connection`, async () => {
+  test.before(`${connection}: Initialize connection`, async (t) => {
+    // @ts-expect-error stuff
+    t.context.client ??= {};
     // Connect
-    client = await connect({
+    t.context.client[connection] = await connect({
       domain,
       token,
       connection,
@@ -74,15 +73,14 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   // Cleanup
-  // eslint-disable-next-line ava/hooks-order
-  test.after(`${connection}: Destroy connection`, async () => {
+  test.after.always(`${connection}: Destroy connection`, async (t) => {
     // Disconnect
-    await client?.disconnect();
+    await t.context.client[connection]?.disconnect();
   });
 
   test(`${connection}: Shouldn't error when the Content-Type header can be derived from the _type key in the PUT body`, async (t) => {
-    const { testName } = t.context as Context;
-    const response = await client.put({
+    const { testName, client } = t.context;
+    const response = await client[connection].put({
       path: `/bookmarks/${testName}/sometest`,
       data: { _type: 'application/json' },
     });
@@ -92,9 +90,8 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   test(`${connection}: Shouldn't error when the Content-Type header can be derived from the contentType key`, async (t) => {
-    // @ts-expect-error ava context typing is lame
-    const { testName } = t.context;
-    const response = await client.put({
+    const { testName, client } = t.context;
+    const response = await client[connection].put({
       path: `/bookmarks/${testName}/somethingnew`,
       data: `"abc123"`,
       contentType: 'application/json',
@@ -105,8 +102,8 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   test(`${connection}: Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'`, async (t) => {
-    const { testName, testTree } = t.context as Context;
-    const response = await client.put({
+    const { testName, testTree, client } = t.context;
+    const response = await client[connection].put({
       path: `/bookmarks/${testName}/aaa/bbb/index-one/sometest`,
       tree: testTree,
       data: `"abc123"`,
@@ -117,32 +114,32 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   test(`${connection}: Shouldn't error when the 'X-OADA-Ensure-Link' header is a supported value`, async (t) => {
-    const { testName } = t.context as Context;
-    const response = await putAxios(
+    const { testName } = t.context;
+    const response = await putResource(
       { _type: 'application/json' },
       `/bookmarks/${testName}/sometest`,
-      { 'X-OADA-Ensure-Link': 'versioned' }
+      { 'X-OADA-Ensure-Link': 'versioned' },
     );
     t.is(response.status, 201);
-    t.assert(response.headers['content-location']);
-    t.assert(response.headers['x-oada-rev']);
+    t.assert(response.headers.get('content-location'));
+    t.assert(response.headers.get('x-oada-rev'));
   });
 
   // TODO: Check the rejection reason
   test.skip(`${connection}: Should error when _type cannot be derived from the above tested sources`, async (t) => {
-    const { testName } = t.context as Context;
+    const { testName, client } = t.context;
     await t.throwsAsync(
-      client.put({
+      client[connection].put({
         path: `/bookmarks/${testName}/sometest`,
         data: `"abc123"`,
-      })
+      }),
     );
   });
 
   test(`${connection}: Should error when using a contentType parameter for which your token does not have access to read/write`, async (t) => {
-    const { testName } = t.context as Context;
+    const { testName, client } = t.context;
     await t.throwsAsync(
-      client.put({
+      client[connection].put({
         path: `/bookmarks/${testName}/sometest2`,
         data: { anothertest: 123 },
         contentType: 'application/vnd.oada.foobar.1+json',
@@ -150,41 +147,42 @@ for (const connection of ['ws', 'http'] as const) {
       {
         code: '403',
         message: 'Token does not have required scope',
-      }
+      },
     );
   });
 
   test(`${connection}: Should error when timeout occurs during a PUT request`, async (t) => {
-    const { testName } = t.context as Context;
+    const { testName, client } = t.context;
     await t.throwsAsync(
-      client.put({
+      client[connection].put({
         path: `/bookmarks/${testName}/sometest3`,
         data: { anothertest: 123 },
         contentType: 'application/json',
         timeout: 1,
       }),
-      { name: 'TimeoutError', code: 'REQUEST_TIMEDOUT' }
+      {
+        name: TimeoutError.name,
+        code: TimeoutError.prototype.code,
+      },
     );
   });
 
   test(`${connection}: Should error when 'X-OADA-Ensure-Link' contains an unsupported value`, async (t) => {
-    const { testName } = t.context as Context;
+    const { testName } = t.context;
     await t.throwsAsync(
-      putAxios({ somedata: 456 }, `/bookmarks/${testName}/sometest4`, {
+      putResource({ somedata: 456 }, `/bookmarks/${testName}/sometest4`, {
         'X-OADA-Ensure-Link': 'unsupportedValue',
-      })
-      /*
+      }),
       {
         code: '400',
-        message: 'Unsupported value for X-OADA-Ensure-Link',
-      }
-      */
+        // Message: 'Unsupported value for X-OADA-Ensure-Link',
+      },
     );
   });
 
   test(`${connection}: Should create the proper resource breaks on the server when a tree parameter is supplied to a deep endpoint`, async (t) => {
-    const { testName, testTree } = t.context as Context;
-    const putResp = await client.put({
+    const { testName, testTree, client } = t.context;
+    const putResp = await client[connection].put({
       path: `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`,
       tree: testTree,
       data: { test: 'some test' },
@@ -194,11 +192,11 @@ for (const connection of ['ws', 'http'] as const) {
     t.assert(putResp.headers['x-oada-rev']);
 
     // Path: aaa
-    const response1 = await getAxios(`/bookmarks/${testName}/aaa`);
+    const response1 = await getResource(`/bookmarks/${testName}/aaa`);
     t.is(response1.status, 200);
-    t.assert(response1.headers['content-location']);
-    t.assert(response1.headers['x-oada-rev']);
-    const { data: data1 } = response1 as { data: Nested };
+    t.assert(response1.headers.get('content-location'));
+    t.assert(response1.headers.get('x-oada-rev'));
+    const data1 = (await response1.json()) as Nested;
     t.assert(data1?._id);
     t.assert(data1?._rev);
     t.assert(data1?.bbb?._id);
@@ -206,11 +204,11 @@ for (const connection of ['ws', 'http'] as const) {
     t.falsy(data1?.bbb?.['index-one']);
 
     // Path: aaa/bbb
-    const response2 = await getAxios(`/bookmarks/${testName}/aaa/bbb`);
+    const response2 = await getResource(`/bookmarks/${testName}/aaa/bbb`);
     t.is(response2.status, 200);
-    t.assert(response2.headers['content-location']);
-    t.assert(response2.headers['x-oada-rev']);
-    const { data: data2 } = response2 as { data: Nested };
+    t.assert(response2.headers.get('content-location'));
+    t.assert(response2.headers.get('x-oada-rev'));
+    const data2 = (await response2.json()) as Nested;
     t.assert(data2?._id);
     t.assert(data2?._rev);
     t.falsy(data2?.['index-one']?._id);
@@ -218,26 +216,26 @@ for (const connection of ['ws', 'http'] as const) {
     t.assert(data2?.['index-one']?.ccc);
 
     // Path: aaa/bbb/index-one
-    const response3 = await getAxios(
-      `/bookmarks/${testName}/aaa/bbb/index-one`
+    const response3 = await getResource(
+      `/bookmarks/${testName}/aaa/bbb/index-one`,
     );
     t.is(response3.status, 200);
-    t.assert(response3.headers['content-location']);
-    t.assert(response3.headers['x-oada-rev']);
-    const { data: data3 } = response3 as { data: Nested };
+    t.assert(response3.headers.get('content-location'));
+    t.assert(response3.headers.get('x-oada-rev'));
+    const data3 = (await response3.json()) as Nested;
     t.falsy(data3?._id);
     t.falsy(data3?._rev);
     t.assert(data3?.ccc?._id);
     t.assert(data3?.ccc?._rev);
 
     // Path: aaa/bbb/index-one/ccc
-    const response4 = await getAxios(
-      `/bookmarks/${testName}/aaa/bbb/index-one/ccc`
+    const response4 = await getResource(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc`,
     );
     t.is(response4.status, 200);
-    t.assert(response4.headers['content-location']);
-    t.assert(response4.headers['x-oada-rev']);
-    const { data: data4 } = response4 as { data: Nested };
+    t.assert(response4.headers.get('content-location'));
+    t.assert(response4.headers.get('x-oada-rev'));
+    const data4 = (await response4.json()) as Nested;
     t.assert(data4?._id);
     t.assert(data4?._rev);
     t.assert(data4?._type);
@@ -245,26 +243,26 @@ for (const connection of ['ws', 'http'] as const) {
     t.falsy(data4?.['index-two']?._rev);
 
     // Path: aaa/bbb/index-one/ccc/index-two
-    const response5 = await getAxios(
-      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two`
+    const response5 = await getResource(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two`,
     );
     t.is(response5.status, 200);
-    t.assert(response5.headers['content-location']);
-    t.assert(response5.headers['x-oada-rev']);
-    const { data: data5 } = response5 as { data: Nested };
+    t.assert(response5.headers.get('content-location'));
+    t.assert(response5.headers.get('x-oada-rev'));
+    const data5 = (await response5.json()) as Nested;
     t.falsy(data5?._id);
     t.falsy(data5?._rev);
     t.assert(data5?.ddd?._id);
     t.assert(data5?.ddd?._rev);
 
     // Path: aaa/bbb/index-one/ccc/index-two/ddd
-    const response6 = await getAxios(
-      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd`
+    const response6 = await getResource(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd`,
     );
     t.is(response6.status, 200);
-    t.assert(response6.headers['content-location']);
-    t.assert(response6.headers['x-oada-rev']);
-    const { data: data6 } = response6 as { data: Nested };
+    t.assert(response6.headers.get('content-location'));
+    t.assert(response6.headers.get('x-oada-rev'));
+    const data6 = (await response6.json()) as Nested;
     t.assert(data6?._id);
     t.assert(data6?._type);
     t.assert(data6?._rev);
@@ -273,26 +271,26 @@ for (const connection of ['ws', 'http'] as const) {
     t.assert(data6?.['index-three']?.eee);
 
     // Path: aaa/bbb/index-one/ccc/index-two/ddd/index-three
-    const response7 = await getAxios(
-      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three`
+    const response7 = await getResource(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three`,
     );
     t.is(response7.status, 200);
-    t.assert(response7.headers['content-location']);
-    t.assert(response7.headers['x-oada-rev']);
-    const { data: data7 } = response7 as { data: Nested };
+    t.assert(response7.headers.get('content-location'));
+    t.assert(response7.headers.get('x-oada-rev'));
+    const data7 = (await response7.json()) as Nested;
     t.falsy(data7?._id);
     t.falsy(data7?._rev);
     t.assert(data7?.eee?._id);
     t.falsy(data7?.eee?._rev);
 
     // Path: aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee
-    const response8 = await getAxios(
-      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`
+    const response8 = await getResource(
+      `/bookmarks/${testName}/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee`,
     );
     t.is(response8.status, 200);
-    t.assert(response8.headers['content-location']);
-    t.assert(response8.headers['x-oada-rev']);
-    const { data: data8 } = response8 as { data: Nested };
+    t.assert(response8.headers.get('content-location'));
+    t.assert(response8.headers.get('x-oada-rev'));
+    const data8 = (await response8.json()) as Nested;
     t.assert(data8?._id);
     t.assert(data8?._rev);
     t.assert(data8?.test);
@@ -301,32 +299,33 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   test(`${connection}: Should create the proper trees from simultaneous PUT requests`, async (t) => {
-    const { testName, testTree } = t.context as Context;
+    const { testName, testTree, client } = t.context;
     // Adjust timeout because concurrent PUTs usually result in if-match errors and
     // the client tries to resolve the conflicts using the exponential backoff algorithm
     // t.timeout(10_000);
     // Do concurrent PUTs
     const paths = ['a', 'b', 'c'];
     const promises = paths.map(async (v) =>
-      client.put({
+      client[connection].put({
         path: `/bookmarks/${testName}/concurrent-put/${v}`,
         tree: testTree,
         data: { foo: 'bar' },
-      })
+      }),
     );
     await Promise.all(promises);
 
     // Check
     for await (const v of paths) {
-      const response = await getAxios(
-        `/bookmarks/${testName}/concurrent-put/${v}`
+      const response = await getResource(
+        `/bookmarks/${testName}/concurrent-put/${v}`,
       );
+      const data = (await response.json()) as Nested;
       t.is(response.status, 200);
-      t.assert(response.headers['content-location']);
-      t.assert(response.headers['x-oada-rev']);
-      t.assert(response.data?._id);
-      t.assert(response.data?._rev);
-      t.assert(response.data?.foo);
+      t.assert(response.headers.get('content-location'));
+      t.assert(response.headers.get('x-oada-rev'));
+      t.assert(data?._id);
+      t.assert(data?._rev);
+      t.assert(data?.foo);
     }
   });
 }

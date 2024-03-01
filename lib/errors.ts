@@ -28,7 +28,6 @@ import { setTimeout } from 'isomorphic-timers-promises';
 import { Headers } from '@oada/client/dist/fetch.js';
 import debug from 'debug';
 
-import type { IConnectionResponse } from './client.js';
 import { fixError } from './utils.js';
 
 const warn = debug('@oada/client:errors:warn');
@@ -47,9 +46,9 @@ const DEFAULT_RETRY_TIMEOUT = 5 * 60 * 10_000;
  * Wait the length specified by Retry-After header,
  * or `DEFAULT_RETRY_TIMEOUT` if the header is not present.
  */
-async function handleRatelimit<R extends unknown[]>(
+async function handleRatelimit<R extends unknown[], P>(
   error: unknown,
-  request: (...arguments_: R) => Promise<IConnectionResponse>,
+  request: (...arguments_: R) => Promise<P>,
   ...rest: R
 ) {
   // @ts-expect-error stupid errors
@@ -76,9 +75,9 @@ async function handleRatelimit<R extends unknown[]>(
  *
  * Wait a while then try to connect again.
  */
-async function handleReset<R extends unknown[]>(
+async function handleReset<R extends unknown[], P>(
   error: unknown,
-  request: (...arguments_: R) => Promise<IConnectionResponse>,
+  request: (...arguments_: R) => Promise<P>,
   ...rest: R
 ) {
   warn(error, 'Connection reset, retrying in 10000 ms');
@@ -91,10 +90,10 @@ async function handleReset<R extends unknown[]>(
  * Handle any errors that client can deal with,
  * otherwise reject with original error.
  */
-export async function handleErrors<R extends unknown[]>(
-  request: (...arguments_: R) => Promise<IConnectionResponse>,
+export async function handleErrors<R extends unknown[], P>(
+  request: (...arguments_: R) => Promise<P>,
   ...rest: R
-): Promise<IConnectionResponse> {
+): Promise<P> {
   try {
     return await request(...rest);
   } catch (cError: unknown) {

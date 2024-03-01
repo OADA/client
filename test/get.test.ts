@@ -17,38 +17,44 @@
 
 import { domain, token } from './config.js';
 
-import test from 'ava';
+import ava, { type TestFn } from 'ava';
 
 import { generate as ksuid } from 'xksuid';
 
 import type { Tree } from '@oada/types/oada/tree/v1.js';
 
-// eslint-disable-next-line import/no-namespace
-import * as oada from '../dist/index.js';
 import {
-  deleteLinkAxios,
-  getAxios,
+  type Nested,
+  getResource,
   getTreeWithTestName,
-  putAxios,
-  putResourceAxios,
+  putResource,
+  putResourceEnsureLink,
 } from './utils.js';
-import type { Nested } from './utils.js';
+
+// eslint-disable-next-line node/no-extraneous-import
+import { type OADAClient, connect } from '@oada/client';
+
+interface Context {
+  testName: string;
+  testTree: Tree;
+  client: Record<'ws' | 'http', OADAClient>;
+}
+
+const test = ava as TestFn<Context>;
+
+test.beforeEach(`Initialize test`, async (t) => {
+  t.context.testName = `test-${ksuid()}`;
+  t.context.testTree = getTreeWithTestName(t.context.testName);
+  await putResourceEnsureLink({}, `/bookmarks/${t.context.testName}`);
+});
 
 for (const connection of ['ws', 'http'] as const) {
-  // Client instance
-  let client: oada.OADAClient;
-
-  // Tree
-  let testName: string;
-  let testTree: Tree;
-
   // Initialization
-  test.before(`${connection}: Initialize connection`, async () => {
-    testName = `test-${ksuid()}`;
-    testTree = getTreeWithTestName(testName);
-    await putResourceAxios({}, `/bookmarks/${testName}`);
+  test.before(`${connection}: Initialize connection`, async (t) => {
     // Connect
-    client = await oada.connect({
+    // @ts-expect-error stuff
+    t.context.client ??= {};
+    t.context.client[connection] = await connect({
       domain,
       token,
       connection,
@@ -56,16 +62,28 @@ for (const connection of ['ws', 'http'] as const) {
   });
 
   // Cleanup
-  test.after(`${connection}: Destroy connection`, async () => {
+  test.after.always(`${connection}: Destroy connection`, async (t) => {
     // Disconnect
-    await client?.disconnect();
+    await t.context.client[connection]?.disconnect();
+    /*
     // This does not delete resources... oh well.
-    await deleteLinkAxios(`/bookmarks/${testName}`);
+    await fetch(new URL(`/bookmarks/${t.context.testName}`, domain), {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      // eslint-disable-next-line unicorn/no-null
+      body: JSON.stringify(null),
+    });
+    */
   });
 
   test(`${connection}: Get Top-Level Bookmark`, async (t) => {
     // Run
-    const response = await client.get({ path: '/bookmarks' });
+    const response = await t.context.client[connection].get({
+      path: '/bookmarks',
+    });
 
     // Check
     t.is(response.status, 200);
@@ -76,14 +94,14 @@ for (const connection of ['ws', 'http'] as const) {
 
   test(`${connection}: Should allow you to get a single resource by its resource ID`, async (t) => {
     // Prepare a resource
-    const testObject = { abc: 'def' };
-    const r = await putResourceAxios(
+    const testObject = { abc: 'def' } as const;
+    const r = await putResourceEnsureLink(
       testObject,
-      `/bookmarks/${testName}/testResource1`
+      `/bookmarks/${t.context.testName}/testResource1`,
     );
 
     // Run
-    const response = await client.get({
+    const response = await t.context.client[connection].get({
       path: `/${r.resource_id}`,
     });
 
@@ -98,12 +116,12 @@ for (const connection of ['ws', 'http'] as const) {
 
   test(`${connection}: Should allow you to get a single resource by its path`, async (t) => {
     // Prepare a resource
-    const testObject = { abc: 'def' };
-    const path = `/bookmarks/${testName}/testResource2`;
-    await putResourceAxios(testObject, path);
+    const testObject = { abc: 'def' } as const;
+    const path = `/bookmarks/${t.context.testName}/testResource2`;
+    await putResourceEnsureLink(testObject, path);
 
     // Run
-    const response = await client.get({
+    const response = await t.context.client[connection].get({
       path,
     });
 
@@ -118,70 +136,74 @@ for (const connection of ['ws', 'http'] as const) {
 
   test(`${connection}: Should error when timeout occurs during a GET request`, async (t) => {
     // Prepare a resource
-    const testObject = { abc: 'def' };
-    const path = `/bookmarks/${testName}/testResource3`;
-    await putResourceAxios(testObject, path);
+    const testObject = { abc: 'def' } as const;
+    const path = `/bookmarks/${t.context.testName}/testResource3`;
+    await putResourceEnsureLink(testObject, path);
 
     // Run
     await t.throwsAsync(
-      client.get({
+      t.context.client[connection].get({
         path,
         timeout: 1, // 1 ms timeout
-      })
+      }),
     );
   });
 
   test(`${connection}: Should error when the root path of a 'tree' GET doesn't exist`, async (t) => {
     await t.throwsAsync(
-      client.get({
+      t.context.client[connection].get({
         path: '/bookmarks/test/testTwo',
-        tree: testTree,
-      })
+        tree: t.context.testTree,
+      }),
     );
   });
 
   test(`${connection}: Should error when 'X-OADA-Ensure-Link' is present`, async (t) => {
-    const putResp = await putAxios(
+    const putResp = await putResource(
       { somedata: 789 },
-      `/bookmarks/${testName}/sometest4`,
-      { 'X-OADA-Ensure-Link': 'versioned' }
+      `/bookmarks/${t.context.testName}/sometest4`,
+      { 'X-OADA-Ensure-Link': 'versioned' },
     );
     t.is(putResp.status, 201);
-    t.assert(putResp.headers['content-location']);
-    t.assert(putResp.headers['x-oada-rev']);
+    t.assert(putResp.headers.get('content-location'));
+    t.assert(putResp.headers.get('x-oada-rev'));
 
     await t.throwsAsync(
-      getAxios(`/bookmarks/${testName}/sometest4`, {
+      getResource(`/bookmarks/${t.context.testName}/sometest5`, {
         'X-OADA-Ensure-Link': 'versioned',
-      })
-      /*
+      }),
       {
         code: '400',
-        message: 'X-OADA-Ensure-Link not allowed for this method',
-      }
-      */
+        // Message: 'X-OADA-Ensure-Link not allowed for this method',
+      },
     );
   });
 
   test(`${connection}: Should allow you to get resources based on a tree`, async (t) => {
     // Prepare resources
-    const basePath = `/bookmarks/${testName}`;
-    await putResourceAxios({ somethingelse: 'okay' }, `${basePath}/aaa`);
-    await putResourceAxios({ b: 'b' }, `/bookmarks/${testName}/aaa/bbb`);
-    await putResourceAxios({ c: 'c' }, `${basePath}/aaa/bbb/index-one/ccc`);
-    await putResourceAxios(
-      { d: 'd' },
-      `${basePath}/aaa/bbb/index-one/ccc/index-two/bob`
+    const basePath = `/bookmarks/${t.context.testName}`;
+    await putResourceEnsureLink({ somethingelse: 'okay' }, `${basePath}/aaa`);
+    await putResourceEnsureLink(
+      { b: 'b' },
+      `/bookmarks/${t.context.testName}/aaa/bbb`,
     );
-    await putResourceAxios(
+    await putResourceEnsureLink(
+      { c: 'c' },
+      `${basePath}/aaa/bbb/index-one/ccc`,
+    );
+    await putResourceEnsureLink(
+      { d: 'd' },
+      `${basePath}/aaa/bbb/index-one/ccc/index-two/bob`,
+    );
+    await putResourceEnsureLink(
       { e: 'e' },
-      `${basePath}/aaa/bbb/index-one/ccc/index-two/bob/index-three/2018`
+      `${basePath}/aaa/bbb/index-one/ccc/index-two/bob/index-three/2018`,
     );
 
     // Run
-    const response = await client.get({
+    const response = await t.context.client[connection].get({
       path: basePath,
-      tree: testTree,
+      tree: t.context.testTree,
     });
     // Check
     t.is(response.status, 200);
@@ -194,7 +216,7 @@ for (const connection of ['ws', 'http'] as const) {
     t.assert(
       data?.aaa?.bbb?.['index-one']?.ccc?.['index-two']?.bob?.['index-three']?.[
         '2018'
-      ]
+      ],
     );
   });
 }

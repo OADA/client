@@ -1,16 +1,17 @@
 root: true
 
 extends:
+  - 'eslint:recommended'
   - 'plugin:@typescript-eslint/recommended'
   - plugin:node/recommended
   - plugin:github/recommended
   - plugin:promise/recommended
   - plugin:regexp/recommended
-  - plugin:array-func/recommended
+  #- plugin:array-func/recommended
   - plugin:optimize-regex/recommended
   - plugin:import/recommended
   - plugin:unicorn/recommended
-  - plugin:security/recommended
+  #- plugin:security/recommended
   - plugin:sonarjs/recommended
   - plugin:ava/recommended
   - xo
@@ -22,7 +23,7 @@ plugins:
   - github
   - promise
   - regexp
-  - array-func
+  #- array-func
   - optimize-regex
   - no-constructor-bind
   - import
@@ -37,10 +38,10 @@ parser: '@typescript-eslint/parser'
 
 parserOptions:
   ecmaVersion: 2020
-  project: './tsconfig*.json'
+  project: './tsconfig.*'
 
 overrides:
-  - files: '*.ts'
+  - files: '*.{c,m,}ts'
     extends:
       - plugin:github/typescript
       - plugin:import/typescript
@@ -48,12 +49,13 @@ overrides:
       - prettier
     parserOptions:
       ecmaVersion: 2020
-      project: './tsconfig*.json'
+      project: './tsconfig.*'
     rules:
       '@typescript-eslint/naming-convention':
         [
           error,
           { selector: default, format: [camelCase] },
+          { selector: import, modifiers: [default], format: null },
           { selector: objectLiteralProperty, format: null },
           { selector: enumMember, format: [PascalCase] },
           { selector: typeProperty, format: null },
@@ -63,6 +65,7 @@ overrides:
             format: [camelCase, UPPER_CASE],
             leadingUnderscore: allow,
           },
+          { selector: variable, modifiers: [destructured], format: null },
           {
             selector: parameter,
             format: [camelCase],
@@ -77,6 +80,8 @@ overrides:
           },
 
           { selector: typeLike, format: [PascalCase] },
+
+          { selector: parameter, modifiers: [destructured], format: null },
         ]
       '@typescript-eslint/restrict-template-expressions': off
       '@typescript-eslint/no-shadow': warn
@@ -91,6 +96,7 @@ overrides:
           },
         ]
       '@typescript-eslint/consistent-type-definitions': [warn, interface]
+      '@typescript-eslint/switch-exhaustiveness-check': off
 
 rules:
   notice/notice:
@@ -114,26 +120,33 @@ rules:
          */
       onNonMatchingHeader: append
       nonMatchingTolerance: 0.7
-  unicorn/prevent-abbreviations:
-    [warn, { replacements: { db: false, req: false, doc: false, docs: false } }]
-  '@typescript-eslint/no-shadow': [warn, { allow: [_] }]
-  sonarjs/no-duplicate-string: [warn, 5]
+  #'@typescript-eslint/no-shadow': [warn, { allow: [_] }]
+  sonarjs/no-duplicate-string: [warn, { threshold: 5 }]
   sonarjs/cognitive-complexity: warn
   eslint-comments/no-unused-disable: off
-  import/extensions: off
   node/no-unpublished-import: off
   spaced-comment: [error, always, markers: [/, //]]
   filenames/match-regex: off
   unicorn/filename-case: off
   i18n-text/no-en: off
   eslint-comments/no-use: off
-  no-secrets/no-secrets: error
+  no-secrets/no-secrets: [error, { tolerance: 5 }]
   no-empty-label: off
-  no-return-await: off
-  no-warning-comments: off
+  no-return-await: 0
+  no-warning-comments: 0
   node/no-missing-import: off
   import/no-unresolved: off
+  import/extensions: off
   unicorn/prefer-spread: off
+  unicorn/prevent-abbreviations:
+    - warn
+    - replacements:
+        db: false
+        req: false
+        res: false
+        err: false
+        doc: false
+        docs: false
   no-constructor-bind/no-constructor-bind: error
   no-constructor-bind/no-constructor-state: error
   sort-imports: [warn, { allowSeparatedGroups: true }]
@@ -141,3 +154,5 @@ rules:
   ava/no-import-test-files: off
   ava/no-skip-test: warn
   ava/no-skip-assert: warn
+  ava/use-test: off
+  '@typescript-eslint/switch-exhaustiveness-check': off

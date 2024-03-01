@@ -19,11 +19,11 @@
 
 import readline from 'node:readline';
 
-import { deleteLinkAxios, getAxios } from './utils.js';
+import { deleteLink, getResource } from './utils.js';
 
 async function run() {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const { data: bookmarks } = await getAxios(`/bookmarks`);
+  const response = await getResource(`/bookmarks`);
+  const bookmarks = (await response.json()) as Record<string, unknown>;
   const testkeys = Object.keys(bookmarks).filter((k) => /test-/.exec(k));
 
   const rl = readline.createInterface({
@@ -32,7 +32,7 @@ async function run() {
   });
   rl.question(
     `About to delete keys ${JSON.stringify(
-      testkeys
+      testkeys,
     )} from OADA.  Proceed (y/N)? `,
     async (answer) => {
       rl.close();
@@ -43,10 +43,10 @@ async function run() {
 
       console.log('Deleting keys...');
       await Promise.all(
-        testkeys.map(async (k) => deleteLinkAxios(`/bookmarks/${k}`))
+        testkeys.map(async (k) => deleteLink(`/bookmarks/${k}`)),
       );
       console.log('Keys deleted.');
-    }
+    },
   );
 }
 

@@ -21,22 +21,22 @@
  */
 
 import { JsonPointer } from 'json-ptr';
+import { TimeoutError as PTimeoutError } from 'p-timeout';
 import objectAssignDeep from 'object-assign-deep';
 
 import type { Tree, TreeKey } from '@oada/types/oada/tree/v1.js';
 
 import type { Change, Json, JsonObject } from './index.js';
-import { Response } from './fetch.js';
 
 // Typescript sucks at figuring out Array.isArray on its own
 function isArray<A extends unknown[] | readonly unknown[]>(
-  value: unknown
+  value: unknown,
 ): value is A {
   return Array.isArray(value);
 }
 
 export function toArray<E extends unknown[] | readonly unknown[]>(
-  itemOrArray: E | E[0]
+  itemOrArray: E | E[0],
 ): E {
   return isArray<E>(itemOrArray) ? itemOrArray : ([itemOrArray] as E);
 }
@@ -67,7 +67,7 @@ export function getObjectAtPath(tree: Tree, path: readonly string[]): Tree {
       result = result['*']!;
     } else {
       throw new Error(
-        `Specified path /${path.join('/')} does not exist in the tree.`
+        `Specified path /${path.join('/')} does not exist in the tree.`,
       );
     }
   }
@@ -88,7 +88,7 @@ export function toTreePath(tree: Tree, path: string[]): string[] {
       current = current['*']!;
     } else {
       throw new Error(
-        `Specified path /${path.join('/')} does not exist in the tree.`
+        `Specified path /${path.join('/')} does not exist in the tree.`,
       );
     }
   }
@@ -103,7 +103,7 @@ export function isResource(tree: Tree, path: string[]): boolean {
 
 export function createNestedObject(
   object: Record<string, unknown>,
-  nestPath: string[]
+  nestPath: string[],
 ): Record<string, unknown> {
   const reversedArray = nestPath.slice().reverse();
 
@@ -118,14 +118,12 @@ export function createNestedObject(
 /**
  * Use an Error class for timed out requests
  */
-export class TimeoutError extends Error {
+export class TimeoutError extends PTimeoutError {
   public get code() {
-    return 'REQUEST_TIMEDOUT';
+    return 'REQUEST_TIMEDOUT' as const;
   }
 
-  public override get name() {
-    return 'TimeoutError';
-  }
+  public override readonly name = 'TimeoutError' as const;
 
   constructor(request: unknown) {
     super('Request timed out');
@@ -141,7 +139,7 @@ export async function fixError<
     message?: string;
     status?: string | number;
     statusText?: string;
-  }
+  },
 >(error: E): Promise<E & Error> {
   if (error instanceof Error) {
     return error;
@@ -157,19 +155,16 @@ export async function fixError<
     body = (await error.json?.()) ?? error.data;
   } catch {}
 
-  if (error instanceof Response && !('size' in error.headers)) {
-    // @ts-expect-error HACK
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    error.headers.size = error.headers._data.size;
-  }
-
   const message =
     error.message ??
     body?.message ??
     (error.statusText
       ? `${error.status} ${error.statusText}`
       : `${error.status}`);
-  return Object.assign(new Error(message), { code, ...error });
+  return Object.assign(new Error(message, { cause: error }), {
+    code,
+    ...error,
+  });
 }
 
 export const changeSym = Symbol('change');
@@ -209,7 +204,7 @@ export function translateDelete(body: Json): Json | undefined {
     Object.entries(body).map(([key, value]) => [
       key,
       translateDelete(value!) as Json,
-    ])
+    ]),
   );
 }
 
@@ -227,14 +222,14 @@ export function buildChangeObject(rootChange: Change, ...children: Change[]) {
   for (const change of children) {
     const ptr = JsonPointer.create(change.path);
     const old = ptr.get(changeBody) as ChangeBody<unknown>;
-    // eslint-disable-next-line security/detect-object-injection
+
     const changes = old?.[changeSym] ?? [];
     const body =
       change.type === 'delete'
         ? translateDelete(change.body as Json)
         : change.body;
     const merged = objectAssignDeep(old ?? {}, body);
-    // eslint-disable-next-line security/detect-object-injection
+
     merged[changeSym] = [...changes, change];
     ptr.set(changeBody, merged, true);
   }

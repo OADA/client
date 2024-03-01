@@ -24,7 +24,9 @@ import { setTimeout } from 'isomorphic-timers-promises';
 import type { Tree } from '@oada/types/oada/tree/v1.js';
 
 import type { Nested } from './utils.js';
-import { connect } from '../dist/index.js';
+
+// eslint-disable-next-line node/no-extraneous-import
+import { connect } from '@oada/client';
 
 const generateRandomString = () => Math.random().toString(36).slice(7);
 
@@ -91,7 +93,6 @@ test('Recursive PUT/GET', async (t) => {
   const randomString = generateRandomString();
   const tree = {
     bookmarks: {
-      // eslint-disable-next-line sonarjs/no-duplicate-string
       _type: 'application/json',
       _rev: 0,
       [randomString]: {

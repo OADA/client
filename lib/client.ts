@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-import { AbortController } from 'abort-controller';
-import { Buffer } from 'node:buffer';
 import { setTimeout } from 'isomorphic-timers-promises';
 
 import type { EventEmitter } from 'eventemitter3';
 import debug from 'debug';
 import deepClone from 'deep-clone';
+
 import { fileTypeFromBuffer } from '@oada/client/dist/file-type.js';
 import { generate as ksuid } from 'xksuid';
 
@@ -35,10 +34,16 @@ import {
   toArrayPath,
   toStringPath,
 } from './utils.js';
+import { AbortController } from './fetch.js';
 import { HttpClient } from './http.js';
 import { WebSocketClient } from './websocket.js';
 
 import type { Change, Json, JsonObject } from './index.js';
+
+declare module 'deep-clone' {
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  export default function deepClone<T>(value: T): T;
+}
 
 const trace = debug('@oada/client:client:trace');
 const info = debug('@oada/client:client:info');
@@ -47,10 +52,8 @@ const error = debug('@oada/client:client:error');
 
 /**
  * Supported types for in/out request bodies
- *
- * @todo Support more than just Buffer?
  */
-export type Body = Json | Buffer;
+export type Body = Json | Uint8Array;
 
 export type ConnectionRequest = {
   requestId?: string;
@@ -83,7 +86,7 @@ export interface ConnectionChange {
 
 export type IConnectionResponse = [
   response: ConnectionResponse,
-  updates?: AsyncIterableIterator<[Readonly<ConnectionChange>]>
+  updates?: AsyncIterableIterator<[Readonly<ConnectionChange>]>,
 ];
 export interface Connection extends EventEmitter {
   disconnect(): Promise<void>;
@@ -91,7 +94,7 @@ export interface Connection extends EventEmitter {
   awaitConnection(): Promise<void>;
   request(
     request: ConnectionRequest,
-    options?: { timeout?: number; signal?: AbortSignal }
+    options?: { timeout?: number; signal?: AbortSignal },
   ): Promise<IConnectionResponse>;
 }
 
@@ -108,7 +111,7 @@ export interface Config {
 export type Response = ConnectionResponse;
 
 export interface WatchResponse<
-  C extends Readonly<Change> | ReadonlyArray<Readonly<Change>>
+  C extends Readonly<Change> | ReadonlyArray<Readonly<Change>>,
 > extends Response {
   /**
    * AsyncIterableIterator of the change feed for the watch
@@ -233,11 +236,11 @@ export interface ENSURERequest {
  * Handle v2 watch API
  */
 async function doWatchCallback<
-  C extends Readonly<Change> | ReadonlyArray<Readonly<Change>>
+  C extends Readonly<Change> | ReadonlyArray<Readonly<Change>>,
 >(
   watch: AsyncIterableIterator<C>,
   watchCallback: (response: C) => Promise<void>,
-  requestId: string
+  requestId: string,
 ) {
   try {
     for await (const change of watch) {
@@ -363,7 +366,7 @@ export class OADAClient {
         },
         path: request.path,
       },
-      { timeout: request.timeout }
+      { timeout: request.timeout },
     );
 
     // ===  Recursive GET  ===
@@ -376,7 +379,7 @@ export class OADAClient {
       topLevelResponse.data = await this.#recursiveGet(
         request.path,
         subTree,
-        topLevelResponse.data ?? {}
+        topLevelResponse.data ?? {},
       );
     }
 
@@ -390,14 +393,14 @@ export class OADAClient {
    * @param request watch request
    */
   public watch(
-    request: WatchRequestTree
+    request: WatchRequestTree,
   ): Promise<WatchResponse<ReadonlyArray<Readonly<Change>>>>;
   public watch(
-    request: WatchRequestSingle
+    request: WatchRequestSingle,
   ): Promise<WatchResponse<Readonly<Change>>>;
   /** @internal */
   public watch(
-    request: WatchRequestTree | WatchRequestSingle
+    request: WatchRequestTree | WatchRequestSingle,
   ): Promise<WatchResponse<Readonly<Change> | ReadonlyArray<Readonly<Change>>>>;
   /**
    * Watch API for v2
@@ -405,10 +408,10 @@ export class OADAClient {
    * @deprecated
    */
   public watch(
-    request: WatchRequestTreeOld | WatchRequestSingleOld
+    request: WatchRequestTreeOld | WatchRequestSingleOld,
   ): Promise<string>;
   public async watch(
-    request: WatchRequest
+    request: WatchRequest,
   ): Promise<
     WatchResponse<Readonly<Change> | ReadonlyArray<Readonly<Change>>> | string
   > {
@@ -431,7 +434,7 @@ export class OADAClient {
       });
       const rev =
         typeof data === 'object' &&
-        !Buffer.isBuffer(data) &&
+        !(data instanceof Uint8Array) &&
         !Array.isArray(data)
           ? Number(data?._rev)
           : undefined;
@@ -440,13 +443,17 @@ export class OADAClient {
         const { data: r } = await this.get({
           path: persistPath,
         });
-        if (typeof r === 'object' && !Buffer.isBuffer(r) && !Array.isArray(r)) {
+        if (
+          typeof r === 'object' &&
+          !(r instanceof Uint8Array) &&
+          !Array.isArray(r)
+        ) {
           lastRev = Number(r?.rev);
           headers['x-oada-rev'] = lastRev.toString();
           trace(
             'Watch persist found _meta entry for [%s]. Setting x-oada-rev header to %d',
             name,
-            lastRev
+            lastRev,
           );
         }
 
@@ -454,7 +461,7 @@ export class OADAClient {
           trace(
             "Watch persist found _meta entry for [%s], but 'rev' is undefined. Writing 'rev' as %d",
             name,
-            lastRev
+            lastRev,
           );
           await this.put({
             path: `${persistPath}/rev`,
@@ -479,7 +486,7 @@ export class OADAClient {
             data: { _id },
           });
           trace(
-            `Watch persist did not find _meta entry for [${name}]. Current resource _rev is ${lastRev}. Not setting x-oada-rev header. _meta entry created.`
+            `Watch persist did not find _meta entry for [${name}]. Current resource _rev is ${lastRev}. Not setting x-oada-rev header. _meta entry created.`,
           );
         }
       }
@@ -491,7 +498,7 @@ export class OADAClient {
           path: `${persistPath}/items`,
         });
         recorded =
-          revData && !Buffer.isBuffer(revData)
+          revData && !(revData instanceof Uint8Array)
             ? (revData as Record<number, boolean | number>)
             : {};
       } catch (cError: unknown) {
@@ -509,7 +516,7 @@ export class OADAClient {
         lastRev,
         items: new Map(),
         recorded: new Map(
-          Object.entries(recorded).map(([k, v]) => [Number(k), v])
+          Object.entries(recorded).map(([k, v]) => [Number(k), v]),
         ),
       });
     }
@@ -537,7 +544,7 @@ export class OADAClient {
         },
         path,
       },
-      { timeout, signal: restart.signal as AbortSignal }
+      { timeout, signal: restart.signal },
     );
 
     if (response.status !== 200) {
@@ -571,10 +578,10 @@ export class OADAClient {
           }
 
           if (request.type === 'tree') {
-            yield deepClone(resp.change as Json) as typeof resp.change;
+            yield deepClone(resp.change);
           } else if (!request.type || request.type === 'single') {
             for (const change of resp.change) {
-              yield deepClone(change as Json) as typeof change;
+              yield deepClone(change);
 
               if (change.path === '') {
                 const newRev = change.body?._rev;
@@ -582,7 +589,7 @@ export class OADAClient {
                   trace(
                     'Updated the rev of request %s to %s',
                     resp.requestId[0],
-                    newRev
+                    newRev,
                   );
                 } else {
                   throw new Error('The _rev field is missing.');
@@ -674,7 +681,7 @@ export class OADAClient {
         path: request.path,
         data: request.data,
       },
-      { timeout: request.timeout }
+      { timeout: request.timeout },
     );
     return response;
   }
@@ -711,7 +718,7 @@ export class OADAClient {
         path,
         data,
       },
-      { timeout }
+      { timeout },
     );
     return response;
   }
@@ -731,7 +738,7 @@ export class OADAClient {
         },
         path: request.path,
       },
-      { timeout: request.timeout }
+      { timeout: request.timeout },
     );
     return response;
   }
@@ -751,7 +758,7 @@ export class OADAClient {
         },
         path: request.path,
       },
-      { timeout: request.timeout }
+      { timeout: request.timeout },
     );
     return response;
   }
@@ -772,7 +779,7 @@ export class OADAClient {
           },
           path: request.path,
         },
-        { timeout: request.timeout }
+        { timeout: request.timeout },
       );
       return response;
     } catch (cError: unknown) {
@@ -790,7 +797,7 @@ export class OADAClient {
   async #recursiveGet(
     path: string,
     subTree: Tree | undefined,
-    body: Body | undefined
+    body: Body | undefined,
   ): Promise<Body> {
     // If either subTree or data does not exist, there's mismatch between
     // the provided tree and the actual data stored on the server
@@ -805,7 +812,7 @@ export class OADAClient {
     }
 
     // ???: Should this error?
-    if (Buffer.isBuffer(body) || !body) {
+    if (body instanceof Uint8Array || !body) {
       return body;
     }
 
@@ -815,7 +822,7 @@ export class OADAClient {
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
       for (const [key, value] of Object.entries(
-        body as Record<string, unknown>
+        body as Record<string, unknown>,
       )) {
         // Do not recurse into _meta or changes unless otherwise stated
         if (['_meta', '_changes'].includes(key) && !(key in subTree)) continue;
@@ -841,9 +848,9 @@ export class OADAClient {
           const response = await this.#recursiveGet(
             childPath,
             subTree[item.treeKey],
-            (body as JsonObject)[item.dataKey]
+            (body as JsonObject)[item.dataKey],
           );
-          if (Buffer.isBuffer(response)) {
+          if (response instanceof Uint8Array) {
             throw new TypeError('Non JSON is not supported.');
           }
 
@@ -852,13 +859,14 @@ export class OADAClient {
           // Keep going if a child GET throws
           warn(cError, `Failed to recursively GET ${childPath}`);
         }
-      })
+      }),
     );
     return body; // Return object at "path"
   }
 
   async #ensureTree(tree: Tree, pathArray: readonly string[]) {
     // Link object (eventually substituted by an actual link object)
+    // eslint-disable-next-line unicorn/no-null
     let linkObject: Json = null;
     let newResourcePathArray: readonly string[] = [];
     for await (const index of Array.from(pathArray.keys()).reverse()) {
@@ -881,7 +889,7 @@ export class OADAClient {
       // certain services.
       if (!resourceCheckResult.exist && treeObject._require) {
         throw new Error(
-          `Cannot create _require endpoint that did not exist: ${partialPath}`
+          `Cannot create _require endpoint that did not exist: ${partialPath}`,
         );
       }
 
@@ -911,7 +919,7 @@ export class OADAClient {
       // Create a new resource
       const resourceId: string = await this.#createResource(
         contentType,
-        newResource as Json
+        newResource as Json,
       );
       // Save a link
       linkObject =
@@ -924,7 +932,7 @@ export class OADAClient {
 
   async #guessContentType(
     { contentType, data, tree }: PUTRequest,
-    pathArray: readonly string[]
+    pathArray: readonly string[],
   ): Promise<string> {
     // 1) get content-type from the argument
     if (contentType) {
@@ -932,7 +940,7 @@ export class OADAClient {
     }
 
     // 2) get content-type from the resource body
-    if (Buffer.isBuffer(data)) {
+    if (data instanceof Uint8Array) {
       const type = await fileTypeFromBuffer(data);
       if (type?.mime) {
         return type.mime;
@@ -971,10 +979,10 @@ export class OADAClient {
       } catch (cError: unknown) {
         // Handle 412 (If-Match failed)
         // @ts-expect-error stupid errors
-        if (CODES.has(cError?.code)) {
+        if (CODES.has(`${cError?.code}`)) {
           await setTimeout(
             // Retry with exponential backoff
-            100 * ((retryCount + 1) ** 2 + Math.random())
+            100 * ((retryCount + 1) ** 2 + Math.random()),
           );
         } else {
           throw await fixError(cError as Error);
@@ -999,7 +1007,7 @@ export class OADAClient {
           info(
             "Lapsed rev [%d] on path %s is now resolved. Removing from 'items' list.",
             rev,
-            persistPath
+            persistPath,
           );
           await this.delete({
             path: `${persistPath}/items/${rev}`,
@@ -1038,7 +1046,7 @@ export class OADAClient {
     trace(
       'Checking for lapsed revs for path [%s] time: [%s]',
       persistPath,
-      now
+      now,
     );
     const { items, recorded, recordLapsedTimeout } =
       this.#persistList.get(persistPath)!;
@@ -1086,7 +1094,7 @@ export class OADAClient {
    * Check if the specified path exists. Returns boolean value.
    */
   async #resourceExists(
-    path: string
+    path: string,
   ): Promise<{ exist: boolean; etag?: string }> {
     // In tree put to /resources, the top-level "/resources" should
     // look like it exists, even though oada doesn't allow GET on /resources

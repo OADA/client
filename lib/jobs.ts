@@ -20,8 +20,8 @@ import { JSONPath } from 'jsonpath-plus';
 import debug from 'debug';
 import { deserializeError } from 'serialize-error';
 
-import { postUpdate } from '@oada/jobs';
 import type Job from '@oada/types/oada/service/job.js';
+import { postUpdate } from '@oada/jobs';
 
 import type { Change, Json, OADAClient } from './index.js';
 import type { ChangeBody, Result } from './utils.js';
@@ -39,7 +39,7 @@ export class JobsRequest<J extends Job> {
   oadaId?: string;
   oadaListKey?: string;
   oada: OADAClient;
-  #emitter;
+  readonly #emitter;
   // @ts-expect-error expect for now
   #watch?;
 
@@ -51,7 +51,7 @@ export class JobsRequest<J extends Job> {
 
   async on<E extends JobEventType>(
     event: E,
-    listener: (jobChange: JobType<E, J>) => PromiseLike<void> | void
+    listener: (jobChange: JobType<E, J>) => PromiseLike<void> | void,
   ) {
     this.#emitter.on(event, this.#wrapListener(event, listener));
   }
@@ -62,10 +62,10 @@ export class JobsRequest<J extends Job> {
       path: `/resources`,
       data: this.job as unknown as Json,
       contentType: 'application/vnd.oada.service.jobs.1+json',
-    })
+    });
     const _id = headers['content-location']?.replace(/^\//, '') ?? '';
     const key = _id.replace(/^resources\//, '');
-//    const { _id, key } = await postJob(this.oada, pending, this.job as Json);
+    //    Const { _id, key } = await postJob(this.oada, pending, this.job as Json);
     this.oadaId = _id;
     this.oadaListKey = key;
     this.#watch = await this.#watchJob();
@@ -73,8 +73,8 @@ export class JobsRequest<J extends Job> {
       path: `${pending}/${key}`,
       data: {
         _id,
-      }
-    })
+      },
+    });
     return { _id, key };
   }
 
@@ -84,7 +84,7 @@ export class JobsRequest<J extends Job> {
 
   #wrapListener<E extends JobEvent<J>>(
     type: string,
-    listener: (jobChange: E) => void | PromiseLike<void>
+    listener: (jobChange: E) => void | PromiseLike<void>,
   ) {
     return async (jobChange: E) => {
       try {
@@ -96,7 +96,7 @@ export class JobsRequest<J extends Job> {
             listener: listener.name,
             error,
           },
-          'Error in job listener'
+          'Error in job listener',
         );
       }
     };
@@ -158,7 +158,7 @@ export class JobsRequest<J extends Job> {
 
     // eslint-disable-next-line github/no-then
     void this.#handleChangeFeed(changes).catch((error: unknown) =>
-      this.#emitter.emit('error', error)
+      this.#emitter.emit('error', error),
     );
 
     log.info({ this: this }, 'Job watch initialized');
@@ -166,7 +166,7 @@ export class JobsRequest<J extends Job> {
   }
 
   async #handleChangeFeed(
-    watch: AsyncIterable<ReadonlyArray<Readonly<Change>>>
+    watch: AsyncIterable<ReadonlyArray<Readonly<Change>>>,
   ): Promise<never> {
     for await (const [rootChange, ...children] of watch) {
       const changeBody = buildChangeObject(rootChange!, ...children);
