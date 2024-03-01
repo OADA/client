@@ -23,7 +23,7 @@ import { generate as ksuid } from 'xksuid';
 
 import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request.js';
 
-import { AbortController, Agent, type Response, fetch } from './fetch.js';
+import { AbortController, Agent, type Response, fetch } from '#fetch';
 import type {
   Body,
   Connection,
@@ -51,7 +51,7 @@ function isJson(contentType: string) {
 }
 
 async function getBody(result: Response): Promise<Body> {
-  return isJson(result.headers.get('content-type')!)
+  return isJson(result.headers.get('content-type') ?? '')
     ? ((await result.json()) as Json)
     : new Uint8Array(await result.arrayBuffer());
 }

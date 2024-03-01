@@ -29,7 +29,7 @@ import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/r
 import { is as isOADASocketChange } from '@oada/types/oada/websockets/change.js';
 import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response.js';
 
-import { on, once } from '@oada/client/dist/event-iterator.js';
+import { on, once } from '#event-iterator';
 
 import type {
   Connection,

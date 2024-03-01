@@ -23,12 +23,10 @@ import ava, { type TestFn } from 'ava';
 
 import { Service, type WorkerFunction } from '@oada/jobs';
 
+import { JobEventType, JobsRequest, doJob } from '@oada/client/jobs';
 import {
-  JobEventType,
-  JobsRequest,
   type OADAClient,
   connect,
-  doJob,
   // eslint-disable-next-line node/no-extraneous-import
 } from '@oada/client';
 

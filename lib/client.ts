@@ -21,7 +21,7 @@ import type { EventEmitter } from 'eventemitter3';
 import debug from 'debug';
 import deepClone from 'deep-clone';
 
-import { fileTypeFromBuffer } from '@oada/client/dist/file-type.js';
+import { fileTypeFromBuffer } from '#file-type';
 import { generate as ksuid } from 'xksuid';
 
 import type { Tree, TreeKey } from '@oada/types/oada/tree/v1.js';
@@ -34,7 +34,7 @@ import {
   toArrayPath,
   toStringPath,
 } from './utils.js';
-import { AbortController } from './fetch.js';
+import { AbortController } from '#fetch';
 import { HttpClient } from './http.js';
 import { WebSocketClient } from './websocket.js';
 

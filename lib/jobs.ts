@@ -224,7 +224,7 @@ export class JobsRequest<J extends Job> {
   }
 }
 
-export const enum JobEventType {
+export enum JobEventType {
   // The job is finished; a status arrives
   Status = 'Status',
   // Success status

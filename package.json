@@ -3,38 +3,69 @@
   "version": "5.0.0",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
-  "main": "dist/index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "module": "./lib/index.ts",
   "type": "module",
   "engines": {
     "node": ">=18.0.0"
   },
+  "keywords": [
+    "oada",
+    "rest",
+    "api",
+    "rest-api",
+    "client"
+  ],
   "exports": {
-    ".": "./dist/index.js",
-    "./dist/event-iterator.js": {
-      "node": "./dist/event-iterator.js",
-      "default": "./dist/event-iterator-browser.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "module": "./lib/index.ts",
+      "default": "./dist/index.js"
     },
-    "./dist/fetch.js": {
-      "node": "./dist/fetch.js",
-      "default": "./dist/fetch.browser.js"
+    "./jobs": {
+      "types": "./dist/jobs.d.ts",
+      "modules": "./lib/jobs.ts",
+      "node": "./dist/jobs.js",
+      "default": null
+    }
+  },
+  "imports": {
+    "#event-iterator": {
+      "node": {
+        "module": "./lib/event-iterator.ts",
+        "default": "./dist/event-iterator.js"
+      },
+      "default": {
+        "module": "./lib/event-iterator.browser.ts",
+        "default": "./dist/event-iterator.browser.js"
+      }
     },
-    "./dist/file-type.js": {
-      "node": "./dist/file-type.js",
-      "default": "./dist/file-type-browser.js"
+    "#fetch": {
+      "node": {
+        "module": "./lib/fetch.ts",
+        "default": "./dist/fetch.js"
+      },
+      "default": {
+        "module": "./lib/fetch.browser.ts",
+        "default": "./dist/fetch.browser.js"
+      }
+    },
+    "#file-type": {
+      "node": {
+        "module": "./lib/file-type.ts",
+        "default": "./dist/file-type.js"
+      },
+      "default": {
+        "module": "./lib/file-type.browser.ts",
+        "default": "./dist/file-type.browser.js"
+      }
     }
   },
   "browser": {
-    "./dist/event-iterator.js": "./dist/event-iterator-browser.js",
-    "./dist/fetch.js": "./dist/fetch.browser.js",
-    "events": false,
-    "file-type": "./dist/file-type-browser.js",
     "resolve-alpn": false
   },
   "react-native": {
-    "./dist/event-iterator.js": "./dist/event-iterator-browser.js",
-    "./dist/fetch.js": "./dist/fetch.browser.js",
-    "events": false,
-    "file-type": "./dist/file-type-browser.js",
     "resolve-alpn": false
   },
   "files": [
@@ -45,7 +76,7 @@
     "test": "$npm_execpath run build test && c8 ava",
     "test:debug": "ava -T 60m -svc 1 --no-worker-threads",
     "build": "tsc -b",
-    "bundle": "webpack",
+    "bundle": "esbuild . --bundle",
     "prepare": "$npm_execpath run build",
     "prestart": "$npm_execpath run build"
   },
@@ -82,11 +113,8 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@oada/types": "^3.5.3",
-    "buffer": "^6.0.3",
-    "bufferutil": "^4.0.8",
     "debug": "^4.3.4",
     "deep-clone": "^4.0.0",
-    "encoding": "^0.1.13",
     "event-iterator": "^2.0.0",
     "eventemitter3": "^5.0.1",
     "file-type": "^19.0.0",
@@ -101,10 +129,8 @@
     "reconnecting-websocket": "^4.4.0",
     "resolve-alpn": "^1.2.1",
     "serialize-error": "^11.0.3",
-    "supports-color": "^9.4.0",
     "tslib": "^2.6.2",
     "undici": "^6.6.2",
-    "utf-8-validate": "^6.0.3",
     "ws": "^8.16.0",
     "xksuid": "https://github.com/aultac/xksuid.git#commit=22a21eb01331191feb62ea0a4e67d96d2e80f396"
   },
@@ -119,6 +145,7 @@
   "devDependencies": {
     "@ava/typescript": "^4.1.0",
     "@oada/jobs": "^4.4.4",
+    "@skypack/package-check": "^0.2.2",
     "@tsconfig/node18": "^18.2.2",
     "@types/debug": "^4.1.12",
     "@types/node": "^20.11.24",
@@ -130,6 +157,7 @@
     "ava": "6.1.2",
     "c8": "^9.1.0",
     "dotenv": "^16.4.5",
+    "esbuild": "^0.20.1",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-config-xo": "^0.44.0",

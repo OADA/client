@@ -94,6 +94,4 @@ declare global {
 
 export type Change = ChangeArray[0];
 
-export { JobsRequest, JobEventType, doJob } from './jobs.js';
-
 export { TimeoutError } from './utils.js';

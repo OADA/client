@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-export const { AbortController, Response, fetch } = globalThis;
+export const { AbortController, Headers, Response, fetch } = globalThis;
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const Agent = undefined;
