@@ -130,7 +130,7 @@
     "resolve-alpn": "^1.2.1",
     "serialize-error": "^11.0.3",
     "tslib": "^2.6.2",
-    "undici": "^6.6.2",
+    "undici": "^6.11.1",
     "ws": "^8.16.0",
     "xksuid": "https://github.com/aultac/xksuid.git#commit=22a21eb01331191feb62ea0a4e67d96d2e80f396"
   },
