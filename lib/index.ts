@@ -38,11 +38,18 @@ export async function connect({
   connection: proto = 'auto',
   concurrency = 1,
   userAgent = `${process.env.npm_package_name}/${process.env.npm_package_version}`,
+  timeouts: t = {},
   ...config
 }: Config & { token: string }): Promise<OADAClient> {
+  const timeouts = typeof t === 'number' ? {
+    connect: t,
+    keepAlive: t,
+    headers: t,
+    body: t,
+  } : t;
   const connection =
     proto === 'auto'
-      ? await autoConnection({ concurrency, userAgent, ...config })
+      ? await autoConnection({ concurrency, userAgent, timeouts, ...config })
       : proto;
   // Create an instance of client and start connection
   const client = new OADAClient({
@@ -78,12 +85,12 @@ export type Json = JsonPrimitive | JsonObject | JsonArray;
 
 export type JsonCompatible<T> = {
   [P in keyof T]: T[P] extends Json
-    ? T[P]
-    : Pick<T, P> extends Required<Pick<T, P>>
-      ? never
-      : T[P] extends (() => unknown) | undefined
-        ? never
-        : JsonCompatible<T[P]>;
+  ? T[P]
+  : Pick<T, P> extends Required<Pick<T, P>>
+  ? never
+  : T[P] extends (() => unknown) | undefined
+  ? never
+  : JsonCompatible<T[P]>;
 };
 
 declare global {

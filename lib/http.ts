@@ -45,6 +45,14 @@ const enum ConnectionStatus {
   Connected,
 }
 
+export interface HTTPTimeouts {
+  /** @default 60e3 */
+  connect?: number
+  body?: number;
+  headers?: number;
+  keepAlive?: number;
+}
+
 function isJson(contentType: string) {
   const media = fromString(contentType);
   return [media.subtype, media.suffix].includes('json');
@@ -75,7 +83,7 @@ export class HttpClient extends EventEmitter implements Connection {
   constructor(
     domain: string,
     token: string,
-    { concurrency = 10, userAgent }: { concurrency: number; userAgent: string },
+    { concurrency = 10, userAgent, timeouts }: { concurrency: number; userAgent: string; timeouts: HTTPTimeouts },
   ) {
     super();
 
@@ -94,7 +102,11 @@ export class HttpClient extends EventEmitter implements Connection {
     this.#agent =
       Agent &&
       new Agent({
+        keepAliveTimeout: timeouts.keepAlive,
+        bodyTimeout: timeouts.body,
+        headersTimeout: timeouts.headers,
         connect: {
+          timeout: timeouts.connect,
           rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
         },
       });

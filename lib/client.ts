@@ -35,7 +35,7 @@ import {
   toStringPath,
 } from './utils.js';
 import { AbortController } from '#fetch';
-import { HttpClient } from './http.js';
+import { HttpClient, type HTTPTimeouts } from './http.js';
 import { WebSocketClient } from './websocket.js';
 
 import type { Change, Json, JsonObject } from './index.js';
@@ -66,9 +66,9 @@ export type ConnectionRequest = {
   headers: Record<string, string>;
   data?: Body;
 } & (
-  | { watch?: false }
-  | { watch: true; method: 'head' | 'get' | 'put' | 'post' | 'delete' }
-);
+    | { watch?: false }
+    | { watch: true; method: 'head' | 'get' | 'put' | 'post' | 'delete' }
+  );
 
 export interface ConnectionResponse {
   requestId: string | string[];
@@ -106,6 +106,7 @@ export interface Config {
   /** @default 'auto' */
   connection?: 'auto' | 'ws' | 'http' | Connection;
   userAgent?: string;
+  timeouts?: number | Partial<HTTPTimeouts>
 }
 
 export type Response = ConnectionResponse;
@@ -271,7 +272,8 @@ export class OADAClient {
     concurrency = 1,
     userAgent = `${process.env.npm_package_name}/${process.env.npm_package_version}`,
     connection = 'http',
-  }: Config) {
+    timeouts = {},
+  }: Config & { timeouts?: HTTPTimeouts }) {
     // Help for those who can't remember if https should be there
     this.#domain = domain;
     this.#token = token;
@@ -294,6 +296,7 @@ export class OADAClient {
         this.#connection = new HttpClient(this.#domain, this.#token, {
           concurrency: this.#concurrency,
           userAgent,
+          timeouts,
         });
         break;
       }
@@ -434,8 +437,8 @@ export class OADAClient {
       });
       const rev =
         typeof data === 'object' &&
-        !(data instanceof Uint8Array) &&
-        !Array.isArray(data)
+          !(data instanceof Uint8Array) &&
+          !Array.isArray(data)
           ? Number(data?._rev)
           : undefined;
 
