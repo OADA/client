@@ -137,15 +137,21 @@ export class TimeoutError extends PTimeoutError {
 export async function fixError<
   E extends {
     message?: string;
+    code?: string;
     status?: string | number;
+    statusCode?: string | number;
     statusText?: string;
   },
 >(error: E): Promise<E & Error> {
+  // Try to normalize the various ways of sending the error codes
+  const code = `${error.code ?? error.status ?? error.statusCode}`;
+  error.code ??= code;
+  error.status ??= Number(code);
+  error.statusCode ??= Number(code);
+
   if (error instanceof Error) {
     return error;
   }
-
-  const code = `${error.status}`;
 
   // TODO: Clean up this mess
   let body: { message?: string } = {};
