@@ -199,7 +199,7 @@ export interface PUTRequest {
   contentType?: string;
   /** If-Match */
   etagIfMatch?: string | readonly string[];
-  ignoreEtagIfMatch?: boolean;
+  useEtags?: boolean;
   tree?: Tree;
   timeout?: number;
   headers?: Record<string, string>;
@@ -666,7 +666,7 @@ export class OADAClient {
     const pathArray = toArrayPath(request.path);
 
     if (request.tree) {
-      await this.#retryEnsureTree(request.tree, pathArray, request.ignoreEtagIfMatch);
+      await this.#retryEnsureTree(request.tree, pathArray, request.useEtags);
     }
 
     const contentType = await this.#guessContentType(request, pathArray);
@@ -868,7 +868,7 @@ export class OADAClient {
     return body; // Return object at "path"
   }
 
-  async #ensureTree(tree: Tree, pathArray: readonly string[], ignoreEtagIfMatch?: boolean) {
+  async #ensureTree(tree: Tree, pathArray: readonly string[], useEtags?: boolean) {
     // Link object (eventually substituted by an actual link object)
     // eslint-disable-next-line unicorn/no-null
     let linkObject: Json = null;
@@ -906,7 +906,7 @@ export class OADAClient {
             contentType,
             data: linkObject,
             // Ensure the resource has not been modified (opportunistic lock)
-            ...(ignoreEtagIfMatch && {
+            ...(useEtags && {
               etagIfMatch: resourceCheckResult.etag,
             })
           });
@@ -970,7 +970,7 @@ export class OADAClient {
     return 'application/json';
   }
 
-  async #retryEnsureTree(tree: Tree, pathArray: readonly string[], ignoreEtagIfMatch?: boolean) {
+  async #retryEnsureTree(tree: Tree, pathArray: readonly string[], useEtags?: boolean) {
     // Retry on certain errors
     const CODES = new Set(['412', '422'] as const);
     const MAX_RETRIES = 5;
@@ -979,7 +979,7 @@ export class OADAClient {
       length: MAX_RETRIES - 1,
     }).keys()) {
       try {
-        await this.#ensureTree(tree, pathArray, ignoreEtagIfMatch);
+        await this.#ensureTree(tree, pathArray, useEtags);
 
         return;
       } catch (cError: unknown) {
@@ -996,7 +996,7 @@ export class OADAClient {
       }
     }
 
-    await this.#ensureTree(tree, pathArray, ignoreEtagIfMatch);
+    await this.#ensureTree(tree, pathArray, useEtags);
   }
 
   /**
