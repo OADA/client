@@ -15,4 +15,5 @@
  * limitations under the License.
  */
 
+// @ts-expect-error type bs
 export { on, once } from 'node:events';

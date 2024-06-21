@@ -34,6 +34,7 @@
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "cSpell.words": [
     "esbuild",
+    "escompat",
     "ksuid",
     "lcov",
     "sonarjs",
@@ -62,5 +63,8 @@
   "testify.testRunnerPath": "yarn test",
   "testify.envVars": {
     "NODE_ENV": "test"
-  }
+  },
+  "eslint.rules.customizations": [
+    { "rule": "prettier/prettier", "severity": "off" }
+  ]
 }

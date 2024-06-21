@@ -41,12 +41,15 @@ export async function connect({
   timeouts: t = {},
   ...config
 }: Config & { token: string }): Promise<OADAClient> {
-  const timeouts = typeof t === 'number' ? {
-    connect: t,
-    keepAlive: t,
-    headers: t,
-    body: t,
-  } : t;
+  const timeouts =
+    typeof t === 'number'
+      ? {
+          connect: t,
+          keepAlive: t,
+          headers: t,
+          body: t,
+        }
+      : t;
   const connection =
     proto === 'auto'
       ? await autoConnection({ concurrency, userAgent, timeouts, ...config })
@@ -85,12 +88,12 @@ export type Json = JsonPrimitive | JsonObject | JsonArray;
 
 export type JsonCompatible<T> = {
   [P in keyof T]: T[P] extends Json
-  ? T[P]
-  : Pick<T, P> extends Required<Pick<T, P>>
-  ? never
-  : T[P] extends (() => unknown) | undefined
-  ? never
-  : JsonCompatible<T[P]>;
+    ? T[P]
+    : Pick<T, P> extends Required<Pick<T, P>>
+      ? never
+      : T[P] extends (() => unknown) | undefined
+        ? never
+        : JsonCompatible<T[P]>;
 };
 
 declare global {

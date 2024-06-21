@@ -24,11 +24,8 @@ import ava, { type TestFn } from 'ava';
 import { Service, type WorkerFunction } from '@oada/jobs';
 
 import { JobEventType, JobsRequest, doJob } from '@oada/client/jobs';
-import {
-  type OADAClient,
-  connect,
-  // eslint-disable-next-line node/no-extraneous-import
-} from '@oada/client';
+// eslint-disable-next-line node/no-extraneous-import
+import { type OADAClient, connect } from '@oada/client';
 
 const JOBTYPE = 'test-type';
 const SERVICE = 'test-service';

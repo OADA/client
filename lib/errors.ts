@@ -27,6 +27,7 @@ import { setTimeout } from 'isomorphic-timers-promises';
 import { Headers } from '#fetch';
 import debug from 'debug';
 
+import type { HeadersInit } from 'undici';
 import { fixError } from './utils.js';
 
 const warn = debug('@oada/client:errors:warn');
@@ -51,7 +52,7 @@ async function handleRatelimit<R extends unknown[], P>(
   ...rest: R
 ) {
   // @ts-expect-error stupid errors
-  const headers = new Headers(error.headers);
+  const headers = new Headers(error.headers as HeadersInit);
 
   // Figure out how many ms to wait
   // Header is either number of seconds, or a date/time
@@ -104,14 +105,14 @@ export async function handleErrors<R extends unknown[], P>(
     // @ts-expect-error stupid error handling
     switch (`${error.status ?? cError?.code}`) {
       case '429': {
-        return await handleRatelimit(error, request, ...rest);
+        return handleRatelimit(error, request, ...rest);
       }
 
       // Some servers use 503 for rate limit...
       case '503': {
-        const headers = new Headers(error.headers);
+        const headers = new Headers(error.headers as HeadersInit);
         if (headers.has('Retry-After')) {
-          return await handleRatelimit(error, request, ...rest);
+          return handleRatelimit(error, request, ...rest);
         }
 
         // If no Retry-After, don't assume rate-limit?
@@ -119,7 +120,7 @@ export async function handleErrors<R extends unknown[], P>(
       }
 
       case 'ECONNRESET': {
-        return await handleReset(error, request, ...rest);
+        return handleReset(error, request, ...rest);
       }
 
       default:

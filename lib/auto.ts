@@ -18,9 +18,8 @@
 import debug from 'debug';
 import resolveALPN from 'resolve-alpn';
 
-import { HttpClient } from './http.js';
+import { type HTTPTimeouts, HttpClient } from './http.js';
 import { WebSocketClient } from './websocket.js';
-import { HTTPTimeouts } from './http.js';
 
 const error = debug('@oada/client:auto:error');
 
@@ -92,7 +91,11 @@ export async function autoConnection({
     switch (alpnProtocol) {
       // Prefer HTTP/2
       case 'h2': {
-        return new HttpClient(domain, token, { concurrency, userAgent, timeouts });
+        return new HttpClient(domain, token, {
+          concurrency,
+          userAgent,
+          timeouts,
+        });
       }
 
       // If no HTTP/2, use a WebSocket

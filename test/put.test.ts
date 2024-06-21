@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-/* eslint-disable sonarjs/no-duplicate-string */
-
 import { domain, token } from './config.js';
 
 import ava, { type TestFn } from 'ava';
@@ -33,6 +31,7 @@ import {
   putResource,
   putResourceEnsureLink,
 } from './utils.js';
+
 // eslint-disable-next-line node/no-extraneous-import
 import { type OADAClient, TimeoutError, connect } from '@oada/client';
 

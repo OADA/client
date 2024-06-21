@@ -61,19 +61,30 @@ interface ResponseEmitter extends EventEmitter {
   ): this;
 }
 
-declare module 'events' {
-  // eslint-disable-next-line unicorn/no-static-only-class, @typescript-eslint/no-extraneous-class, @typescript-eslint/no-shadow
-  class EventEmitter {
-    static once(
-      emitter: ResponseEmitter,
-      event: `response:${string}`,
-    ): Promise<[ConnectionResponse]>;
-    static on(
-      emitter: ResponseEmitter,
-      event: `change:${string}`,
-      options?: { signal?: AbortSignal },
-    ): AsyncIterableIterator<[ConnectionChange]>;
-  }
+declare module '#event-iterator' {
+  // @ts-expect-error type bs
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  export function once(
+    emitter: ResponseEmitter,
+    event: `response:${string}`,
+  ): Promise<[ConnectionResponse]>;
+  // @ts-expect-error type bs
+  export function once(
+    emitter: _ReconnectingWebSocket.default,
+    event: 'error',
+  ): Promise<[Error]>;
+  // @ts-expect-error type bs
+  export function once(
+    emitter: _ReconnectingWebSocket.default,
+    event: 'open',
+  ): Promise<void>;
+  // @ts-expect-error type bs
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  export function on(
+    emitter: ResponseEmitter,
+    event: `change:${string}`,
+    options?: { signal?: AbortSignal },
+  ): AsyncIterableIterator<[ConnectionChange]>;
 }
 
 const enum ConnectionStatus {
@@ -128,7 +139,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
     const openP = once(ws, 'open').then(() => ws);
     // eslint-disable-next-line github/no-then
     const errorP = once(ws, 'error').then(([wsError]) => {
-      throw wsError as Error;
+      throw wsError;
     });
     this.#ws = Promise.race([openP, errorP]);
 

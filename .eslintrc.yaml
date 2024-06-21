@@ -1,8 +1,8 @@
 root: true
 
 extends:
-  - 'eslint:recommended'
-  - 'plugin:@typescript-eslint/recommended'
+  - eslint:recommended
+  - plugin:@typescript-eslint/recommended
   - plugin:node/recommended
   - plugin:github/recommended
   - plugin:promise/recommended
@@ -12,10 +12,10 @@ extends:
   - plugin:import/recommended
   - plugin:unicorn/recommended
   #- plugin:security/recommended
-  - plugin:sonarjs/recommended
+  #- plugin:sonarjs/recommended
   - plugin:ava/recommended
   - xo
-  - prettier
+  - plugin:prettier/recommended
 
 plugins:
   - '@typescript-eslint'
@@ -30,7 +30,7 @@ plugins:
   - unicorn
   - security
   - no-secrets
-  - sonarjs
+  #- sonarjs
   - ava
   - notice
 
@@ -38,7 +38,7 @@ parser: '@typescript-eslint/parser'
 
 parserOptions:
   ecmaVersion: 2020
-  project: './tsconfig.*'
+  project: ./tsconfig.*
 
 overrides:
   - files: '*.{c,m,}ts'
@@ -46,11 +46,12 @@ overrides:
       - plugin:github/typescript
       - plugin:import/typescript
       - xo-typescript
-      - prettier
+      - plugin:prettier/recommended
     parserOptions:
       ecmaVersion: 2020
-      project: './tsconfig.*'
+      project: ./tsconfig.*
     rules:
+      prettier/prettier: off
       '@typescript-eslint/naming-convention':
         [
           error,
@@ -91,14 +92,15 @@ overrides:
           {
             args: after-used,
             ignoreRestSiblings: true,
-            varsIgnorePattern: '^_',
-            argsIgnorePattern: '^_',
+            varsIgnorePattern: ^_,
+            argsIgnorePattern: ^_,
           },
         ]
       '@typescript-eslint/consistent-type-definitions': [warn, interface]
       '@typescript-eslint/switch-exhaustiveness-check': off
 
 rules:
+  prettier/prettier: off
   notice/notice:
     - error
     - template: |
@@ -120,9 +122,9 @@ rules:
          */
       onNonMatchingHeader: append
       nonMatchingTolerance: 0.7
-  #'@typescript-eslint/no-shadow': [warn, { allow: [_] }]
-  sonarjs/no-duplicate-string: [warn, { threshold: 5 }]
-  sonarjs/cognitive-complexity: warn
+  '@typescript-eslint/no-shadow': [warn, { allow: [_] }]
+  #sonarjs/no-duplicate-string: [warn, { threshold: 5 }]
+  #sonarjs/cognitive-complexity: warn
   eslint-comments/no-unused-disable: off
   node/no-unpublished-import: off
   spaced-comment: [error, always, markers: [/, //]]

@@ -26,6 +26,7 @@ import { generate as ksuid } from 'xksuid';
 
 import type { Tree, TreeKey } from '@oada/types/oada/tree/v1.js';
 
+import { type HTTPTimeouts, HttpClient } from './http.js';
 import {
   createNestedObject,
   fixError,
@@ -35,7 +36,6 @@ import {
   toStringPath,
 } from './utils.js';
 import { AbortController } from '#fetch';
-import { HttpClient, type HTTPTimeouts } from './http.js';
 import { WebSocketClient } from './websocket.js';
 
 import type { Change, Json, JsonObject } from './index.js';
@@ -66,9 +66,9 @@ export type ConnectionRequest = {
   headers: Record<string, string>;
   data?: Body;
 } & (
-    | { watch?: false }
-    | { watch: true; method: 'head' | 'get' | 'put' | 'post' | 'delete' }
-  );
+  | { watch?: false }
+  | { watch: true; method: 'head' | 'get' | 'put' | 'post' | 'delete' }
+);
 
 export interface ConnectionResponse {
   requestId: string | string[];
@@ -106,7 +106,7 @@ export interface Config {
   /** @default 'auto' */
   connection?: 'auto' | 'ws' | 'http' | Connection;
   userAgent?: string;
-  timeouts?: number | Partial<HTTPTimeouts>
+  timeouts?: number | Partial<HTTPTimeouts>;
 }
 
 export type Response = ConnectionResponse;
@@ -437,8 +437,8 @@ export class OADAClient {
       });
       const rev =
         typeof data === 'object' &&
-          !(data instanceof Uint8Array) &&
-          !Array.isArray(data)
+        !(data instanceof Uint8Array) &&
+        !Array.isArray(data)
           ? Number(data?._rev)
           : undefined;
 
@@ -792,7 +792,7 @@ export class OADAClient {
       }
 
       trace('Path to ensure did not exist. Creating');
-      return await this.put(request);
+      return this.put(request);
     }
   }
 

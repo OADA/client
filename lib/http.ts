@@ -47,7 +47,7 @@ const enum ConnectionStatus {
 
 export interface HTTPTimeouts {
   /** @default 60e3 */
-  connect?: number
+  connect?: number;
   body?: number;
   headers?: number;
   keepAlive?: number;
@@ -83,7 +83,11 @@ export class HttpClient extends EventEmitter implements Connection {
   constructor(
     domain: string,
     token: string,
-    { concurrency = 10, userAgent, timeouts }: { concurrency: number; userAgent: string; timeouts: HTTPTimeouts },
+    {
+      concurrency = 10,
+      userAgent,
+      timeouts,
+    }: { concurrency: number; userAgent: string; timeouts: HTTPTimeouts },
   ) {
     super();
 
@@ -293,7 +297,6 @@ export class HttpClient extends EventEmitter implements Connection {
       }
 
       // @ts-expect-error stupid error handling
-      // eslint-disable-next-line sonarjs/no-small-switch
       switch (cError?.code) {
         // Happens when the HTTP/2 session is killed
         case 'ERR_HTTP2_INVALID_SESSION': {
