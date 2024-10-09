@@ -19,7 +19,6 @@ import { setTimeout } from 'isomorphic-timers-promises';
 
 import type { EventEmitter } from 'eventemitter3';
 import debug from 'debug';
-import deepClone from 'deep-clone';
 
 import { fileTypeFromBuffer } from '#file-type';
 import { generate as ksuid } from 'xksuid';
@@ -39,11 +38,6 @@ import { AbortController } from '#fetch';
 import { WebSocketClient } from './websocket.js';
 
 import type { Change, Json, JsonObject } from './index.js';
-
-declare module 'deep-clone' {
-  // eslint-disable-next-line @typescript-eslint/no-shadow
-  export default function deepClone<T>(value: T): T;
-}
 
 const trace = debug('@oada/client:client:trace');
 const info = debug('@oada/client:client:info');
@@ -581,10 +575,10 @@ export class OADAClient {
           }
 
           if (request.type === 'tree') {
-            yield deepClone(resp.change);
+            yield structuredClone(resp.change);
           } else if (!request.type || request.type === 'single') {
             for (const change of resp.change) {
-              yield deepClone(change);
+              yield structuredClone(change);
 
               if (change.path === '') {
                 const newRev = change.body?._rev;

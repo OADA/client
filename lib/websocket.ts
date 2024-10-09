@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-import WebSocket, { type MessageEvent } from 'isomorphic-ws';
 import { EventEmitter } from 'eventemitter3';
+import WebSocket from 'isomorphic-ws';
 import PQueue from 'p-queue';
 import _ReconnectingWebSocket from 'reconnecting-websocket';
 import debug from 'debug';
@@ -162,7 +162,10 @@ export class WebSocketClient extends EventEmitter implements Connection {
       // this.emit("error");
     });
 
-    ws.addEventListener('message', this.#receive.bind(this)); // Explicitly pass the instance
+    ws.addEventListener('message', (m) => {
+      trace({ ...m }, 'Websocket message received');
+      this.#receive(m);
+    });
 
     this.#q = new PQueue({ concurrency });
     this.#q.on('active', () => {
