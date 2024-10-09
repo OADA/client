@@ -14,6 +14,22 @@
 
 name: Build, test, and publish npm package
 
+permissions:
+  packages: write
+  security-events: write
+  id-token: write
+  actions: read
+  checks: read
+  contents: read
+  deployments: read
+  issues: read
+  discussions: read
+  pages: read
+  pull-requests: read
+  repository-projects: read
+  statuses: read
+  attestations: read
+
 on:
   push:
   pull_request:
@@ -23,6 +39,7 @@ jobs:
     name: CI
     uses: qlever-llc/workflows/.github/workflows/build-and-publish-package.yml@master
     secrets:
+      npm_token: ${{ secrets.NPM_AUTH_TOKEN }}
       # This is just a dev token, not actually secret
       oada_token: abc
     with:
