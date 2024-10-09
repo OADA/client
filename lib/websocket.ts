@@ -17,8 +17,8 @@
 
 import { EventEmitter } from 'eventemitter3';
 import PQueue from 'p-queue';
-import ReconnectingWebSocket from 'reconnecting-websocket';
 import WebSocket from 'isomorphic-ws';
+import _ReconnectingWebSocket from 'reconnecting-websocket';
 import debug from 'debug';
 import { generate as ksuid } from 'xksuid';
 import { setTimeout } from 'isomorphic-timers-promises';
@@ -41,6 +41,11 @@ import type {
 import { TimeoutError, fixError } from './utils.js';
 import type { Change } from './index.js';
 import { handleErrors } from './errors.js';
+
+// HACK: Fix for default export types in esm
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const ReconnectingWebSocket =
+  _ReconnectingWebSocket as unknown as typeof _ReconnectingWebSocket.default;
 
 const trace = debug('@oada/client:ws:trace');
 const error = debug('@oada/client:ws:error');
@@ -158,7 +163,10 @@ export class WebSocketClient extends EventEmitter implements Connection {
     });
 
     ws.addEventListener('message', (message) => {
-      trace({ message }, 'Websocket message received');
+      trace(
+        { message: { ...message, data: message.data, origin: message.origin } },
+        'Websocket message received',
+      );
       this.#receive(message);
     });
 
@@ -258,6 +266,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
         change?: unknown;
         resourceId?: string;
       };
+      trace({ message }, 'Websocket message parsed');
 
       const requestIds: readonly string[] = Array.isArray(message.requestId)
         ? message.requestId
