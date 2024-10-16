@@ -131,7 +131,7 @@
     "tslib": "^2.7.0",
     "undici": "^6.20.1",
     "ws": "^8.18.0",
-    "xksuid": "https://github.com/aultac/xksuid.git#commit=22a21eb01331191feb62ea0a4e67d96d2e80f396"
+    "xksuid": "0.0.4"
   },
   "peerDependencies": {
     "@oada/jobs": ">= 4.4.4"
