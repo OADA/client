@@ -21,7 +21,7 @@ import debug from 'debug';
 import { deserializeError } from 'serialize-error';
 
 import type Job from '@oada/types/oada/service/job.js';
-import { postUpdate } from '@oada/jobs';
+//import { postUpdate } from '@oada/jobs';
 
 import type { Change, Json, OADAClient } from './index.js';
 import type { ChangeBody, Result } from './utils.js';
@@ -78,9 +78,11 @@ export class JobsRequest<J extends Job> {
     return { _id, key };
   }
 
+  /*
   async postUpdate(update: string | Json, status: string): Promise<void> {
     return postUpdate(this.oada, this.oadaId!, update, status || 'in-progress');
   }
+  */
 
   #wrapListener<E extends JobEvent<J>>(
     type: string,
