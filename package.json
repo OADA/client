@@ -1,6 +1,6 @@
 {
   "name": "@oada/client",
-  "version": "5.2.4",
+  "version": "5.2.5",
   "description": "A lightweight client tool to interact with an OADA-compliant server",
   "repository": "https://github.com/OADA/client",
   "main": "./dist/index.js",
@@ -192,7 +192,6 @@
   },
   "resolutions": {
     "@oada/client": "^5.0.0",
-    "deep-clone@^4.0.0": "patch:deep-clone@npm%3A4.0.0#./.yarn/patches/deep-clone-npm-4.0.0-eee1a48c85.patch",
     "xksuid": "https://github.com/aultac/xksuid.git#commit=22a21eb01331191feb62ea0a4e67d96d2e80f396"
   }
 }
