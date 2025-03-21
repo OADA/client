@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-declare module 'isomorphic-timers-promises' {
-  export * from 'node:timers/promises';
+declare module "isomorphic-timers-promises" {
+  export * from "node:timers/promises";
 }
 
-declare module 'resolve-alpn' {
+declare module "resolve-alpn" {
   function resolve(options: {
     host: string;
     port?: number;
@@ -32,7 +32,7 @@ declare module 'resolve-alpn' {
   export = resolve;
 }
 
-declare module 'media-type' {
+declare module "media-type" {
   export interface MediaType {
     type: string;
     subtype: string;

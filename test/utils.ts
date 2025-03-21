@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-import { domain, token } from './config.js';
+import { domain, token } from "./config.js";
 
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from "xksuid";
 
-import { Agent, type HeadersInit, fetch, setGlobalDispatcher } from 'undici';
-import type Tree from '@oada/types/oada/tree/v1.js';
-import { handleErrors } from '../dist/errors.js';
+import type Tree from "@oada/types/oada/tree/v1.js";
+import { Agent, type HeadersInit, fetch, setGlobalDispatcher } from "undici";
+import { handleErrors } from "../dist/errors.js";
 
 export type Nested =
   | {
@@ -32,7 +32,7 @@ export type Nested =
 setGlobalDispatcher(
   new Agent({
     connect: {
-      rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
+      rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== "0",
     },
   }),
 );
@@ -43,7 +43,7 @@ async function _request(
     headers = {},
     body,
     ...rest
-  }: Omit<RequestInit, 'body'> & {
+  }: Omit<RequestInit, "body"> & {
     // eslint-disable-next-line @typescript-eslint/ban-types
     body?: Record<string, unknown> | null;
   } = {},
@@ -53,10 +53,10 @@ async function _request(
     ...rest,
     headers: {
       Authorization: `Bearer ${token}`,
-      ...(body ? { 'Content-Type': 'application/json' } : undefined),
+      ...(body ? { "Content-Type": "application/json" } : undefined),
       ...headers,
     },
-    body: typeof body === 'object' ? JSON.stringify(body) : body,
+    body: typeof body === "object" ? JSON.stringify(body) : body,
   });
 
   if (!response.ok) {
@@ -74,7 +74,7 @@ export const request = (async (...rest) =>
 
 export async function getResource(uri: string | URL, headers?: HeadersInit) {
   return request(uri, {
-    method: 'get',
+    method: "get",
     headers,
   });
 }
@@ -85,7 +85,7 @@ export async function putResource(
   headers?: HeadersInit,
 ) {
   return request(uri, {
-    method: 'put',
+    method: "put",
     headers,
     body,
   });
@@ -97,11 +97,11 @@ export async function putResourceEnsureLink(
 ) {
   const _id = `resources/${ksuid()}`;
   const resource = await request(`/${_id}`, {
-    method: 'put',
+    method: "put",
     body,
   });
   const link = await request(uri, {
-    method: 'put',
+    method: "put",
     body: { _id, _rev: 0 },
   });
 
@@ -110,9 +110,9 @@ export async function putResourceEnsureLink(
 
 export async function deleteLink(uri: string | URL) {
   const link = await request(uri, {
-    method: 'delete',
+    method: "delete",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     // eslint-disable-next-line unicorn/no-null
     body: null,
@@ -124,28 +124,28 @@ export async function deleteLink(uri: string | URL) {
 export function getTreeWithTestName(testName: string): Tree {
   return {
     bookmarks: {
-      _type: 'application/json',
+      _type: "application/json",
       _rev: 0,
       [testName]: {
-        '_type': 'application/json',
-        '_rev': 0,
-        'aaa': {
-          _type: 'application/json',
+        _type: "application/json",
+        _rev: 0,
+        aaa: {
+          _type: "application/json",
           _rev: 0,
           bbb: {
-            '_type': 'application/json',
-            '_rev': 0,
-            'index-one': {
-              '*': {
-                '_type': 'application/json',
-                '_rev': 0,
-                'index-two': {
-                  '*': {
-                    '_type': 'application/json',
-                    '_rev': 0,
-                    'index-three': {
-                      '*': {
-                        _type: 'application/json',
+            _type: "application/json",
+            _rev: 0,
+            "index-one": {
+              "*": {
+                _type: "application/json",
+                _rev: 0,
+                "index-two": {
+                  "*": {
+                    _type: "application/json",
+                    _rev: 0,
+                    "index-three": {
+                      "*": {
+                        _type: "application/json",
                         test: {},
                       },
                     },
@@ -155,11 +155,11 @@ export function getTreeWithTestName(testName: string): Tree {
             },
           },
         },
-        'concurrent-put': {
-          '_type': 'application/json',
-          '_rev': 0,
-          '*': {
-            _type: 'application/json',
+        "concurrent-put": {
+          _type: "application/json",
+          _rev: 0,
+          "*": {
+            _type: "application/json",
             _rev: 0,
           },
         },

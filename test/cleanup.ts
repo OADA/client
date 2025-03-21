@@ -17,9 +17,9 @@
 
 /* eslint-disable no-console */
 
-import readline from 'node:readline';
+import readline from "node:readline";
 
-import { deleteLink, getResource } from './utils.js';
+import { deleteLink, getResource } from "./utils.js";
 
 async function run() {
   const response = await getResource(`/bookmarks`);
@@ -36,16 +36,16 @@ async function run() {
     )} from OADA.  Proceed (y/N)? `,
     async (answer) => {
       rl.close();
-      if (answer !== 'y') {
+      if (answer !== "y") {
         console.log('Not deleting keys because you didn\'t type "y"');
         return;
       }
 
-      console.log('Deleting keys...');
+      console.log("Deleting keys...");
       await Promise.all(
         testkeys.map(async (k) => deleteLink(`/bookmarks/${k}`)),
       );
-      console.log('Keys deleted.');
+      console.log("Keys deleted.");
     },
   );
 }

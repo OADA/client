@@ -16,4 +16,4 @@
  */
 
 // @ts-expect-error type bs
-export { on, once } from 'node:events';
+export { on, once } from "node:events";

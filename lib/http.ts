@@ -15,34 +15,34 @@
  * limitations under the License.
  */
 
-import { EventEmitter } from 'eventemitter3';
-import PQueue from 'p-queue';
-import debug from 'debug';
-import { fromString } from 'media-type';
-import { generate as ksuid } from 'xksuid';
+import debug from "debug";
+import { EventEmitter } from "eventemitter3";
+import { fromString } from "media-type";
+import PQueue from "p-queue";
+import { generate as ksuid } from "xksuid";
 
-import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request.js';
+import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request.js";
 
-import { AbortController, Agent, type Response, fetch } from '#fetch';
+import { AbortController, Agent, type Response, fetch } from "#fetch";
 import type {
   Body,
   Connection,
   ConnectionRequest,
   IConnectionResponse,
-} from './client.js';
-import { TimeoutError, fixError } from './utils.js';
+} from "./client.js";
+import { TimeoutError, fixError } from "./utils.js";
 
-import type { Json } from './index.js';
-import { WebSocketClient } from './websocket.js';
-import { handleErrors } from './errors.js';
+import { handleErrors } from "./errors.js";
+import type { Json } from "./index.js";
+import { WebSocketClient } from "./websocket.js";
 
-const trace = debug('@oada/client:http:trace');
-const error = debug('@oada/client:http:error');
+const trace = debug("@oada/client:http:trace");
+const error = debug("@oada/client:http:error");
 
-const enum ConnectionStatus {
-  Disconnected,
-  Connecting,
-  Connected,
+enum ConnectionStatus {
+  Disconnected = 0,
+  Connecting = 1,
+  Connected = 2,
 }
 
 export interface HTTPTimeouts {
@@ -55,11 +55,11 @@ export interface HTTPTimeouts {
 
 function isJson(contentType: string) {
   const media = fromString(contentType);
-  return [media.subtype, media.suffix].includes('json');
+  return [media.subtype, media.suffix].includes("json");
 }
 
 async function getBody(result: Response): Promise<Body> {
-  return isJson(result.headers.get('content-type') ?? '')
+  return isJson(result.headers.get("content-type") ?? "")
     ? ((await result.json()) as Json)
     : new Uint8Array(await result.arrayBuffer());
 }
@@ -92,14 +92,14 @@ export class HttpClient extends EventEmitter implements Connection {
     super();
 
     // Ensure leading https://
-    this.#domain = domain.startsWith('http') ? domain : `https://${domain}`;
+    this.#domain = domain.startsWith("http") ? domain : `https://${domain}`;
     // Ensure no trailing slash
-    this.#domain = this.#domain.replace(/\/$/, '');
+    this.#domain = this.#domain.replace(/\/$/, "");
     this.#token = token;
     this.#status = ConnectionStatus.Connecting;
     // "Open" the http connection: just make sure a HEAD succeeds
     trace(
-      'Opening HTTP connection to HEAD %s/bookmarks w/authorization: Bearer %s',
+      "Opening HTTP connection to HEAD %s/bookmarks w/authorization: Bearer %s",
       this.#domain,
       this.#token,
     );
@@ -111,37 +111,37 @@ export class HttpClient extends EventEmitter implements Connection {
         headersTimeout: timeouts.headers,
         connect: {
           timeout: timeouts.connect,
-          rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0',
+          rejectUnauthorized: process.env.NODE_TLS_REJECT_UNAUTHORIZED !== "0",
         },
       });
     this.#initialConnection = fetch(`${this.#domain}/bookmarks`, {
       dispatcher: this.#agent,
-      method: 'HEAD',
+      method: "HEAD",
       headers: {
-        'user-agent': userAgent,
-        'authorization': `Bearer ${this.#token}`,
+        "user-agent": userAgent,
+        authorization: `Bearer ${this.#token}`,
       },
     })
       // eslint-disable-next-line github/no-then
       .then((result) => {
-        trace('Initial HEAD returned status: ', result.status);
+        trace("Initial HEAD returned status: ", result.status);
         // eslint-disable-next-line promise/always-return
         if (result.status < 400) {
           trace('Initial HEAD succeeded, emitting "open"');
           this.#status = ConnectionStatus.Connected;
-          this.emit('open');
+          this.emit("open");
         } else {
           trace('Initial HEAD failed, emitting "close"');
           this.#status = ConnectionStatus.Disconnected;
-          this.emit('close');
+          this.emit("close");
         }
       });
 
     this.#concurrency = concurrency;
     this.#userAgent = userAgent;
     this.#q = new PQueue({ concurrency });
-    this.#q.on('active', () => {
-      trace('HTTP Queue. Size: %d pending: %d', this.#q.size, this.#q.pending);
+    this.#q.on("active", () => {
+      trace("HTTP Queue. Size: %d pending: %d", this.#q.size, this.#q.pending);
     });
   }
 
@@ -157,7 +157,7 @@ export class HttpClient extends EventEmitter implements Connection {
       this.#ws?.disconnect(),
     ]);
 
-    this.emit('close');
+    this.emit("close");
   }
 
   /** Return true if connected, otherwise false */
@@ -175,13 +175,13 @@ export class HttpClient extends EventEmitter implements Connection {
     request: ConnectionRequest,
     { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {},
   ): Promise<IConnectionResponse> {
-    trace(request, 'Starting http request');
+    trace(request, "Starting http request");
     try {
       // Check for WATCH/UNWATCH
       // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-      if (request.watch || request.method === 'unwatch') {
+      if (request.watch || request.method === "unwatch") {
         trace(
-          'WATCH/UNWATCH not currently supported for http(2), falling-back to ws',
+          "WATCH/UNWATCH not currently supported for http(2), falling-back to ws",
         );
         if (!this.#ws) {
           // Open a WebSocket connection
@@ -197,7 +197,7 @@ export class HttpClient extends EventEmitter implements Connection {
 
       request.requestId ||= ksuid();
 
-      trace('Adding http request w/ id %s to the queue', request.requestId);
+      trace("Adding http request w/ id %s to the queue", request.requestId);
       return await this.#q.add(
         async () => handleErrors(this.#doRequest.bind(this), request, timeout),
         { throwOnTimeout: true },
@@ -206,7 +206,7 @@ export class HttpClient extends EventEmitter implements Connection {
       // @ts-expect-error stupid errors
       const code = `${cError?.code}`;
       throw Object.assign(
-        new Error((cError as Error)?.message ?? 'HTTP request failed', {
+        new Error((cError as Error)?.message ?? "HTTP request failed", {
           cause: cError,
         }),
         cError as Error,
@@ -223,10 +223,10 @@ export class HttpClient extends EventEmitter implements Connection {
     timeout?: number,
   ): Promise<IConnectionResponse> {
     // Send object to the server.
-    trace('Pulled request %s from queue, starting on it', request.requestId);
+    trace("Pulled request %s from queue, starting on it", request.requestId);
     assertOADASocketRequest(request);
     trace(
-      'Req looks like socket request, awaiting race of timeout and fetch to %s%s',
+      "Req looks like socket request, awaiting race of timeout and fetch to %s%s",
       this.#domain,
       request.path,
     );
@@ -258,26 +258,26 @@ export class HttpClient extends EventEmitter implements Connection {
         // We are not explicitly sending token in each request
         // because parent library sends it
         headers: {
-          'user-agent': this.#userAgent,
+          "user-agent": this.#userAgent,
           ...request.headers,
         },
       });
       done = true;
 
-      trace('Fetch did not throw, checking status of %s', result.status);
+      trace("Fetch did not throw, checking status of %s", result.status);
 
       // This is the same test as in ./websocket.ts
       if (!result.ok) {
-        trace('result.status %s is not 2xx, throwing', result.status);
+        trace("result.status %s is not 2xx, throwing", result.status);
         throw await fixError(result);
       }
 
-      trace('result.status ok, pulling headers');
+      trace("result.status ok, pulling headers");
       // Have to construct the headers as a regular object
       const headers = Object.fromEntries(result.headers.entries());
 
       const data: Body | undefined =
-        request.method.toUpperCase() === 'HEAD'
+        request.method.toUpperCase() === "HEAD"
           ? undefined
           : await getBody(result);
 
@@ -299,8 +299,8 @@ export class HttpClient extends EventEmitter implements Connection {
       // @ts-expect-error stupid error handling
       switch (cError?.code) {
         // Happens when the HTTP/2 session is killed
-        case 'ERR_HTTP2_INVALID_SESSION': {
-          error(cError, 'HTTP/2 session was killed, reconnecting');
+        case "ERR_HTTP2_INVALID_SESSION": {
+          error(cError, "HTTP/2 session was killed, reconnecting");
           return this.#doRequest(request, timeout);
         }
 

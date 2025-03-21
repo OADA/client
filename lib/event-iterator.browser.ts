@@ -21,9 +21,9 @@
  * @packageDocumentation
  */
 
-import type { on as onT, once as onceT } from 'node:events';
+import type { on as onT, once as onceT } from "node:events";
 
-import { subscribe } from 'event-iterator/lib/dom.js';
+import { subscribe } from "event-iterator/lib/dom.js";
 
 export async function* on(...[target, event, options]: Parameters<typeof onT>) {
   yield* subscribe.call(target as unknown as EventTarget, event, options);

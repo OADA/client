@@ -22,23 +22,23 @@
  * @packageDocumentation
  */
 
-import { setTimeout } from 'isomorphic-timers-promises';
+import { setTimeout } from "isomorphic-timers-promises";
 
-import { Headers } from '#fetch';
-import debug from 'debug';
+import debug from "debug";
+import { Headers } from "#fetch";
 
-import type { HeadersInit } from 'undici';
-import { fixError } from './utils.js';
+import type { HeadersInit } from "undici";
+import { fixError } from "./utils.js";
 
-const warn = debug('@oada/client:errors:warn');
-const trace = debug('@oada/client:errors:trace');
+const warn = debug("@oada/client:errors:warn");
+const trace = debug("@oada/client:errors:trace");
 
 /**
  * Wait 5 minutes if 429 with no Retry-After header
  *
  * @todo add override for this in client config?
  */
-const DEFAULT_RETRY_TIMEOUT = 5 * 60 * 10_000;
+const DEFAULT_RETRY_TIMEOUT = 5 * 60 * 1_000;
 
 /**
  * Handle rate limit errors
@@ -57,9 +57,9 @@ async function handleRatelimit<R extends unknown[], P>(
   // Figure out how many ms to wait
   // Header is either number of seconds, or a date/time
   const retry =
-    headers.get('Retry-After') ??
-    headers.get('RateLimit-Reset') ??
-    headers.get('X-RateLimit-Reset');
+    headers.get("Retry-After") ||
+    headers.get("RateLimit-Reset") ||
+    headers.get("X-RateLimit-Reset");
   const timeout = retry
     ? Number(retry) * 1000 || Number(new Date(retry)) - Date.now()
     : DEFAULT_RETRY_TIMEOUT;
@@ -80,7 +80,7 @@ async function handleReset<R extends unknown[], P>(
   request: (...arguments_: R) => Promise<P>,
   ...rest: R
 ) {
-  warn(error, 'Connection reset, retrying in 10000 ms');
+  warn(error, "Connection reset, retrying in 10000 ms");
   await setTimeout(10_000);
 
   return handleErrors(request, ...rest);
@@ -101,17 +101,17 @@ export async function handleErrors<R extends unknown[], P>(
     // @ts-expect-error stupid error handling
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const error = cError?.[0]?.error ?? cError?.[0] ?? cError?.error ?? cError;
-    trace(error, 'Attempting to handle error');
+    trace(error, "Attempting to handle error");
     // @ts-expect-error stupid error handling
     switch (`${error.status ?? cError?.code}`) {
-      case '429': {
+      case "429": {
         return handleRatelimit(error, request, ...rest);
       }
 
       // Some servers use 503 for rate limit...
-      case '503': {
+      case "503": {
         const headers = new Headers(error.headers as HeadersInit);
-        if (headers.has('Retry-After')) {
+        if (headers.has("Retry-After")) {
           return handleRatelimit(error, request, ...rest);
         }
 
@@ -119,7 +119,7 @@ export async function handleErrors<R extends unknown[], P>(
         break;
       }
 
-      case 'ECONNRESET': {
+      case "ECONNRESET": {
         return handleReset(error, request, ...rest);
       }
 

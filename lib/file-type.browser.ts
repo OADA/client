@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import type { fileTypeFromBuffer as T } from 'file-type';
+import type { fileTypeFromBuffer as T } from "file-type";
 
 /**
  * Shim this function to just return no result

@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-import { domain, token } from './config.js';
+import { domain, token } from "./config.js";
 
-import ava, { type TestFn } from 'ava';
+import ava, { type TestFn } from "ava";
 
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from "xksuid";
 
-import type { Tree } from '@oada/types/oada/tree/v1.js';
+import type { Tree } from "@oada/types/oada/tree/v1.js";
 
 import {
   type Nested,
@@ -29,15 +29,15 @@ import {
   getTreeWithTestName,
   putResource,
   putResourceEnsureLink,
-} from './utils.js';
+} from "./utils.js";
 
 // eslint-disable-next-line node/no-extraneous-import
-import { type OADAClient, connect } from '@oada/client';
+import { type OADAClient, connect } from "@oada/client";
 
 interface Context {
   testName: string;
   testTree: Tree;
-  client: Record<'ws' | 'http', OADAClient>;
+  client: Record<"ws" | "http", OADAClient>;
 }
 
 const test = ava as TestFn<Context>;
@@ -48,7 +48,7 @@ test.beforeEach(`Initialize test`, async (t) => {
   await putResourceEnsureLink({}, `/bookmarks/${t.context.testName}`);
 });
 
-for (const connection of ['ws', 'http'] as const) {
+for (const connection of ["ws", "http"] as const) {
   // Initialization
   test.before(`${connection}: Initialize connection`, async (t) => {
     // Connect
@@ -82,19 +82,19 @@ for (const connection of ['ws', 'http'] as const) {
   test(`${connection}: Get Top-Level Bookmark`, async (t) => {
     // Run
     const response = await t.context.client[connection].get({
-      path: '/bookmarks',
+      path: "/bookmarks",
     });
 
     // Check
     t.is(response.status, 200);
     t.like(response.data, {
-      _type: 'application/vnd.oada.bookmarks.1+json',
+      _type: "application/vnd.oada.bookmarks.1+json",
     });
   });
 
   test(`${connection}: Should allow you to get a single resource by its resource ID`, async (t) => {
     // Prepare a resource
-    const testObject = { abc: 'def' } as const;
+    const testObject = { abc: "def" } as const;
     const r = await putResourceEnsureLink(
       testObject,
       `/bookmarks/${t.context.testName}/testResource1`,
@@ -116,7 +116,7 @@ for (const connection of ['ws', 'http'] as const) {
 
   test(`${connection}: Should allow you to get a single resource by its path`, async (t) => {
     // Prepare a resource
-    const testObject = { abc: 'def' } as const;
+    const testObject = { abc: "def" } as const;
     const path = `/bookmarks/${t.context.testName}/testResource2`;
     await putResourceEnsureLink(testObject, path);
 
@@ -136,7 +136,7 @@ for (const connection of ['ws', 'http'] as const) {
 
   test(`${connection}: Should error when timeout occurs during a GET request`, async (t) => {
     // Prepare a resource
-    const testObject = { abc: 'def' } as const;
+    const testObject = { abc: "def" } as const;
     const path = `/bookmarks/${t.context.testName}/testResource3`;
     await putResourceEnsureLink(testObject, path);
 
@@ -152,7 +152,7 @@ for (const connection of ['ws', 'http'] as const) {
   test(`${connection}: Should error when the root path of a 'tree' GET doesn't exist`, async (t) => {
     await t.throwsAsync(
       t.context.client[connection].get({
-        path: '/bookmarks/test/testTwo',
+        path: "/bookmarks/test/testTwo",
         tree: t.context.testTree,
       }),
     );
@@ -162,18 +162,18 @@ for (const connection of ['ws', 'http'] as const) {
     const putResp = await putResource(
       { somedata: 789 },
       `/bookmarks/${t.context.testName}/sometest4`,
-      { 'X-OADA-Ensure-Link': 'versioned' },
+      { "X-OADA-Ensure-Link": "versioned" },
     );
     t.is(putResp.status, 201);
-    t.assert(putResp.headers.get('content-location'));
-    t.assert(putResp.headers.get('x-oada-rev'));
+    t.assert(putResp.headers.get("content-location"));
+    t.assert(putResp.headers.get("x-oada-rev"));
 
     await t.throwsAsync(
       getResource(`/bookmarks/${t.context.testName}/sometest5`, {
-        'X-OADA-Ensure-Link': 'versioned',
+        "X-OADA-Ensure-Link": "versioned",
       }),
       {
-        code: '400',
+        code: "400",
         // Message: 'X-OADA-Ensure-Link not allowed for this method',
       },
     );
@@ -182,21 +182,21 @@ for (const connection of ['ws', 'http'] as const) {
   test(`${connection}: Should allow you to get resources based on a tree`, async (t) => {
     // Prepare resources
     const basePath = `/bookmarks/${t.context.testName}`;
-    await putResourceEnsureLink({ somethingelse: 'okay' }, `${basePath}/aaa`);
+    await putResourceEnsureLink({ somethingelse: "okay" }, `${basePath}/aaa`);
     await putResourceEnsureLink(
-      { b: 'b' },
+      { b: "b" },
       `/bookmarks/${t.context.testName}/aaa/bbb`,
     );
     await putResourceEnsureLink(
-      { c: 'c' },
+      { c: "c" },
       `${basePath}/aaa/bbb/index-one/ccc`,
     );
     await putResourceEnsureLink(
-      { d: 'd' },
+      { d: "d" },
       `${basePath}/aaa/bbb/index-one/ccc/index-two/bob`,
     );
     await putResourceEnsureLink(
-      { e: 'e' },
+      { e: "e" },
       `${basePath}/aaa/bbb/index-one/ccc/index-two/bob/index-three/2018`,
     );
 
@@ -214,8 +214,8 @@ for (const connection of ['ws', 'http'] as const) {
     t.assert(data?._meta);
     t.assert(data?.aaa?.bbb?.b);
     t.assert(
-      data?.aaa?.bbb?.['index-one']?.ccc?.['index-two']?.bob?.['index-three']?.[
-        '2018'
+      data?.aaa?.bbb?.["index-one"]?.ccc?.["index-two"]?.bob?.["index-three"]?.[
+        "2018"
       ],
     );
   });

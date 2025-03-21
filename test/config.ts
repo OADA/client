@@ -17,12 +17,12 @@
 
 /* Config parameters for unit tests */
 
-import 'dotenv/config';
+import "dotenv/config";
 
 // eslint-disable-next-line node/no-extraneous-import
-import { normalizeDomain } from '@oada/client';
+import { normalizeDomain } from "@oada/client";
 
 export const domain = normalizeDomain(
-  process.env.DOMAIN ?? 'https://localhost',
+  process.env.DOMAIN ?? "https://localhost",
 );
-export const token = process.env.TOKEN ?? 'abc';
+export const token = process.env.TOKEN ?? "abc";

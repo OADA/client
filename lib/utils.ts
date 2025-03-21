@@ -20,13 +20,13 @@
  * Some useful functions
  */
 
-import { JsonPointer } from 'json-ptr';
-import { TimeoutError as PTimeoutError } from 'p-timeout';
-import objectAssignDeep from 'object-assign-deep';
+import { JsonPointer } from "json-ptr";
+import objectAssignDeep from "object-assign-deep";
+import { TimeoutError as PTimeoutError } from "p-timeout";
 
-import type { Tree, TreeKey } from '@oada/types/oada/tree/v1.js';
+import type { Tree, TreeKey } from "@oada/types/oada/tree/v1.js";
 
-import type { Change, Json, JsonObject } from './index.js';
+import type { Change, Json, JsonObject } from "./index.js";
 
 // Typescript sucks at figuring out Array.isArray on its own
 function isArray<A extends unknown[] | readonly unknown[]>(
@@ -42,16 +42,16 @@ export function toArray<E extends unknown[] | readonly unknown[]>(
 }
 
 export function toStringPath(path: readonly string[]): string {
-  return `/${path.join('/')}`;
+  return `/${path.join("/")}`;
 }
 
 export function toArrayPath(path: string): string[] {
-  const arrayPath = path.split('/');
-  if (arrayPath.length > 0 && arrayPath[0] === '') {
+  const arrayPath = path.split("/");
+  if (arrayPath.length > 0 && arrayPath[0] === "") {
     arrayPath.shift();
   }
 
-  if (arrayPath.length > 0 && arrayPath.at(-1) === '') {
+  if (arrayPath.length > 0 && arrayPath.at(-1) === "") {
     arrayPath.pop();
   }
 
@@ -63,11 +63,11 @@ export function getObjectAtPath(tree: Tree, path: readonly string[]): Tree {
   for (const key of path) {
     if (key in result) {
       result = result[key as TreeKey]!;
-    } else if ('*' in result) {
-      result = result['*']!;
+    } else if ("*" in result) {
+      result = result["*"]!;
     } else {
       throw new Error(
-        `Specified path /${path.join('/')} does not exist in the tree.`,
+        `Specified path /${path.join("/")} does not exist in the tree.`,
       );
     }
   }
@@ -83,12 +83,12 @@ export function toTreePath(tree: Tree, path: string[]): string[] {
     if (key in current) {
       treePath.push(key);
       current = current[key as TreeKey]!;
-    } else if ('*' in current) {
-      treePath.push('*');
-      current = current['*']!;
+    } else if ("*" in current) {
+      treePath.push("*");
+      current = current["*"]!;
     } else {
       throw new Error(
-        `Specified path /${path.join('/')} does not exist in the tree.`,
+        `Specified path /${path.join("/")} does not exist in the tree.`,
       );
     }
   }
@@ -98,7 +98,7 @@ export function toTreePath(tree: Tree, path: string[]): string[] {
 
 export function isResource(tree: Tree, path: string[]): boolean {
   const object = getObjectAtPath(tree, path);
-  return '_id' in object;
+  return "_id" in object;
 }
 
 export function createNestedObject(
@@ -120,13 +120,13 @@ export function createNestedObject(
  */
 export class TimeoutError extends PTimeoutError {
   public get code() {
-    return 'REQUEST_TIMEDOUT' as const;
+    return "REQUEST_TIMEDOUT" as const;
   }
 
-  public override readonly name = 'TimeoutError' as const;
+  public override readonly name = "TimeoutError" as const;
 
   constructor(request: unknown) {
-    super('Request timed out');
+    super("Request timed out");
     Object.assign(this, request);
   }
 }
@@ -167,13 +167,17 @@ export async function fixError<
     (error.statusText
       ? `${error.status} ${error.statusText}`
       : `${error.status}`);
-  return Object.assign(new Error(message, { cause: error }), {
-    code,
-    ...error,
-  });
+  const ret = new Error(message, { cause: error }) as E & Error;
+  ret.code = code;
+  for (const key in error) {
+    // @ts-expect-error HACK: just do it
+    ret[key] = error[key];
+  }
+
+  return ret;
 }
 
-export const changeSym = Symbol('change');
+export const changeSym = Symbol("change");
 /**
  * @internal
  */
@@ -198,7 +202,7 @@ export function translateDelete(body: Json): Json | undefined {
     return undefined;
   }
 
-  if (typeof body !== 'object') {
+  if (typeof body !== "object") {
     return body;
   }
 
@@ -221,7 +225,7 @@ export function translateDelete(body: Json): Json | undefined {
 export function buildChangeObject(rootChange: Change, ...children: Change[]) {
   const changeBody: ChangeBody<unknown> = {
     [changeSym]: [rootChange],
-    ...(rootChange.type === 'delete'
+    ...(rootChange.type === "delete"
       ? (translateDelete(rootChange.body as Json) as JsonObject)
       : rootChange.body),
   };
@@ -231,7 +235,7 @@ export function buildChangeObject(rootChange: Change, ...children: Change[]) {
 
     const changes = old?.[changeSym] ?? [];
     const body =
-      change.type === 'delete'
+      change.type === "delete"
         ? translateDelete(change.body as Json)
         : change.body;
     const merged = objectAssignDeep(old ?? {}, body);

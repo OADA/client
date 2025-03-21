@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-import { domain, token } from './config.js';
+import { domain, token } from "./config.js";
 
-import test from 'ava';
+import test from "ava";
 
-import type { Nested } from './utils.js';
+import type { Nested } from "./utils.js";
 
-import type Tree from '@oada/types/oada/tree/v1.js';
+import type Tree from "@oada/types/oada/tree/v1.js";
 
 // eslint-disable-next-line node/no-extraneous-import
-import { connect } from '@oada/client';
+import { connect } from "@oada/client";
 
 const generateRandomString = () => Math.random().toString(36).slice(7);
 
-test('Connect/Disconnect', async (t) => {
+test("Connect/Disconnect", async (t) => {
   const client = await connect({
     domain,
     token,
@@ -37,25 +37,25 @@ test('Connect/Disconnect', async (t) => {
   t.pass();
 });
 
-test('Single GET', async (t) => {
+test("Single GET", async (t) => {
   const client = await connect({
     domain,
     token,
   });
-  const response = await client.get({ path: '/bookmarks' });
+  const response = await client.get({ path: "/bookmarks" });
   t.is(response.status, 200);
-  t.like(response.data, { _type: 'application/vnd.oada.bookmarks.1+json' });
+  t.like(response.data, { _type: "application/vnd.oada.bookmarks.1+json" });
   await client.disconnect();
 });
 
-test.skip('watch', async () => {
+test.skip("watch", async () => {
   const client = await connect({
     domain,
     token,
   });
 
   const { changes } = await client.watch({
-    path: '/bookmarks',
+    path: "/bookmarks",
   });
   for await (const change of changes) {
     // eslint-disable-next-line no-console
@@ -63,39 +63,39 @@ test.skip('watch', async () => {
   }
 });
 
-test.skip('Single PUT', async () => {
+test.skip("Single PUT", async () => {
   const client = await connect({
     domain,
     token,
   });
   await client.put({
-    path: '/bookmarks',
-    data: { test10: 'aaa' },
+    path: "/bookmarks",
+    data: { test10: "aaa" },
   });
 
   await client.disconnect();
 });
 
-test.skip('Recursive PUT/GET', async (t) => {
+test.skip("Recursive PUT/GET", async (t) => {
   const randomString = generateRandomString();
   const tree = {
     bookmarks: {
-      _type: 'application/json',
+      _type: "application/json",
       // _rev: 0,
       [randomString]: {
-        _type: 'application/json',
+        _type: "application/json",
         // _rev: 0,
         level1: {
-          '*': {
-            _type: 'application/json',
+          "*": {
+            _type: "application/json",
             // _rev: 0,
             level2: {
-              '*': {
-                _type: 'application/json',
+              "*": {
+                _type: "application/json",
                 // _rev: 0,
                 level3: {
-                  '*': {
-                    _type: 'application/json',
+                  "*": {
+                    _type: "application/json",
                     // _rev: 0,
                   },
                 },
@@ -113,7 +113,7 @@ test.skip('Recursive PUT/GET', async (t) => {
   // Tree PUT
   await client.put({
     path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
-    data: { thingy: 'abc' },
+    data: { thingy: "abc" },
     tree,
   });
   // Recursive GET
@@ -130,27 +130,27 @@ test.skip('Recursive PUT/GET', async (t) => {
   await client.disconnect();
 });
 
-test.skip('Tree PUT should fail if a _require endpoint does not already exist', async (t) => {
+test.skip("Tree PUT should fail if a _require endpoint does not already exist", async (t) => {
   const randomString = generateRandomString();
   const tree = {
     bookmarks: {
-      _type: 'application/json',
+      _type: "application/json",
       // _rev: 0,
       [randomString]: {
-        _type: 'application/json',
+        _type: "application/json",
         // _rev: 0,
         level1: {
-          '*': {
-            _type: 'application/json',
+          "*": {
+            _type: "application/json",
             // _rev: 0,
             level2: {
-              '*': {
-                _type: 'application/json',
+              "*": {
+                _type: "application/json",
                 _require: true,
                 // _rev: 0,
                 level3: {
-                  '*': {
-                    _type: 'application/json',
+                  "*": {
+                    _type: "application/json",
                     // _rev: 0,
                   },
                 },
@@ -169,13 +169,13 @@ test.skip('Tree PUT should fail if a _require endpoint does not already exist', 
   let error = await t.throwsAsync(async () =>
     client.put({
       path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
-      data: { thingy: 'abc' },
+      data: { thingy: "abc" },
       tree,
     }),
   );
   t.truthy(
     error?.message.startsWith(
-      'Cannot create _require endpoint that did not exist',
+      "Cannot create _require endpoint that did not exist",
     ),
   );
 

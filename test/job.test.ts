@@ -15,27 +15,27 @@
  * limitations under the License.
  */
 
-import { domain, token } from './config.js';
+import { domain, token } from "./config.js";
 
-import { setTimeout } from 'node:timers/promises';
+import { setTimeout } from "node:timers/promises";
 
-import ava, { type TestFn } from 'ava';
+import ava, { type TestFn } from "ava";
 
-import { Service, type WorkerFunction } from '@oada/jobs';
+import { Service, type WorkerFunction } from "@oada/jobs";
 
-import { JobEventType, JobsRequest, doJob } from '@oada/client/jobs';
 // eslint-disable-next-line node/no-extraneous-import
-import { type OADAClient, connect } from '@oada/client';
+import { type OADAClient, connect } from "@oada/client";
+import { JobEventType, JobsRequest, doJob } from "@oada/client/jobs";
 
-const JOBTYPE = 'test-type';
-const SERVICE = 'test-service';
+const JOBTYPE = "test-type";
+const SERVICE = "test-service";
 
 const testJob = {
   type: JOBTYPE,
   service: SERVICE,
   config: {
-    somekey: 'xyz',
-    foo: { bar: 'baz' },
+    somekey: "xyz",
+    foo: { bar: "baz" },
   },
 } as const;
 const throwJob = {
@@ -43,8 +43,8 @@ const throwJob = {
   service: SERVICE,
   config: {
     error: true,
-    somekey: 'xyz',
-    foo: { bar: 'baz' },
+    somekey: "xyz",
+    foo: { bar: "baz" },
   },
 } as const;
 
@@ -54,11 +54,11 @@ interface Context {
 const test = ava as TestFn<Context>;
 
 const testWorker: WorkerFunction = async (job: any) => {
-  if (job.config.error) throw new Error('some error');
-  return { great: 'success' };
+  if (job.config.error) throw new Error("some error");
+  return { great: "success" };
 };
 
-test.before('Create connection and dummy service', async (t) => {
+test.before("Create connection and dummy service", async (t) => {
   t.context.conn = await connect({
     domain,
     token,
@@ -73,7 +73,7 @@ test.before('Create connection and dummy service', async (t) => {
   await svc.start();
 });
 
-test('Should wait for the job to finish', async (t) => {
+test("Should wait for the job to finish", async (t) => {
   const results: any = {};
   const someJob = new JobsRequest({
     oada: t.context.conn,
@@ -101,20 +101,20 @@ test('Should wait for the job to finish', async (t) => {
 
   await t.context.conn.put({
     path: `/${someJob.oadaId}`,
-    data: { status: 'success' },
+    data: { status: "success" },
   });
 
   await t.context.conn.put({
     path: `/${someJob.oadaId}`,
-    data: { status: 'failure' },
+    data: { status: "failure" },
   });
 
   await t.context.conn.put({
     path: `/${someJob.oadaId}`,
-    data: { result: { some: { result: 'data' } } },
+    data: { result: { some: { result: "data" } } },
   });
 
-  await someJob.postUpdate('update the job', 'some status');
+  await someJob.postUpdate("update the job", "some status");
 
   t.true(results?.success);
   t.true(results?.failure);
@@ -128,21 +128,21 @@ test('Should wait for the job to finish', async (t) => {
   t.is(
     // @ts-expect-error too lazy to fix
     Object.values(data.updates).pop().meta,
-    'update the job',
+    "update the job",
   );
 });
 
-test('doJob should return the job after a status (and result) are available.', async (t) => {
+test("doJob should return the job after a status (and result) are available.", async (t) => {
   const job = await doJob(t.context.conn, testJob);
 
-  t.is(job.status, 'success');
-  t.deepEqual(job.result, { great: 'success' });
+  t.is(job.status, "success");
+  t.deepEqual(job.result, { great: "success" });
 });
 
-test('doJob should throw an error if the worker throws.', async (t) => {
+test("doJob should throw an error if the worker throws.", async (t) => {
   const error = await t.throwsAsync(async () =>
     doJob(t.context.conn, throwJob),
   );
 
-  t.is(error.message, 'some error');
+  t.is(error.message, "some error");
 });

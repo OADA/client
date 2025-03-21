@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-import { setTimeout } from 'isomorphic-timers-promises';
+import { setTimeout } from "isomorphic-timers-promises";
 
-import type { EventEmitter } from 'eventemitter3';
-import debug from 'debug';
+import debug from "debug";
+import type { EventEmitter } from "eventemitter3";
 
-import { fileTypeFromBuffer } from '#file-type';
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from "xksuid";
+import { fileTypeFromBuffer } from "#file-type";
 
-import type { Tree, TreeKey } from '@oada/types/oada/tree/v1.js';
+import type { Tree, TreeKey } from "@oada/types/oada/tree/v1.js";
 
-import { type HTTPTimeouts, HttpClient } from './http.js';
+import { AbortController } from "#fetch";
+import { type HTTPTimeouts, HttpClient } from "./http.js";
 import {
   createNestedObject,
   fixError,
@@ -33,16 +34,15 @@ import {
   toArray,
   toArrayPath,
   toStringPath,
-} from './utils.js';
-import { AbortController } from '#fetch';
-import { WebSocketClient } from './websocket.js';
+} from "./utils.js";
+import { WebSocketClient } from "./websocket.js";
 
-import type { Change, Json, JsonObject } from './index.js';
+import type { Change, Json, JsonObject } from "./index.js";
 
-const trace = debug('@oada/client:client:trace');
-const info = debug('@oada/client:client:info');
-const warn = debug('@oada/client:client:warn');
-const error = debug('@oada/client:client:error');
+const trace = debug("@oada/client:client:trace");
+const info = debug("@oada/client:client:info");
+const warn = debug("@oada/client:client:warn");
+const error = debug("@oada/client:client:error");
 
 /**
  * Supported types for in/out request bodies
@@ -56,12 +56,12 @@ export type ConnectionRequest = {
    * @default false
    */
   watch?: boolean;
-  method: 'head' | 'get' | 'put' | 'post' | 'delete' | 'unwatch';
+  method: "head" | "get" | "put" | "post" | "delete" | "unwatch";
   headers: Record<string, string>;
   data?: Body;
 } & (
   | { watch?: false }
-  | { watch: true; method: 'head' | 'get' | 'put' | 'post' | 'delete' }
+  | { watch: true; method: "head" | "get" | "put" | "post" | "delete" }
 );
 
 export interface ConnectionResponse {
@@ -98,7 +98,7 @@ export interface Config {
   /** @default 1 */
   concurrency?: number;
   /** @default 'auto' */
-  connection?: 'auto' | 'ws' | 'http' | Connection;
+  connection?: "auto" | "ws" | "http" | Connection;
   userAgent?: string;
   timeouts?: number | Partial<HTTPTimeouts>;
 }
@@ -138,11 +138,11 @@ export interface WatchRequestBase {
   /**
    * @default 'single'
    */
-  type?: 'tree' | 'single';
+  type?: "tree" | "single";
   /**
    * @default 'head'
    */
-  initialMethod?: 'get' | 'head' | 'put' | 'post' | 'delete';
+  initialMethod?: "get" | "head" | "put" | "post" | "delete";
   path: string;
   rev?: number | string;
   persist?: PersistConfig;
@@ -154,13 +154,13 @@ export interface WatchRequestBase {
  * Watch whose callback gets single changes
  */
 export interface WatchRequestSingle extends WatchRequestBase {
-  type?: 'single';
+  type?: "single";
 }
 /**
  * @deprecated
  */
 export interface WatchRequestSingleOld extends WatchRequestBase {
-  type?: 'single';
+  type?: "single";
   watchCallback(response: Readonly<Change>): Promise<void>;
 }
 
@@ -168,13 +168,13 @@ export interface WatchRequestSingleOld extends WatchRequestBase {
  * Watch whose callback gets change trees
  */
 export interface WatchRequestTree extends WatchRequestBase {
-  type: 'tree';
+  type: "tree";
 }
 /**
  * @deprecated
  */
 export interface WatchRequestTreeOld extends WatchRequestBase {
-  type: 'tree';
+  type: "tree";
   watchCallback(response: ReadonlyArray<Readonly<Change>>): Promise<void>;
 }
 
@@ -262,10 +262,10 @@ export class OADAClient {
 
   constructor({
     domain,
-    token = '',
+    token = "",
     concurrency = 1,
     userAgent = `${process.env.npm_package_name}/${process.env.npm_package_version}`,
-    connection = 'http',
+    connection = "http",
     timeouts = {},
   }: Config & { timeouts?: HTTPTimeouts }) {
     // Help for those who can't remember if https should be there
@@ -274,11 +274,11 @@ export class OADAClient {
     this.#concurrency = concurrency;
     this.#persistList = new Map();
     switch (connection) {
-      case 'auto': {
+      case "auto": {
         throw new Error('Connection type "auto" is not supported');
       }
 
-      case 'ws': {
+      case "ws": {
         this.#connection = new WebSocketClient(this.#domain, {
           concurrency: this.#concurrency,
           userAgent,
@@ -286,7 +286,7 @@ export class OADAClient {
         break;
       }
 
-      case 'http': {
+      case "http": {
         this.#connection = new HttpClient(this.#domain, this.#token, {
           concurrency: this.#concurrency,
           userAgent,
@@ -356,7 +356,7 @@ export class OADAClient {
     // ===  Top-level GET ===
     const [topLevelResponse] = await this.#connection.request(
       {
-        method: 'get',
+        method: "get",
         headers: {
           ...request.headers,
           authorization: `Bearer ${this.#token}`,
@@ -417,10 +417,10 @@ export class OADAClient {
 
     // ???: Decide whether this should go after persist to allow it to override the persist rev
     if (request.rev) {
-      headers['x-oada-rev'] = `${request.rev}`;
+      headers["x-oada-rev"] = `${request.rev}`;
     }
 
-    let persistPath = '';
+    let persistPath = "";
     if (request.persist?.name) {
       const { name, recordLapsedTimeout } = request.persist;
       persistPath = `${request.path}/_meta/watchPersists/${name}`;
@@ -430,7 +430,7 @@ export class OADAClient {
         path: `${request.path}/_meta`,
       });
       const rev =
-        typeof data === 'object' &&
+        typeof data === "object" &&
         !(data instanceof Uint8Array) &&
         !Array.isArray(data)
           ? Number(data?._rev)
@@ -441,14 +441,14 @@ export class OADAClient {
           path: persistPath,
         });
         if (
-          typeof r === 'object' &&
+          typeof r === "object" &&
           !(r instanceof Uint8Array) &&
           !Array.isArray(r)
         ) {
           lastRev = Number(r?.rev);
-          headers['x-oada-rev'] = lastRev.toString();
+          headers["x-oada-rev"] = lastRev.toString();
           trace(
-            'Watch persist found _meta entry for [%s]. Setting x-oada-rev header to %d',
+            "Watch persist found _meta entry for [%s]. Setting x-oada-rev header to %d",
             name,
             lastRev,
           );
@@ -469,12 +469,12 @@ export class OADAClient {
       } catch {
         lastRev = Number(rev);
         let _id;
-        if (typeof lastRev === 'number') {
+        if (typeof lastRev === "number") {
           const { headers: postHeaders } = await this.post({
             path: `/resources`,
             data: { rev: lastRev },
           });
-          _id = postHeaders['content-location']?.replace(/^\//, '');
+          _id = postHeaders["content-location"]?.replace(/^\//, "");
         }
 
         if (_id) {
@@ -500,7 +500,7 @@ export class OADAClient {
             : {};
       } catch (cError: unknown) {
         // @ts-expect-error stupid error handling
-        if (cError?.code === '404') {
+        if (cError?.code === "404") {
           recorded = {};
         } else {
           throw cError as Error;
@@ -525,11 +525,11 @@ export class OADAClient {
      * For the initial connection, no special action is needed.
      * For the reconnection case, we need to re-establish the watches.
      */
-    this.#connection.on('open', () => {
+    this.#connection.on("open", () => {
       restart.abort();
     });
 
-    const { persist, path, timeout, initialMethod: method = 'head' } = request;
+    const { persist, path, timeout, initialMethod: method = "head" } = request;
     const [response, w] = await this.#connection.request(
       {
         watch: true,
@@ -545,7 +545,7 @@ export class OADAClient {
     );
 
     if (response.status !== 200) {
-      throw new Error('Watch request failed!');
+      throw new Error("Watch request failed!");
     }
 
     // Get requestId from the response
@@ -559,9 +559,9 @@ export class OADAClient {
           let parentRev;
 
           if (persist) {
-            const bod = resp?.change.find((c) => c.path === '')?.body;
+            const bod = resp?.change.find((c) => c.path === "")?.body;
             if (
-              typeof bod === 'object' &&
+              typeof bod === "object" &&
               bod !== null &&
               !Array.isArray(bod)
             ) {
@@ -574,22 +574,22 @@ export class OADAClient {
             }
           }
 
-          if (request.type === 'tree') {
+          if (request.type === "tree") {
             yield structuredClone(resp.change);
-          } else if (!request.type || request.type === 'single') {
+          } else if (!request.type || request.type === "single") {
             for (const change of resp.change) {
               yield structuredClone(change);
 
-              if (change.path === '') {
+              if (change.path === "") {
                 const newRev = change.body?._rev;
                 if (newRev) {
                   trace(
-                    'Updated the rev of request %s to %s',
+                    "Updated the rev of request %s to %s",
                     resp.requestId[0],
                     newRev,
                   );
                 } else {
-                  throw new Error('The _rev field is missing.');
+                  throw new Error("The _rev field is missing.");
                 }
               }
             }
@@ -598,7 +598,7 @@ export class OADAClient {
           // Persist the new parent rev
           if (
             persist &&
-            typeof parentRev === 'number' &&
+            typeof parentRev === "number" &&
             this.#persistList.has(persistPath)
           ) {
             await this.#persistWatch(persistPath, parentRev);
@@ -619,7 +619,7 @@ export class OADAClient {
     }
 
     // Handle old v2 watch API
-    if ('watchCallback' in request) {
+    if ("watchCallback" in request) {
       const watch = handleWatch.call(this);
       const { watchCallback } = request;
 
@@ -634,14 +634,14 @@ export class OADAClient {
   }
 
   public async unwatch(requestId: string): Promise<Response> {
-    trace('Unwatch requestId=%s', requestId);
+    trace("Unwatch requestId=%s", requestId);
 
     const [response] = await this.#connection.request({
-      path: '',
+      path: "",
       headers: {
-        authorization: '',
+        authorization: "",
       },
-      method: 'unwatch',
+      method: "unwatch",
       requestId,
     });
     // TODO: add timeout
@@ -666,13 +666,13 @@ export class OADAClient {
     const etag = request.etagIfMatch && toArray(request.etagIfMatch);
     const [response] = await this.#connection.request(
       {
-        method: 'put',
+        method: "put",
         headers: {
           ...request.headers,
-          'authorization': `Bearer ${this.#token}`,
-          'content-type': contentType,
+          authorization: `Bearer ${this.#token}`,
+          "content-type": contentType,
           ...(etag && {
-            'if-match': etag.join(', '),
+            "if-match": etag.join(", "),
           }), // Add if-match header if revIfMatch is provided
         },
         path: request.path,
@@ -699,18 +699,18 @@ export class OADAClient {
       const newkey = ksuid();
       return this.put({
         ...request,
-        path: (path.endsWith('/') ? path : `${path}/`) + newkey,
+        path: (path.endsWith("/") ? path : `${path}/`) + newkey,
       });
     }
 
     const contentType = await this.#guessContentType(request, pathArray);
     const [response] = await this.#connection.request(
       {
-        method: 'post',
+        method: "post",
         headers: {
           ...headers,
-          'authorization': `Bearer ${this.#token}`,
-          'content-type': contentType,
+          authorization: `Bearer ${this.#token}`,
+          "content-type": contentType,
         },
         path,
         data,
@@ -728,7 +728,7 @@ export class OADAClient {
     // Return HEAD response
     const [response] = await this.#connection.request(
       {
-        method: 'head',
+        method: "head",
         headers: {
           ...request.headers,
           authorization: `Bearer ${this.#token}`,
@@ -748,7 +748,7 @@ export class OADAClient {
     // Return HEAD response
     const [response] = await this.#connection.request(
       {
-        method: 'delete',
+        method: "delete",
         headers: {
           ...request.headers,
           authorization: `Bearer ${this.#token}`,
@@ -769,7 +769,7 @@ export class OADAClient {
     try {
       const [response] = await this.#connection.request(
         {
-          method: 'head',
+          method: "head",
           headers: {
             ...request.headers,
             authorization: `Bearer ${this.#token}`,
@@ -781,11 +781,11 @@ export class OADAClient {
       return response;
     } catch (cError: unknown) {
       // @ts-expect-error stupid errors
-      if (cError?.code !== '404') {
+      if (cError?.code !== "404") {
         throw await fixError(cError as Error);
       }
 
-      trace('Path to ensure did not exist. Creating');
+      trace("Path to ensure did not exist. Creating");
       return this.put(request);
     }
   }
@@ -799,7 +799,7 @@ export class OADAClient {
     // If either subTree or data does not exist, there's mismatch between
     // the provided tree and the actual data stored on the server
     if (!subTree || !body) {
-      throw new Error('Path mismatch.');
+      throw new Error("Path mismatch.");
     }
 
     // If the object is a link to another resource (i.e., contains "_type"),
@@ -815,23 +815,23 @@ export class OADAClient {
 
     // Select children to traverse
     const children: Array<{ treeKey: TreeKey; dataKey: string }> = [];
-    if ('*' in subTree) {
+    if ("*" in subTree) {
       // If "*" is specified in the tree provided by the user,
       // get all children from the server
       for (const [key, value] of Object.entries(
         body as Record<string, unknown>,
       )) {
         // Do not recurse into _meta or changes unless otherwise stated
-        if (['_meta', '_changes'].includes(key) && !(key in subTree)) continue;
+        if (["_meta", "_changes"].includes(key) && !(key in subTree)) continue;
 
-        if (typeof value === 'object') {
-          children.push({ treeKey: '*', dataKey: key });
+        if (typeof value === "object") {
+          children.push({ treeKey: "*", dataKey: key });
         }
       }
     } else {
       // Otherwise, get children from the tree provided by the user
       for (const key of Object.keys(subTree ?? {})) {
-        if (typeof body[key as keyof typeof body] === 'object') {
+        if (typeof body[key as keyof typeof body] === "object") {
           children.push({ treeKey: key as TreeKey, dataKey: key });
         }
       }
@@ -848,7 +848,7 @@ export class OADAClient {
             (body as JsonObject)[item.dataKey],
           );
           if (response instanceof Uint8Array) {
-            throw new TypeError('Non JSON is not supported.');
+            throw new TypeError("Non JSON is not supported.");
           }
 
           (body as JsonObject)[item.dataKey] = response;
@@ -920,7 +920,7 @@ export class OADAClient {
       );
       // Save a link
       linkObject =
-        '_rev' in treeObject
+        "_rev" in treeObject
           ? { _id: resourceId, _rev: 0 } // Versioned link
           : { _id: resourceId }; // Non-versioned link
       newResourcePathArray = partialPathArray.slice(); // Clone
@@ -958,12 +958,12 @@ export class OADAClient {
     }
 
     // Assume it is JSON?
-    return 'application/json';
+    return "application/json";
   }
 
   async #retryEnsureTree(tree: Tree, pathArray: readonly string[]) {
     // Retry on certain errors
-    const CODES = new Set(['412', '422'] as const);
+    const CODES = new Set(["412", "422"] as const);
     const MAX_RETRIES = 5;
 
     for await (const retryCount of Array.from({
@@ -994,7 +994,7 @@ export class OADAClient {
    * Attempt to save the latest rev processed, accommodating concurrency
    */
   async #persistWatch(persistPath: string, rev: number): Promise<void> {
-    trace('Persisting watch for path %s to rev %d', persistPath, rev);
+    trace("Persisting watch for path %s to rev %d", persistPath, rev);
     if (this.#persistList.has(persistPath)) {
       let { lastRev, recorded, items, recordLapsedTimeout, lastCheck } =
         this.#persistList.get(persistPath)!;
@@ -1032,7 +1032,7 @@ export class OADAClient {
         path: `${persistPath}/rev`,
         data: lastRev,
       });
-      trace('Persisted watch: path: [%s], rev: [%d]', persistPath, lastRev);
+      trace("Persisted watch: path: [%s], rev: [%d]", persistPath, lastRev);
     }
   }
 
@@ -1041,7 +1041,7 @@ export class OADAClient {
    */
   async #recordLapsedRevs(persistPath: string, now: number): Promise<void> {
     trace(
-      'Checking for lapsed revs for path [%s] time: [%s]',
+      "Checking for lapsed revs for path [%s] time: [%s]",
       persistPath,
       now,
     );
@@ -1051,12 +1051,12 @@ export class OADAClient {
     for (const [key, item] of items) {
       if (
         recordLapsedTimeout !== undefined &&
-        typeof item === 'number' &&
+        typeof item === "number" &&
         now > Number(item) + recordLapsedTimeout
       ) {
         // Record those that have gone stale
         const path = `${persistPath}/items/${key}`;
-        info('Recording lapsed rev: %s', path);
+        info("Recording lapsed rev: %s", path);
         // eslint-disable-next-line no-await-in-loop
         await this.put({
           path,
@@ -1096,7 +1096,7 @@ export class OADAClient {
     // In tree put to /resources, the top-level "/resources" should
     // look like it exists, even though oada doesn't allow GET on /resources
     // directly.
-    if (path === '/resources') {
+    if (path === "/resources") {
       return { exist: true };
     }
 
@@ -1118,12 +1118,12 @@ export class OADAClient {
       }
     } catch (cError: unknown) {
       // @ts-expect-error stupid stupid error handling
-      if (cError?.code === '404') {
+      if (cError?.code === "404") {
         return { exist: false };
       }
 
       // @ts-expect-error stupid stupid error handling
-      if (cError?.code === '403' && path.startsWith('/resources')) {
+      if (cError?.code === "403" && path.startsWith("/resources")) {
         // 403 is what you get on resources that don't exist (i.e. Forbidden)
         return { exist: false };
       }
@@ -1131,6 +1131,6 @@ export class OADAClient {
       throw await fixError(cError as Error);
     }
 
-    throw new Error('Status code is neither 200 nor 404.');
+    throw new Error("Status code is neither 200 nor 404.");
   }
 }

@@ -15,6 +15,6 @@
  * limitations under the License.
  */
 
-export { fetch, Agent, Headers, Request, Response } from 'undici';
+export { fetch, Agent, Headers, Request, Response } from "undici";
 
 export const { AbortController } = globalThis;

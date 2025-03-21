@@ -15,4 +15,4 @@
  * limitations under the License.
  */
 
-export * from 'file-type';
+export * from "file-type";

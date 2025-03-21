@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-import { EventEmitter } from 'eventemitter3';
-import PQueue from 'p-queue';
-import WebSocket from 'isomorphic-ws';
-import _ReconnectingWebSocket from 'reconnecting-websocket';
-import debug from 'debug';
-import { generate as ksuid } from 'xksuid';
-import { setTimeout } from 'isomorphic-timers-promises';
+import debug from "debug";
+import { EventEmitter } from "eventemitter3";
+import { setTimeout } from "isomorphic-timers-promises";
+import WebSocket from "isomorphic-ws";
+import PQueue from "p-queue";
+import _ReconnectingWebSocket from "reconnecting-websocket";
+import { generate as ksuid } from "xksuid";
 
-import type WebSocketRequest from '@oada/types/oada/websockets/request.js';
-import { assert as assertOADAChangeV2 } from '@oada/types/oada/change/v2.js';
-import { assert as assertOADASocketRequest } from '@oada/types/oada/websockets/request.js';
-import { is as isOADASocketChange } from '@oada/types/oada/websockets/change.js';
-import { is as isOADASocketResponse } from '@oada/types/oada/websockets/response.js';
+import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2.js";
+import { is as isOADASocketChange } from "@oada/types/oada/websockets/change.js";
+import type WebSocketRequest from "@oada/types/oada/websockets/request.js";
+import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request.js";
+import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response.js";
 
-import { on, once } from '#event-iterator';
+import { on, once } from "#event-iterator";
 
 import type {
   Connection,
@@ -37,18 +37,18 @@ import type {
   ConnectionRequest,
   ConnectionResponse,
   IConnectionResponse,
-} from './client.js';
-import { TimeoutError, fixError } from './utils.js';
-import type { Change } from './index.js';
-import { handleErrors } from './errors.js';
+} from "./client.js";
+import { handleErrors } from "./errors.js";
+import type { Change } from "./index.js";
+import { TimeoutError, fixError } from "./utils.js";
 
 // HACK: Fix for default export types in esm
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const ReconnectingWebSocket =
   _ReconnectingWebSocket as unknown as typeof _ReconnectingWebSocket.default;
 
-const trace = debug('@oada/client:ws:trace');
-const error = debug('@oada/client:ws:error');
+const trace = debug("@oada/client:ws:trace");
+const error = debug("@oada/client:ws:error");
 
 interface ResponseEmitter extends EventEmitter {
   on(
@@ -61,7 +61,7 @@ interface ResponseEmitter extends EventEmitter {
   ): this;
 }
 
-declare module '#event-iterator' {
+declare module "#event-iterator" {
   // @ts-expect-error type bs
   // eslint-disable-next-line @typescript-eslint/no-shadow
   export function once(
@@ -71,12 +71,12 @@ declare module '#event-iterator' {
   // @ts-expect-error type bs
   export function once(
     emitter: _ReconnectingWebSocket.default,
-    event: 'error',
+    event: "error",
   ): Promise<[Error]>;
   // @ts-expect-error type bs
   export function once(
     emitter: _ReconnectingWebSocket.default,
-    event: 'open',
+    event: "open",
   ): Promise<void>;
   // @ts-expect-error type bs
   // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -87,10 +87,10 @@ declare module '#event-iterator' {
   ): AsyncIterableIterator<[ConnectionChange]>;
 }
 
-const enum ConnectionStatus {
-  Disconnected,
-  Connecting,
-  Connected,
+enum ConnectionStatus {
+  Disconnected = 0,
+  Connecting = 1,
+  Connected = 2,
 }
 
 /**
@@ -127,7 +127,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
   ) {
     super();
     this.#userAgent = userAgent;
-    this.#domain = domain.replace(/^http/, 'ws');
+    this.#domain = domain.replace(/^http/, "ws");
     this.#status = ConnectionStatus.Connecting;
     // Create websocket connection
     const ws = new ReconnectingWebSocket(this.#domain, [], {
@@ -136,43 +136,43 @@ export class WebSocketClient extends EventEmitter implements Connection {
       WebSocket: BetterWebSocket,
     });
     // eslint-disable-next-line github/no-then
-    const openP = once(ws, 'open').then(() => ws);
+    const openP = once(ws, "open").then(() => ws);
     // eslint-disable-next-line github/no-then
-    const errorP = once(ws, 'error').then(([wsError]) => {
+    const errorP = once(ws, "error").then(([wsError]) => {
       throw wsError;
     });
     this.#ws = Promise.race([openP, errorP]);
 
     // Register handlers
-    ws.addEventListener('open', () => {
-      trace('Connection opened');
+    ws.addEventListener("open", () => {
+      trace("Connection opened");
       this.#status = ConnectionStatus.Connected;
-      this.emit('open');
+      this.emit("open");
     });
 
-    ws.addEventListener('close', () => {
-      trace('Connection closed');
+    ws.addEventListener("close", () => {
+      trace("Connection closed");
       this.#status = ConnectionStatus.Disconnected;
-      this.emit('close');
+      this.emit("close");
     });
 
-    ws.addEventListener('error', (wsError) => {
-      trace(wsError, 'Connection error');
+    ws.addEventListener("error", (wsError) => {
+      trace(wsError, "Connection error");
       // This.#status = ConnectionStatus.Disconnected;
       // this.emit("error");
     });
 
-    ws.addEventListener('message', (message) => {
+    ws.addEventListener("message", (message) => {
       trace(
         { message: { ...message, data: message.data, origin: message.origin } },
-        'Websocket message received',
+        "Websocket message received",
       );
       this.#receive(message);
     });
 
     this.#q = new PQueue({ concurrency });
-    this.#q.on('active', () => {
-      trace('WS Queue. Size: %d pending: %d', this.#q.size, this.#q.pending);
+    this.#q.on("active", () => {
+      trace("WS Queue. Size: %d pending: %d", this.#q.size, this.#q.pending);
     });
   }
 
@@ -226,12 +226,12 @@ export class WebSocketClient extends EventEmitter implements Connection {
     const socketRequest: WebSocketRequest = {
       ...request,
       headers: {
-        'user-agent': this.#userAgent,
+        "user-agent": this.#userAgent,
         ...headers,
       },
       method: watch
-        ? method === 'head'
-          ? 'watch'
+        ? method === "head"
+          ? "watch"
           : `${method}-watch`
         : method,
     };
@@ -266,7 +266,7 @@ export class WebSocketClient extends EventEmitter implements Connection {
         change?: unknown;
         resourceId?: string;
       };
-      trace({ message }, 'Websocket message parsed');
+      trace({ message }, "Websocket message parsed");
 
       const requestIds: readonly string[] = Array.isArray(message.requestId)
         ? message.requestId
@@ -292,14 +292,14 @@ export class WebSocketClient extends EventEmitter implements Connection {
           this.#requests.emit(`change:${requestId}`, rChange);
         }
       } else {
-        throw new Error('Invalid websocket payload received');
+        throw new Error("Invalid websocket payload received");
       }
     } catch (cError: unknown) {
       error(
-        '[Websocket %s] Received invalid response. Ignoring.',
+        "[Websocket %s] Received invalid response. Ignoring.",
         this.#domain,
       );
-      trace(cError, '[Websocket %s] Received invalid response', this.#domain);
+      trace(cError, "[Websocket %s] Received invalid response", this.#domain);
       // No point in throwing here; the promise cannot be resolved because the
       // requestId cannot be retrieved; throwing will just blow up client
     }

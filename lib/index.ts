@@ -18,10 +18,10 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="types.d.ts" />
 
-import { type Config, OADAClient } from './client.js';
-import { autoConnection, parseDomain } from './auto.js';
+import { autoConnection, parseDomain } from "./auto.js";
+import { type Config, OADAClient } from "./client.js";
 
-import type ChangeArray from '@oada/types/oada/change/v2.js';
+import type ChangeArray from "@oada/types/oada/change/v2.js";
 
 /** Create a new instance of OADAClient */
 export function createInstance(config: Config): OADAClient {
@@ -35,14 +35,14 @@ export function normalizeDomain(domain: string) {
 
 /** Create a new instance and wrap it with Promise */
 export async function connect({
-  connection: proto = 'auto',
+  connection: proto = "auto",
   concurrency = 1,
   userAgent = `${process.env.npm_package_name}/${process.env.npm_package_version}`,
   timeouts: t = {},
   ...config
 }: Config & { token: string }): Promise<OADAClient> {
   const timeouts =
-    typeof t === 'number'
+    typeof t === "number"
       ? {
           connect: t,
           keepAlive: t,
@@ -51,7 +51,7 @@ export async function connect({
         }
       : t;
   const connection =
-    proto === 'auto'
+    proto === "auto"
       ? await autoConnection({ concurrency, userAgent, timeouts, ...config })
       : proto;
   // Create an instance of client and start connection
@@ -78,7 +78,7 @@ export {
   type ConnectionChange,
   type Connection,
   OADAClient,
-} from './client.js';
+} from "./client.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type JsonPrimitive = string | number | boolean | null;
@@ -104,4 +104,4 @@ declare global {
 
 export type Change = ChangeArray[0];
 
-export { TimeoutError } from './utils.js';
+export { TimeoutError } from "./utils.js";

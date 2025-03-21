@@ -15,44 +15,44 @@
  * limitations under the License.
  */
 
-import { domain, token } from './config.js';
+import { domain, token } from "./config.js";
 
-import ava, { type TestFn } from 'ava';
+import ava, { type TestFn } from "ava";
 
-import { EventEmitter, once } from 'node:events';
+import { EventEmitter, once } from "node:events";
 
-import { generate as ksuid } from 'xksuid';
+import { generate as ksuid } from "xksuid";
 
 // eslint-disable-next-line node/no-extraneous-import
-import { type Change, type OADAClient, connect } from '@oada/client';
+import { type Change, type OADAClient, connect } from "@oada/client";
 import {
   type Nested,
   deleteLink,
   getResource,
   putResource,
   putResourceEnsureLink,
-} from './utils.js';
+} from "./utils.js";
 
 interface Context {
   testName: string;
-  client: Record<'ws' | 'http', OADAClient>;
+  client: Record<"ws" | "http", OADAClient>;
 }
 
 const test = ava as TestFn<Context>;
 
-test.beforeEach('Initialize test name', async (t) => {
+test.beforeEach("Initialize test name", async (t) => {
   const uid = ksuid();
   const testName = `test-${uid}`;
   t.context.testName = testName;
   await putResourceEnsureLink({}, `/bookmarks/${testName}`);
 });
-test.afterEach.always('Clean up test', async (t) => {
+test.afterEach.always("Clean up test", async (t) => {
   const { testName } = t.context;
   // This does not delete resources... oh well.
   await deleteLink(`/bookmarks/${testName}`);
 });
 
-for (const connection of ['ws', 'http'] as const) {
+for (const connection of ["ws", "http"] as const) {
   // Initialization
   test.before(`${connection}: Initialize connection`, async (t) => {
     // @ts-expect-error stuff
@@ -80,7 +80,7 @@ for (const connection of ['ws', 'http'] as const) {
     const getResp = await getResource(`/bookmarks/${testName}/test1`);
     // 2) Set up watch
     const watch = await t.context.client[connection].watch({
-      type: 'single',
+      type: "single",
       path: `/bookmarks/${testName}/test1`,
       async watchCallback(change: Readonly<Change>) {
         try {
@@ -93,15 +93,15 @@ for (const connection of ['ws', 'http'] as const) {
           t.assert(change.body?.testData1?.abc);
 
           await t.context.client[connection].unwatch(watch);
-          emitter.emit('done');
+          emitter.emit("done");
         } catch (error: unknown) {
-          emitter.emit('error', error);
+          emitter.emit("error", error);
         }
       },
     });
     // 3) Make changes
-    await putResource({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
-    await once(emitter, 'done');
+    await putResource({ abc: "def" }, `/bookmarks/${testName}/test1/testData1`);
+    await once(emitter, "done");
   });
 
   test(`${connection}: Should receive the watch change from a single PUT request`, async (t) => {
@@ -114,7 +114,7 @@ for (const connection of ['ws', 'http'] as const) {
       path: `/bookmarks/${testName}/test1`,
     });
     // 3) Make changes
-    await putResource({ abc: 'def' }, `/bookmarks/${testName}/test1/testData1`);
+    await putResource({ abc: "def" }, `/bookmarks/${testName}/test1/testData1`);
 
     // Check
     const data = (await getResp.json()) as Nested;
@@ -136,13 +136,13 @@ for (const connection of ['ws', 'http'] as const) {
     await putResourceEnsureLink({ a: 1, b: 2 }, `/bookmarks/${testName}/test1`);
 
     const { changes, data, status } = await t.context.client[connection].watch({
-      initialMethod: 'get',
+      initialMethod: "get",
       path: `/bookmarks/${testName}/test1`,
     });
 
-    t.is(typeof status, 'number');
+    t.is(typeof status, "number");
     t.assert(changes[Symbol.asyncIterator]);
-    t.is(typeof data, 'object');
+    t.is(typeof data, "object");
   });
 
   test(`${connection}: Should not receive the watch change after unwatch request`, async (t) => {
@@ -158,7 +158,7 @@ for (const connection of ['ws', 'http'] as const) {
     // 3) Unwatch
     await changes.return?.();
     // 4) Make changes
-    await putResource({ abc: 'def' }, `/bookmarks/${testName}/test2/testData`);
+    await putResource({ abc: "def" }, `/bookmarks/${testName}/test2/testData`);
     // eslint-disable-next-line no-unreachable-loop
     for await (const change of changes) {
       throw new Error(`Received change: ${JSON.stringify(change)}`);
@@ -183,7 +183,7 @@ for (const connection of ['ws', 'http'] as const) {
     });
     // 3) Make changes
     await putResource(
-      { abc: 'def' },
+      { abc: "def" },
       `/bookmarks/${testName}/test3/level1/level2/testData`,
     );
 

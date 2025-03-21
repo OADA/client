@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-import { EventEmitter } from 'eventemitter3';
-import { JSONPath } from 'jsonpath-plus';
-import debug from 'debug';
-import { deserializeError } from 'serialize-error';
+import debug from "debug";
+import { EventEmitter } from "eventemitter3";
+import { JSONPath } from "jsonpath-plus";
+import { deserializeError } from "serialize-error";
 
-import type Job from '@oada/types/oada/service/job.js';
+import type Job from "@oada/types/oada/service/job.js";
 //import { postUpdate } from '@oada/jobs';
 
-import type { Change, Json, OADAClient } from './index.js';
-import type { ChangeBody, Result } from './utils.js';
-import { buildChangeObject, changeSym } from './utils.js';
+import type { Change, Json, OADAClient } from "./index.js";
+import type { ChangeBody, Result } from "./utils.js";
+import { buildChangeObject, changeSym } from "./utils.js";
 
 const log = {
-  trace: debug('@oada/client/jobs:trace'),
-  error: debug('@oada/client/jobs:error'),
-  info: debug('@oada/client/jobs:info'),
-  fatal: debug('@oada/client/jobs:fatal'),
+  trace: debug("@oada/client/jobs:trace"),
+  error: debug("@oada/client/jobs:error"),
+  info: debug("@oada/client/jobs:info"),
+  fatal: debug("@oada/client/jobs:fatal"),
 };
 
 export class JobsRequest<J extends Job> {
@@ -61,10 +61,10 @@ export class JobsRequest<J extends Job> {
     const { headers } = await this.oada.post({
       path: `/resources`,
       data: this.job as unknown as Json,
-      contentType: 'application/vnd.oada.service.jobs.1+json',
+      contentType: "application/vnd.oada.service.jobs.1+json",
     });
-    const _id = headers['content-location']?.replace(/^\//, '') ?? '';
-    const key = _id.replace(/^resources\//, '');
+    const _id = headers["content-location"]?.replace(/^\//, "") ?? "";
+    const key = _id.replace(/^resources\//, "");
     //    Const { _id, key } = await postJob(this.oada, pending, this.job as Json);
     this.oadaId = _id;
     this.oadaListKey = key;
@@ -98,7 +98,7 @@ export class JobsRequest<J extends Job> {
             listener: listener.name,
             error,
           },
-          'Error in job listener',
+          "Error in job listener",
         );
       }
     };
@@ -153,17 +153,17 @@ export class JobsRequest<J extends Job> {
     const result = await this.oada.watch({
       path: `/${this.oadaId}`,
       rev: 0,
-      type: 'tree',
+      type: "tree",
     });
 
     const { changes } = result;
 
     // eslint-disable-next-line github/no-then
     void this.#handleChangeFeed(changes).catch((error: unknown) =>
-      this.#emitter.emit('error', error),
+      this.#emitter.emit("error", error),
     );
 
-    log.info({ this: this }, 'Job watch initialized');
+    log.info({ this: this }, "Job watch initialized");
     return changes;
   }
 
@@ -175,41 +175,41 @@ export class JobsRequest<J extends Job> {
       await this.#handleJobChanges(changeBody);
     }
 
-    log.fatal('Change feed ended unexpectedly');
-    throw new Error('Change feed ended');
+    log.fatal("Change feed ended unexpectedly");
+    throw new Error("Change feed ended");
   }
 
   async #handleJobChanges(changeBody: ChangeBody<unknown>) {
     // eslint-disable-next-line new-cap
     const items = JSONPath<Array<Result<ChangeBody<J>>>>({
-      resultType: 'all',
+      resultType: "all",
       path: `$`,
       json: changeBody,
     });
     for await (const { value } of items) {
       const { [changeSym]: changes } = value;
       for await (const change of changes ?? []) {
-        log.trace({ change }, 'Received change');
+        log.trace({ change }, "Received change");
 
         // TODO: determine whether we can get a resource at a particular rev
 
         // Emit generic item change event
-        if (change?.body?.status === 'success')
+        if (change?.body?.status === "success")
           await this.#emit(JobEventType.Success);
 
         if (change?.body?.status) await this.#emit(JobEventType.Status);
 
-        if (change?.body?.status === 'failure')
+        if (change?.body?.status === "failure")
           await this.#emit(JobEventType.Failure);
 
         if (
-          change.type === 'merge' &&
+          change.type === "merge" &&
           change?.body?._rev >= 2 &&
           change?.body?.result
         )
           await this.#emit(JobEventType.Result);
 
-        if (change.type === 'merge' && change?.body?.updates)
+        if (change.type === "merge" && change?.body?.updates)
           await this.#emit(JobEventType.Update);
       }
     }
@@ -228,15 +228,15 @@ export class JobsRequest<J extends Job> {
 
 export enum JobEventType {
   // The job is finished; a status arrives
-  Status = 'Status',
+  Status = "Status",
   // Success status
-  Success = 'Success',
+  Success = "Success",
   // Fail status
-  Failure = 'Failure',
+  Failure = "Failure",
   // Result arrived
-  Result = 'Result',
+  Result = "Result",
   // Update comes into the job
-  Update = 'Update',
+  Update = "Update",
   /*
   // Job completed, any status result
   Done = 'Done',
@@ -267,9 +267,9 @@ export const doJob = async (oada: OADAClient, job: Job): Promise<Job> =>
     const jr = new JobsRequest({ oada, job });
     jr.on(JobEventType.Status, async ({ job: jo }) => {
       const index = await jo;
-      if (index.status === 'success') {
+      if (index.status === "success") {
         resolve(index);
-      } else if (index.status === 'failure') {
+      } else if (index.status === "failure") {
         reject(deserializeError(index.result));
       }
     }).catch(reject);

@@ -15,52 +15,52 @@
  * limitations under the License.
  */
 
-import { domain, token } from './config.js';
+import { domain, token } from "./config.js";
 
-import test from 'ava';
+import test from "ava";
 
-import { setTimeout } from 'isomorphic-timers-promises';
+import { setTimeout } from "isomorphic-timers-promises";
 
-import type { Tree } from '@oada/types/oada/tree/v1.js';
+import type { Tree } from "@oada/types/oada/tree/v1.js";
 
-import type { Nested } from './utils.js';
+import type { Nested } from "./utils.js";
 
 // eslint-disable-next-line node/no-extraneous-import
-import { connect } from '@oada/client';
+import { connect } from "@oada/client";
 
 const generateRandomString = () => Math.random().toString(36).slice(7);
 
-test('HTTP Connect/Disconnect', async (t) => {
+test("HTTP Connect/Disconnect", async (t) => {
   const client = await connect({
     domain,
     token,
-    connection: 'http',
+    connection: "http",
   });
   await client.disconnect();
   t.pass();
 });
 
-test('HTTP Single GET', async (t) => {
+test("HTTP Single GET", async (t) => {
   const client = await connect({
     domain,
     token,
-    connection: 'http',
+    connection: "http",
   });
-  const response = await client.get({ path: '/bookmarks' });
+  const response = await client.get({ path: "/bookmarks" });
   t.is(response.status, 200);
-  t.like(response.data, { _type: 'application/vnd.oada.bookmarks.1+json' });
+  t.like(response.data, { _type: "application/vnd.oada.bookmarks.1+json" });
   await client.disconnect();
 });
 
-test('HTTP watch should not throw', async (t) => {
+test("HTTP watch should not throw", async (t) => {
   const client = await connect({
     domain,
     token,
-    connection: 'http',
+    connection: "http",
   });
 
   const { changes } = await client.watch({
-    path: '/bookmarks',
+    path: "/bookmarks",
   });
   const changeP = changes.next();
   const delay = setTimeout(1000);
@@ -68,47 +68,47 @@ test('HTTP watch should not throw', async (t) => {
   await client.disconnect();
 });
 
-test('HTTP PUT->GET->DELETE', async (t) => {
+test("HTTP PUT->GET->DELETE", async (t) => {
   const client = await connect({
     domain,
     token,
-    connection: 'http',
+    connection: "http",
   });
   try {
     await client.put({
-      path: '/bookmarks',
-      data: { test10: 'aaa' },
+      path: "/bookmarks",
+      data: { test10: "aaa" },
     });
     const { data: response } = await client.get({
       path: `/bookmarks/test10`,
     });
     await client.delete({ path: `/bookmarks/test10` });
-    t.is(response, 'aaa');
+    t.is(response, "aaa");
   } finally {
     await client.disconnect();
   }
 });
 
-test('Recursive PUT/GET', async (t) => {
+test("Recursive PUT/GET", async (t) => {
   const randomString = generateRandomString();
   const tree = {
     bookmarks: {
-      _type: 'application/json',
+      _type: "application/json",
       _rev: 0,
       [randomString]: {
-        _type: 'application/json',
+        _type: "application/json",
         _rev: 0,
         level1: {
-          '*': {
-            _type: 'application/json',
+          "*": {
+            _type: "application/json",
             _rev: 0,
             level2: {
-              '*': {
-                _type: 'application/json',
+              "*": {
+                _type: "application/json",
                 _rev: 0,
                 level3: {
-                  '*': {
-                    _type: 'application/json',
+                  "*": {
+                    _type: "application/json",
                     _rev: 0,
                   },
                 },
@@ -122,12 +122,12 @@ test('Recursive PUT/GET', async (t) => {
   const client = await connect({
     domain,
     token,
-    connection: 'http',
+    connection: "http",
   });
   // Tree PUT
   await client.put({
     path: `/bookmarks/${randomString}/level1/abc/level2/def/level3/ghi/`,
-    data: { thingy: 'abc' },
+    data: { thingy: "abc" },
     tree,
   });
   // Recursive GET
