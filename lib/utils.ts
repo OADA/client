@@ -20,11 +20,10 @@
  * Some useful functions
  */
 
+import type { Tree, TreeKey } from "@oada/types/oada/tree/v1.js";
 import { JsonPointer } from "json-ptr";
 import objectAssignDeep from "object-assign-deep";
 import { TimeoutError as PTimeoutError } from "p-timeout";
-
-import type { Tree, TreeKey } from "@oada/types/oada/tree/v1.js";
 
 import type { Change, Json, JsonObject } from "./index.js";
 

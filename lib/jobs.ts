@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
+import type Job from "@oada/types/oada/service/job.js";
 import debug from "debug";
 import { EventEmitter } from "eventemitter3";
 import { JSONPath } from "jsonpath-plus";
 import { deserializeError } from "serialize-error";
-
-import type Job from "@oada/types/oada/service/job.js";
 //import { postUpdate } from '@oada/jobs';
 
 import type { Change, Json, OADAClient } from "./index.js";

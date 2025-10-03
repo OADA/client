@@ -15,25 +15,20 @@
  * limitations under the License.
  */
 
-import { domain, token } from "./config.js";
-
-import ava, { type TestFn } from "ava";
-
-import { generate as ksuid } from "xksuid";
-
+// eslint-disable-next-line node/no-extraneous-import
+import { connect, type OADAClient, TimeoutError } from "@oada/client";
 import type { Tree } from "@oada/types/oada/tree/v1.js";
-
+import ava, { type TestFn } from "ava";
+import { generate as ksuid } from "xksuid";
+import { domain, token } from "./config.js";
 import {
-  type Nested,
   deleteLink,
   getResource,
   getTreeWithTestName,
+  type Nested,
   putResource,
   putResourceEnsureLink,
 } from "./utils.js";
-
-// eslint-disable-next-line node/no-extraneous-import
-import { type OADAClient, TimeoutError, connect } from "@oada/client";
 
 interface Context {
   testName: string;

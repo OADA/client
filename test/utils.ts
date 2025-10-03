@@ -15,13 +15,18 @@
  * limitations under the License.
  */
 
-import { domain, token } from "./config.js";
-
+import type Tree from "@oada/types/oada/tree/v1.js";
+import {
+  Agent,
+  fetch,
+  type HeadersInit,
+  type RequestInit,
+  setGlobalDispatcher,
+} from "undici";
 import { generate as ksuid } from "xksuid";
 
-import type Tree from "@oada/types/oada/tree/v1.js";
-import { Agent, type HeadersInit, fetch, setGlobalDispatcher } from "undici";
 import { handleErrors } from "../dist/errors.js";
+import { domain, token } from "./config.js";
 
 export type Nested =
   | {
@@ -40,7 +45,7 @@ setGlobalDispatcher(
 async function _request(
   uri: string | URL,
   {
-    headers = {},
+    headers,
     body,
     ...rest
   }: Omit<RequestInit, "body"> & {

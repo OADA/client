@@ -18,10 +18,10 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference path="types.d.ts" />
 
+import type ChangeArray from "@oada/types/oada/change/v2.js";
+
 import { autoConnection, parseDomain } from "./auto.js";
 import { type Config, OADAClient } from "./client.js";
-
-import type ChangeArray from "@oada/types/oada/change/v2.js";
 
 /** Create a new instance of OADAClient */
 export function createInstance(config: Config): OADAClient {
@@ -68,16 +68,16 @@ export async function connect({
 
 export {
   type Config,
-  type GETRequest,
-  type PUTRequest,
-  type HEADRequest,
-  type WatchRequest,
+  type Connection,
+  type ConnectionChange,
   // These are for developing an external connection (like google apps script):
   type ConnectionRequest,
   type ConnectionResponse,
-  type ConnectionChange,
-  type Connection,
+  type GETRequest,
+  type HEADRequest,
   OADAClient,
+  type PUTRequest,
+  type WatchRequest,
 } from "./client.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-types

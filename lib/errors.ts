@@ -22,12 +22,10 @@
  * @packageDocumentation
  */
 
-import { setTimeout } from "isomorphic-timers-promises";
-
 import debug from "debug";
-import { Headers } from "#fetch";
-
+import { setTimeout } from "isomorphic-timers-promises";
 import type { HeadersInit } from "undici";
+import { Headers } from "#fetch";
 import { fixError } from "./utils.js";
 
 const warn = debug("@oada/client:errors:warn");

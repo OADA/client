@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-import { domain, token } from "./config.js";
-
-import test from "ava";
-
-import { setTimeout } from "isomorphic-timers-promises";
-
-import type { Tree } from "@oada/types/oada/tree/v1.js";
-
-import type { Nested } from "./utils.js";
-
 // eslint-disable-next-line node/no-extraneous-import
 import { connect } from "@oada/client";
+import type { Tree } from "@oada/types/oada/tree/v1.js";
+import test from "ava";
+import { setTimeout } from "isomorphic-timers-promises";
+import { domain, token } from "./config.js";
+import type { Nested } from "./utils.js";
 
 const generateRandomString = () => Math.random().toString(36).slice(7);
 

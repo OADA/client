@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
+import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request.js";
 import debug from "debug";
 import { EventEmitter } from "eventemitter3";
 import { fromString } from "media-type";
 import PQueue from "p-queue";
 import { generate as ksuid } from "xksuid";
 
-import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request.js";
-
-import { AbortController, Agent, type Response, fetch } from "#fetch";
+import { AbortController, Agent, fetch, type Response } from "#fetch";
 import type {
   Body,
   Connection,
   ConnectionRequest,
   IConnectionResponse,
 } from "./client.js";
-import { TimeoutError, fixError } from "./utils.js";
-
 import { handleErrors } from "./errors.js";
 import type { Json } from "./index.js";
+import { fixError, TimeoutError } from "./utils.js";
 import { WebSocketClient } from "./websocket.js";
 
 const trace = debug("@oada/client:http:trace");
@@ -64,6 +62,13 @@ async function getBody(result: Response): Promise<Body> {
     : new Uint8Array(await result.arrayBuffer());
 }
 
+function normalizeDomain(domain: string) {
+  // Ensure leading https?://
+  const url = /https?:/.test(domain) ? domain : `https://${domain}`;
+  // Ensure no trailing slash
+  return url.replace(/\/$/, "");
+}
+
 export class HttpClient extends EventEmitter implements Connection {
   readonly #domain: string;
   readonly #token;
@@ -91,18 +96,11 @@ export class HttpClient extends EventEmitter implements Connection {
   ) {
     super();
 
-    // Ensure leading https://
-    this.#domain = domain.startsWith("http") ? domain : `https://${domain}`;
-    // Ensure no trailing slash
-    this.#domain = this.#domain.replace(/\/$/, "");
+    this.#domain = normalizeDomain(domain);
     this.#token = token;
     this.#status = ConnectionStatus.Connecting;
     // "Open" the http connection: just make sure a HEAD succeeds
-    trace(
-      "Opening HTTP connection to HEAD %s/bookmarks w/authorization: Bearer %s",
-      this.#domain,
-      this.#token,
-    );
+    trace("Opening HTTP connection to HEAD %s/bookmarks", this.#domain);
     this.#agent =
       Agent &&
       new Agent({
@@ -198,9 +196,8 @@ export class HttpClient extends EventEmitter implements Connection {
       request.requestId ||= ksuid();
 
       trace("Adding http request w/ id %s to the queue", request.requestId);
-      return await this.#q.add(
-        async () => handleErrors(this.#doRequest.bind(this), request, timeout),
-        { throwOnTimeout: true },
+      return await this.#q.add(async () =>
+        handleErrors(this.#doRequest.bind(this), request, timeout),
       );
     } catch (cError: unknown) {
       // @ts-expect-error stupid errors
@@ -239,7 +236,7 @@ export class HttpClient extends EventEmitter implements Connection {
       setTimeout(() => {
         if (!done) {
           timedout = true;
-          controller!.abort();
+          controller?.abort();
         }
       }, timeout);
     }

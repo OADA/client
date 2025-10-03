@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-import { setTimeout } from "isomorphic-timers-promises";
+import type { Tree, TreeKey } from "@oada/types/oada/tree/v1.js";
 
 import debug from "debug";
 import type { EventEmitter } from "eventemitter3";
-
+import { setTimeout } from "isomorphic-timers-promises";
 import { generate as ksuid } from "xksuid";
-import { fileTypeFromBuffer } from "#file-type";
-
-import type { Tree, TreeKey } from "@oada/types/oada/tree/v1.js";
-
 import { AbortController } from "#fetch";
+import { fileTypeFromBuffer } from "#file-type";
 import { type HTTPTimeouts, HttpClient } from "./http.js";
+import type { Change, Json, JsonObject } from "./index.js";
 import {
   createNestedObject,
   fixError,
@@ -36,8 +34,6 @@ import {
   toStringPath,
 } from "./utils.js";
 import { WebSocketClient } from "./websocket.js";
-
-import type { Change, Json, JsonObject } from "./index.js";
 
 const trace = debug("@oada/client:client:trace");
 const info = debug("@oada/client:client:info");
@@ -568,8 +564,8 @@ export class OADAClient {
               parentRev = bod._rev;
               if (persistPath && this.#persistList.has(persistPath)) {
                 this.#persistList
-                  .get(persistPath)!
-                  .items.set(Number(parentRev), Date.now());
+                  .get(persistPath)
+                  ?.items.set(Number(parentRev), Date.now());
               }
             }
           }

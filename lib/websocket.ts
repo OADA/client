@@ -15,6 +15,11 @@
  * limitations under the License.
  */
 
+import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2.js";
+import { is as isOADASocketChange } from "@oada/types/oada/websockets/change.js";
+import type WebSocketRequest from "@oada/types/oada/websockets/request.js";
+import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request.js";
+import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response.js";
 import debug from "debug";
 import { EventEmitter } from "eventemitter3";
 import { setTimeout } from "isomorphic-timers-promises";
@@ -23,13 +28,11 @@ import PQueue from "p-queue";
 import _ReconnectingWebSocket from "reconnecting-websocket";
 import { generate as ksuid } from "xksuid";
 
-import { assert as assertOADAChangeV2 } from "@oada/types/oada/change/v2.js";
-import { is as isOADASocketChange } from "@oada/types/oada/websockets/change.js";
-import type WebSocketRequest from "@oada/types/oada/websockets/request.js";
-import { assert as assertOADASocketRequest } from "@oada/types/oada/websockets/request.js";
-import { is as isOADASocketResponse } from "@oada/types/oada/websockets/response.js";
-
-import { on, once } from "#event-iterator";
+import {
+  on,
+  // biome-ignore lint/correctness/noUnusedImports: this is used
+  once,
+} from "#event-iterator";
 
 import type {
   Connection,
@@ -40,7 +43,7 @@ import type {
 } from "./client.js";
 import { handleErrors } from "./errors.js";
 import type { Change } from "./index.js";
-import { TimeoutError, fixError } from "./utils.js";
+import { fixError, TimeoutError } from "./utils.js";
 
 // HACK: Fix for default export types in esm
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -201,10 +204,8 @@ export class WebSocketClient extends EventEmitter implements Connection {
     request: ConnectionRequest,
     { timeout, signal }: { timeout?: number; signal?: AbortSignal } = {},
   ) {
-    return this.#q.add(
-      async () =>
-        handleErrors(this.#doRequest.bind(this), request, { timeout, signal }),
-      { throwOnTimeout: true },
+    return this.#q.add(async () =>
+      handleErrors(this.#doRequest.bind(this), request, { timeout, signal }),
     );
   }
 

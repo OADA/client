@@ -21,7 +21,7 @@ import resolveALPN from "resolve-alpn";
 import { type HTTPTimeouts, HttpClient } from "./http.js";
 import { WebSocketClient } from "./websocket.js";
 
-const error = debug("@oada/client:auto:error");
+const warn = debug("@oada/client:auto:warn");
 
 function tryDomain(domain: string) {
   const url = new URL(domain);
@@ -110,7 +110,7 @@ export async function autoConnection({
     }
   } catch (cError: unknown) {
     // Fallback to HTTP on error
-    error(cError, "Failed to auto pick connection type, falling back to HTTP");
+    warn(cError, "Failed to auto pick connection type, falling back to HTTP");
     return new HttpClient(domain, token, { concurrency, userAgent, timeouts });
   }
 }

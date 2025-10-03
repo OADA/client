@@ -15,20 +15,17 @@
  * limitations under the License.
  */
 
-import { domain, token } from "./config.js";
-
+import { EventEmitter, once } from "node:events";
+// eslint-disable-next-line node/no-extraneous-import
+import { type Change, connect, type OADAClient } from "@oada/client";
 import ava, { type TestFn } from "ava";
 
-import { EventEmitter, once } from "node:events";
-
 import { generate as ksuid } from "xksuid";
-
-// eslint-disable-next-line node/no-extraneous-import
-import { type Change, type OADAClient, connect } from "@oada/client";
+import { domain, token } from "./config.js";
 import {
-  type Nested,
   deleteLink,
   getResource,
+  type Nested,
   putResource,
   putResourceEnsureLink,
 } from "./utils.js";

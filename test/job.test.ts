@@ -15,17 +15,14 @@
  * limitations under the License.
  */
 
-import { domain, token } from "./config.js";
-
-import { setTimeout } from "node:timers/promises";
-
-import ava, { type TestFn } from "ava";
-
-import { Service, type WorkerFunction } from "@oada/jobs";
-
 // eslint-disable-next-line node/no-extraneous-import
-import { type OADAClient, connect } from "@oada/client";
-import { JobEventType, JobsRequest, doJob } from "@oada/client/jobs";
+import { connect, type OADAClient } from "@oada/client";
+import { doJob, JobEventType, JobsRequest } from "@oada/client/jobs";
+import { postUpdate, Service, type WorkerFunction } from "@oada/jobs";
+import ava, { type TestFn } from "ava";
+import { setTimeout } from "isomorphic-timers-promises";
+
+import { domain, token } from "./config.js";
 
 const JOBTYPE = "test-type";
 const SERVICE = "test-service";
@@ -74,7 +71,7 @@ test.before("Create connection and dummy service", async (t) => {
 });
 
 test("Should wait for the job to finish", async (t) => {
-  const results: any = {};
+  const results: Record<string, boolean> = {};
   const someJob = new JobsRequest({
     oada: t.context.conn,
     job: testJob,
@@ -114,7 +111,12 @@ test("Should wait for the job to finish", async (t) => {
     data: { result: { some: { result: "data" } } },
   });
 
-  await someJob.postUpdate("update the job", "some status");
+  await postUpdate(
+    t.context.conn,
+    someJob.oadaId ?? "",
+    "update the job",
+    "some status",
+  );
 
   t.true(results?.success);
   t.true(results?.failure);
